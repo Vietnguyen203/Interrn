@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="1" author="antigravity">
+        <createTable tableName="USERS">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="USERNAME" type="VARCHAR2(100)"/>
+            <column name="PASSWORD" type="VARCHAR2(255)"/>
+            <column name="EMAIL" type="VARCHAR2(100)"/>
+            <column name="EMPLOYEE_ID" type="VARCHAR2(50)"/>
+            <column name="SERVER" type="VARCHAR2(50)"/>
+            <column name="FULL_NAME" type="VARCHAR2(255)"/>
+            <column name="PHONE_NUMBER" type="VARCHAR2(20)"/>
+            <column name="ROLE" type="VARCHAR2(50)"/>
+            <column name="BIRTHDAY" type="DATE"/>
+        </createTable>
+
+        <createTable tableName="FOOD">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="FOOD_NAME" type="VARCHAR2(255)"/>
+            <column name="IMAGE" type="VARCHAR2(500)"/>
+            <column name="PRICE" type="NUMBER(19, 2)"/>
+            <column name="UNIT" type="VARCHAR2(50)"/>
+            <column name="CATEGORY" type="VARCHAR2(50)"/>
+            <column name="DESCRIPTION" type="CLOB"/>
+            <column name="SERVER" type="VARCHAR2(50)"/>
+            <column name="CREATED_AT" type="NUMBER(19)"/>
+            <column name="CREATED_BY" type="VARCHAR2(100)"/>
+        </createTable>
+
+        <createTable tableName="RESTAURANT_TABLES">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="TABLE_NAME" type="VARCHAR2(100)"/>
+            <column name="CREATED_BY" type="VARCHAR2(100)"/>
+            <column name="CREATED_AT" type="NUMBER(19)"/>
+            <column name="SERVER" type="VARCHAR2(50)"/>
+            <column name="CHAIRS" type="INT"/>
+        </createTable>
+
+        <createTable tableName="ORDERS">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="TABLE_ID" type="VARCHAR2(50)"/>
+            <column name="SERVER" type="VARCHAR2(50)"/>
+            <column name="CREATED_AT" type="TIMESTAMP"/>
+            <column name="CREATED_BY" type="VARCHAR2(100)"/>
+            <column name="STATUS" type="VARCHAR2(50)"/>
+            <column name="TOTAL_AMOUNT" type="NUMBER(19, 2)"/>
+        </createTable>
+
+        <createTable tableName="ORDER_ITEMS">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="ORDER_ID" type="VARCHAR2(50)">
+                <constraints nullable="false" foreignKeyName="FK_ORDER_ITEM_ORDER" referencedTableName="ORDERS" referencedColumnNames="ID"/>
+            </column>
+            <column name="FOOD_ID" type="VARCHAR2(50)"/>
+            <column name="FOOD_IMAGE" type="VARCHAR2(500)"/>
+            <column name="FOOD_NAME" type="VARCHAR2(255)"/>
+            <column name="UNIT" type="VARCHAR2(50)"/>
+            <column name="PRICE" type="NUMBER(19, 2)"/>
+            <column name="QUANTITY" type="INT"/>
+            <column name="NOTE" type="VARCHAR2(500)"/>
+        </createTable>
+
+        <createTable tableName="VIDEOS">
+            <column name="VIDEO_ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="USERNAME" type="VARCHAR2(100)"/>
+            <column name="LINK_VIDEO" type="VARCHAR2(500)"/>
+            <column name="CONTENT" type="CLOB"/>
+            <column name="AGE_RATING" type="INT"/>
+            <column name="DATE_UPLOADED" type="NUMBER(19)"/>
+            <column name="NUM_VIEWS" type="NUMBER(19)"/>
+        </createTable>
+
+        <createTable tableName="COMMENTS">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="COMMENT_ID" type="VARCHAR2(100)"/>
+            <column name="USERNAME" type="VARCHAR2(100)"/>
+            <column name="VIDEO_ID" type="VARCHAR2(50)"/>
+            <column name="CONTENT" type="CLOB"/>
+            <column name="DATE_COMMENT" type="NUMBER(19)"/>
+        </createTable>
+
+        <createTable tableName="FAVORITES">
+            <column name="ID" type="VARCHAR2(50)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="VIDEO_ID" type="VARCHAR2(50)"/>
+            <column name="USERNAME" type="VARCHAR2(100)"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

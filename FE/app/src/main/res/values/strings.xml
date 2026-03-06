@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Restaurant Management Application</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
+
+    <!-- Server dialog -->
+    <string name="dialog_server_title">Enter server address</string>
+    <string name="server_hint_url">http://10.0.2.2:9720/foodordersystem/api/</string>
+    <string name="server_help_text">• Emulator: http://10.0.2.2:9720/foodordersystem/api/&#10;• Phone (LAN): http://&lt;IP_PC&gt;:9720/foodordersystem/api/</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+
+    <!-- Menu title (nếu muốn dùng trong res/menu/main_menu.xml) -->
+    <string name="menu_server">Server</string>
+
+    <string name="title_register">Register</string>
+    <string name="hint_employee_id">Employee ID</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_password_confirm">Confirm password</string>
+    <string name="action_register">Register</string>
+    <string name="register_success">Register success</string>
+    <string name="err_required">Required</string>
+    <string name="err_pass_len">Password must be at least 6 characters</string>
+    <string name="err_pass_match">Passwords do not match</string>
+
+    <string name="permission_title">Permission</string>
+    <string name="permission_denied">You do not have permission to access this feature.</string>
+    <string name="admin_only">Admins only.</string>
+    <string name="checking">Checking…</string>
+    <string name="save">Save</string>
+
+    <!-- ===== Payment (Checkout) ===== -->
+    <string name="pay_title">THANH TOÁN</string>
+    <string name="pay_subtitle">Nhập giảm giá &amp; tiền khách đưa</string>
+
+    <string name="pay_subtotal_0">Tổng hàng: 0 ₫</string>
+    <string name="pay_discount_0">Giảm giá: 0 ₫</string>
+    <string name="pay_total_0">Khách cần trả: 0 ₫</string>
+    <string name="pay_change_0">Tiền thừa: 0 ₫</string>
+
+    <string name="pay_hint_discount">Giảm giá (VND)</string>
+    <string name="pay_hint_amount">Khách đưa (VND)</string>
+    <string name="pay_hint_note">Ghi chú</string>
+</resources>

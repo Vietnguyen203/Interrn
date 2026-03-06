@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardViewBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginTop="20dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="50dp"
+                app:cardElevation="10dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="13dp"
+                    app:srcCompat="@drawable/baseline_arrow_back_ios_new_24"
+                    app:tint="#11117F" />
+            </androidx.cardview.widget.CardView>
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:fontFamily="@font/kanit_extra_bold"
+                android:includeFontPadding="false"
+                android:text="Create food"
+                android:textColor="#11117F"
+                android:textSize="20sp"
+                app:layout_constraintBottom_toBottomOf="@id/cardViewBack"
+                app:layout_constraintStart_toEndOf="@id/cardViewBack"
+                app:layout_constraintTop_toTopOf="@id/cardViewBack" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="30dp"
+                android:fontFamily="@font/kanit_extra_light"
+                android:text="Select image"
+                android:textColor="@color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/cardViewBack" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardViewAvatar"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginEnd="50dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/cardViewBack">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/ivFoodImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    app:srcCompat="@drawable/placeholder" />
+            </androidx.cardview.widget.CardView>
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/kanit_extra_light"
+                android:text="Name"
+                android:textColor="@color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/cardViewAvatar" />
+
+            <EditText
+                android:id="@+id/edtName"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="5dp"
+                android:background="@drawable/bg_input_common_border_10"
+                android:fontFamily="@font/kanit_light"
+                android:hint="Gà cháy tỏi"
+                android:inputType="text"
+                android:paddingHorizontal="10dp"
+                android:textColorHint="#DDDDDD"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvName" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvPrice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/kanit_extra_light"
+                android:text="Price"
+                android:textColor="@color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/edtName" />
+
+            <EditText
+                android:id="@+id/edtPrice"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="5dp"
+                android:layout_marginEnd="130dp"
+                android:background="@drawable/bg_input_common_border_10"
+                android:fontFamily="@font/kanit_light"
+                android:hint="20000000"
+                android:inputType="number"
+                android:paddingStart="10dp"
+                android:paddingEnd="30dp"
+                android:textColor="@color/black"
+                android:textColorHint="#DDDDDD"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvPrice" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="@font/kanit_light"
+                android:includeFontPadding="false"
+                android:text="VNĐ"
+                app:layout_constraintBottom_toBottomOf="@id/edtPrice"
+                app:layout_constraintEnd_toEndOf="@id/edtPrice"
+                app:layout_constraintTop_toTopOf="@id/edtPrice" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvUnit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:fontFamily="@font/kanit_extra_light"
+                android:text="Unit of measure"
+                android:textColor="@color/black"
+                app:layout_constraintStart_toEndOf="@id/edtPrice"
+                app:layout_constraintTop_toTopOf="@id/tvPrice" />
+
+            <EditText
+                android:id="@+id/edtUnit"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginTop="5dp"
+                android:layout_marginEnd="20dp"
+                android:background="@drawable/bg_input_common_border_10"
+                android:fontFamily="@font/kanit_light"
+                android:hint="Đĩa, Suất..."
+                android:inputType="text"
+                android:paddingHorizontal="10dp"
+                android:textColor="@color/black"
+                android:textColorHint="#DDDDDD"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/edtPrice"
+                app:layout_constraintTop_toBottomOf="@id/tvUnit" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/kanit_extra_light"
+                android:text="Food Category"
+                android:textColor="@color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/edtUnit" />
+
+            <RadioGroup
+                android:id="@+id/radioGroupCategory"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:orientation="vertical"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvCategory">
+
+                <RadioButton
+                    android:id="@+id/rbMainCourse"
+                    android:layout_width="160dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:checked="true"
+                    android:fontFamily="@font/kanit_regular"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="0dp"
+                    android:text="MAIN COURSE"
+                    android:textColor="#11117F" />
+
+                <RadioButton
+                    android:id="@+id/rbAppetizer"
+                    android:layout_width="160dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/kanit_regular"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="0dp"
+                    android:text="APPETIZER"
+                    android:textColor="#11117F" />
+
+                <RadioButton
+                    android:id="@+id/rbDessert"
+                    android:layout_width="160dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/kanit_regular"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="0dp"
+                    android:text="DESSERT"
+                    android:textColor="#11117F" />
+
+                <RadioButton
+                    android:id="@+id/rbBeverage"
+                    android:layout_width="160dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/kanit_regular"
+                    android:gravity="start|center_vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="0dp"
+                    android:text="BEVERAGE"
+                    android:textColor="#11117F" />
+            </RadioGroup>
+
+            <EditText
+                android:id="@+id/edtDescription"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_input_common_border_10"
+                android:fontFamily="@font/kanit_light"
+                android:gravity="start|top"
+                android:hint="Description"
+                android:inputType="textMultiLine"
+                android:padding="10dp"
+                android:textColorHint="#DDDDDD"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/radioGroupCategory" />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnCreate"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="40dp"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="10dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/edtDescription">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fontFamily="@font/kanit_extra_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:paddingHorizontal="50dp"
+                    android:text="create"
+                    android:textAllCaps="true"
+                    android:textColor="#11117F" />
+            </androidx.cardview.widget.CardView>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <com.food.order.utils.widget.FoodOrderLoadingView
+        android:id="@+id/loadingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:elevation="100dp"
+        android:focusable="true" />
+</FrameLayout>

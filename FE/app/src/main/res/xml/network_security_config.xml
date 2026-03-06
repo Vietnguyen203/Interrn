@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Dev: cho phép cleartext HTTP với mọi host/IP -->
+    <base-config cleartextTrafficPermitted="true" />
+
+    <!-- Ghi rõ các host hay dùng để tham chiếu -->
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Emulator truy cập host machine -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- Truy cập ngay trên chính máy -->
+        <domain includeSubdomains="false">localhost</domain>
+        <!-- Điện thoại thật trong LAN: chỉnh đúng IP máy BE khi cần -->
+        <domain includeSubdomains="false">192.168.1.6</domain>
+    </domain-config>
+</network-security-config>

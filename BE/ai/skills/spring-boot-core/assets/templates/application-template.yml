@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: ${APPLICATION_NAME}
+    environment: ${ENVIRONMENT:dev}
+  profiles:
+    group:
+      server: logstash,${DISCOVERY_TYPE}
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: ${DRIVER_CLASS_NAME}
+    hikari:
+      maximum-pool-size: ${DATABASE_MAX_POOL_SIZE:30}
+      pool-name: HikariCP
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DATABASE_IDLE_TIMEOUT:60000}
+      minimum-idle: ${DATABASE_MIN_POOL_SIZE:2}
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 50000
+            readTimeout: 2000000
+
+  mail:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+          starttls.required: true
+          connectiontimeout: 5000
+          timeout: 3000
+          writetimeout: 5000
+    properties.mail.debug: true
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    default-encoding: UTF-8
+
+logging:
+  level:
+    org.springframework.scheduling: DEBUG
+    org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor: DEBUG
+    com.your.feign.package: DEBUG
+    feign.Logger: DEBUG
+    feign.Client: DEBUG
+
+app.properties:
+  services:
+    workflow-service-url: ${WORKFLOW_SERVICE_URL}
+    file-service-url: ${FILE_SERVICE_URL}
+    otp-service-url: ${OTP_SERVICE_URL}
+    app-url: ${WEB_URL}
+    notification-service-url: ${NOTIFICATION_SERVICE_URL}
+  ${ENTITY_LOWER}:
+    cronjob-change: ${CRON_CHANGE_STATUS:0 * * * * *}
+
+server:
+  port: ${SERVER_PORT:8080}
+  address: ${SERVER_ADDRESS:0.0.0.0}

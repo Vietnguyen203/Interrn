@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_splash">
+
+    <fragment
+        android:id="@+id/navigation_splash"
+        android:name="com.food.order.ui.splash.SplashFragment"
+        android:label="Splash"
+        tools:layout="@layout/fragment_splash">
+        <action
+            android:id="@+id/action_navigation_splash_to_navigation_login"
+            app:destination="@id/navigation_login" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_login"
+        android:name="com.food.order.ui.login.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login" />
+
+    <fragment
+        android:id="@+id/navigation_dashboard"
+        android:name="com.food.order.ui.dashboard.DashboardFragment"
+        android:label="@string/title_dashboard"
+        tools:layout="@layout/fragment_dashboard">
+        <deepLink app:uri="fo://dashboard" />
+        <action
+            android:id="@+id/action_navigation_dashboard_to_navigation_order_table"
+            app:destination="@id/navigation_order_table" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_staff"
+        android:name="com.food.order.ui.staff.StaffFragment"
+        android:label="Staff"
+        tools:layout="@layout/fragment_staff">
+        <deepLink app:uri="fo://staff" />
+        <action
+            android:id="@+id/action_navigation_staff_to_navigation_create_staff"
+            app:destination="@id/navigation_create_staff" />
+        <action
+            android:id="@+id/action_navigation_staff_to_navigation_update_staff"
+            app:destination="@id/navigation_update_staff" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_food"
+        android:name="com.food.order.ui.food.FoodFragment"
+        android:label="Food"
+        tools:layout="@layout/fragment_food">
+        <deepLink app:uri="fo://food" />
+        <action
+            android:id="@+id/action_navigation_food_to_navigation_create_food"
+            app:destination="@id/navigation_create_food" />
+        <action
+            android:id="@+id/action_navigation_food_to_navigation_update_food"
+            app:destination="@id/navigation_update_food" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_create_food"
+        android:name="com.food.order.ui.food.CreateFoodFragment"
+        android:label="CreateFood"
+        tools:layout="@layout/fragment_create_food" />
+
+    <fragment
+        android:id="@+id/navigation_update_food"
+        android:name="com.food.order.ui.food.UpdateFoodFragment"
+        android:label="UpdateFood"
+        tools:layout="@layout/fragment_update_food" />
+
+    <fragment
+        android:id="@+id/navigation_table"
+        android:name="com.food.order.ui.table.TableFragment"
+        android:label="Table"
+        tools:layout="@layout/fragment_table">
+        <deepLink app:uri="fo://table" />
+        <action
+            android:id="@+id/action_navigation_table_to_navigation_create_table"
+            app:destination="@id/navigation_create_table" />
+        <action
+            android:id="@+id/action_navigation_table_to_navigation_update_table"
+            app:destination="@id/navigation_update_table" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_create_table"
+        android:name="com.food.order.ui.table.CreateTableFragment"
+        android:label="CreateTable"
+        tools:layout="@layout/fragment_create_table" />
+
+    <fragment
+        android:id="@+id/navigation_update_table"
+        android:name="com.food.order.ui.table.UpdateTableFragment"
+        android:label="UpdateTable"
+        tools:layout="@layout/fragment_update_table" />
+
+    <fragment
+        android:id="@+id/navigation_create_staff"
+        android:name="com.food.order.ui.staff.CreateStaffFragment"
+        android:label="CreateStaff"
+        tools:layout="@layout/fragment_create_staff" />
+
+    <fragment
+        android:id="@+id/navigation_update_staff"
+        android:name="com.food.order.ui.staff.UpdateStaffFragment"
+        android:label="UpdateStaff"
+        tools:layout="@layout/fragment_update_staff" />
+
+    <fragment
+        android:id="@+id/navigation_order_table"
+        android:name="com.food.order.ui.order.OrderTableFragment"
+        android:label="OrderTable"
+        tools:layout="@layout/fragment_order_table">
+        <action
+            android:id="@+id/action_navigation_order_table_to_navigation_order_food"
+            app:destination="@id/navigation_order_food" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_order_food"
+        android:name="com.food.order.ui.order.OrderFoodFragment"
+        android:label="OrderFood"
+        tools:layout="@layout/fragment_order_food" />
+
+    <fragment
+        android:id="@+id/navigation_order_statistic"
+        android:name="com.food.order.ui.order.OrderStatisticFragment"
+        android:label="OrderStatistic"
+        tools:layout="@layout/fragment_order_statistic">
+        <deepLink app:uri="fo://order_statistic" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_report"
+        android:name="com.food.order.ui.report.ReportFragment"
+        android:label="Report"
+        tools:layout="@layout/fragment_report">
+        <deepLink app:uri="fo://report" />
+    </fragment>
+
+    <!-- Logout dialog -->
+    <dialog
+        android:id="@+id/navigation_logout_dialog"
+        android:name="com.food.order.ui.auth.LogoutDialogFragment"
+        android:label="Logout" />
+</navigation>

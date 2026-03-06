@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+    <springProfile name="logstash">
+
+        <!-- Logstash TCP Appender (SYNC nhưng sẽ được bọc async) -->
+        <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+            <destination>${LOGSTASH_URL}</destination>
+
+            <!-- Giảm tác động khi Logstash down -->
+            <reconnectionDelay>5000</reconnectionDelay>
+            <keepAliveDuration>5 minutes</keepAliveDuration>
+            <writeBufferSize>8192</writeBufferSize>
+
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <customFields>
+                    {"application":"${APPLICATION_NAME}", "environment":"${ENVIRONMENT}"}
+                </customFields>
+            </encoder>
+        </appender>
+
+        <!-- ASYNC wrapper -->
+        <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+            <queueSize>5000</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <neverBlock>true</neverBlock>
+            <includeCallerData>false</includeCallerData>
+
+            <appender-ref ref="LOGSTASH"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC_LOGSTASH"/>
+        </root>
+
+    </springProfile>
+
+</configuration>

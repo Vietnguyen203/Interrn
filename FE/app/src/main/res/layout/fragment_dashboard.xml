@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.dashboard.DashboardFragment">
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ivMenu"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="20dp"
+        android:padding="5dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:elevation="8dp"
+        android:translationZ="8dp"
+        android:contentDescription="@string/menu_server"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/baseline_menu_24"
+        app:tint="#11117F" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tvDashboard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:text="@string/title_dashboard"
+        android:textColor="#11117F"
+        android:textSize="20sp"
+        android:includeFontPadding="false"
+        android:fontFamily="@font/kanit_extra_bold"
+        app:layout_constraintStart_toEndOf="@id/ivMenu"
+        app:layout_constraintTop_toTopOf="@id/ivMenu"
+        app:layout_constraintBottom_toBottomOf="@id/ivMenu" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardViewInfo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="5dp"
+        app:cardCornerRadius="10dp"
+        app:cardElevation="10dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvDashboard">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Employee ID -->
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Employee ID"
+                    android:textSize="12sp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:fontFamily="@font/kanit_extra_light" />
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/tvEmployeeId"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="1"
+                    android:textColor="@android:color/black"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:fontFamily="@font/kanit_extra_bold" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <!-- Name -->
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Name"
+                    android:textSize="12sp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:fontFamily="@font/kanit_extra_light" />
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/tvName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="Nguyen Van A"
+                    android:textColor="@android:color/black"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:fontFamily="@font/kanit_extra_bold" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <!-- Birthday -->
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Birthday"
+                    android:textSize="12sp"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:fontFamily="@font/kanit_extra_light" />
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/tvBirthday"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="2000-01-01"
+                    android:textColor="@android:color/black"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="5dp"
+                    android:drawableStart="@drawable/ic_birthday"
+                    android:drawablePadding="8dp"
+                    app:drawableTint="#11117F"
+                    android:fontFamily="@font/kanit_extra_bold" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <!-- dòng Role đã xoá -->
+        </androidx.appcompat.widget.LinearLayoutCompat>
+    </androidx.cardview.widget.CardView>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMenu"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cardViewInfo"
+        tools:itemCount="6"
+        tools:listitem="@layout/item_dashboard_menu" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tvTableList"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:text="Table list"
+        android:textColor="@android:color/black"
+        android:fontFamily="@font/kanit_regular"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/rvMenu" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="5dp"
+        app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+        app:spanCount="2"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvTableList"
+        app:layout_constraintBottom_toTopOf="@id/cardViewDashboard"
+        tools:itemCount="10"
+        tools:listitem="@layout/item_occupied_table_view" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardViewDashboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardElevation="10dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="Total number of tables:"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/kanit_extra_light" />
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/tvTotalTable"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="10"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/kanit_extra_bold" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+
+            <androidx.appcompat.widget.LinearLayoutCompat
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="Which is being used:"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/kanit_extra_light" />
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/tvTotalUseTable"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="2"
+                    android:textColor="@android:color/black"
+                    android:fontFamily="@font/kanit_extra_bold" />
+            </androidx.appcompat.widget.LinearLayoutCompat>
+        </androidx.appcompat.widget.LinearLayoutCompat>
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

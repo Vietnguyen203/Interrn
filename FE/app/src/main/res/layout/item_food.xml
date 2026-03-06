@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="10dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="10dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="10dp">
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardViewAvatar"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_margin="20dp"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="4dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/ivFood"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                app:srcCompat="@drawable/placeholder" />
+        </androidx.cardview.widget.CardView>
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/tvName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/kanit_regular"
+            android:maxLines="1"
+            android:singleLine="true"
+            android:text="Gỏi gà xé phay"
+            android:textColor="@color/black"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"
+            app:layout_constraintTop_toTopOf="@id/cardViewAvatar" />
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/layoutCategory"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"
+            app:layout_constraintTop_toBottomOf="@id/tvName">
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/kanit_extra_light"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:text="Category"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvCategory"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:ellipsize="end"
+                android:fontFamily="@font/kanit_light"
+                android:maxLines="1"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:singleLine="true"
+                android:text="MAIN COURSE"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/layoutPrice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"
+            app:layout_constraintTop_toBottomOf="@id/layoutCategory">
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/kanit_extra_light"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:text="Price"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvPrice"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:ellipsize="end"
+                android:fontFamily="@font/kanit_light"
+                android:maxLines="1"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:singleLine="true"
+                android:text="200.000 VNĐ / đĩa"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/layoutCreateAt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"
+            app:layout_constraintTop_toBottomOf="@id/layoutPrice">
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/kanit_extra_light"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:text="Create at"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvCreateAt"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:ellipsize="end"
+                android:fontFamily="@font/kanit_light"
+                android:maxLines="1"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:singleLine="true"
+                android:text="2026.01.07 16:30"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/layoutCreateBy"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"
+            app:layout_constraintTop_toBottomOf="@id/layoutCreateAt">
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/kanit_extra_light"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:text="Create by"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvCreateBy"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:ellipsize="end"
+                android:fontFamily="@font/kanit_light"
+                android:maxLines="1"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:singleLine="true"
+                android:text="adminSon"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <androidx.constraintlayout.widget.Barrier
+            android:id="@+id/barrier"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:barrierDirection="bottom"
+            app:constraint_referenced_ids="layoutCreateBy, cardViewAvatar" />
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/layoutDescription"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/barrier">
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/tvDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/kanit_light"
+                android:maxLines="3"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="5dp"
+                android:textColor="@color/black"
+                android:textSize="14sp" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!--        <androidx.appcompat.widget.AppCompatTextView-->
+        <!--            android:id="@+id/tvCreateBy"-->
+        <!--            android:layout_width="0dp"-->
+        <!--            android:layout_height="wrap_content"-->
+        <!--            android:layout_marginStart="10dp"-->
+        <!--            android:layout_marginTop="5dp"-->
+        <!--            android:ellipsize="end"-->
+        <!--            android:fontFamily="@font/kanit_light"-->
+        <!--            android:maxLines="1"-->
+        <!--            android:singleLine="true"-->
+        <!--            android:text="Create by: adminson"-->
+        <!--            android:textSize="14sp" />-->
+
+        <!--        <androidx.appcompat.widget.AppCompatTextView-->
+        <!--            android:id="@+id/tvCreateAt"-->
+        <!--            android:layout_width="0dp"-->
+        <!--            android:layout_height="wrap_content"-->
+        <!--            android:layout_marginStart="10dp"-->
+        <!--            android:layout_marginTop="5dp"-->
+        <!--            android:ellipsize="end"-->
+        <!--            android:fontFamily="@font/kanit_light"-->
+        <!--            android:maxLines="1"-->
+        <!--            android:singleLine="true"-->
+        <!--            android:text="Create At: 2026.01.07 16:30"-->
+        <!--            android:textSize="14sp"-->
+        <!--            app:layout_constraintEnd_toEndOf="parent"-->
+        <!--            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"-->
+        <!--            app:layout_constraintTop_toBottomOf="@id/tvCreateBy" />-->
+
+        <!--        <androidx.appcompat.widget.AppCompatTextView-->
+        <!--            android:id="@+id/tvRole"-->
+        <!--            android:layout_width="0dp"-->
+        <!--            android:layout_height="wrap_content"-->
+        <!--            android:layout_marginStart="10dp"-->
+        <!--            android:layout_marginTop="5dp"-->
+        <!--            android:ellipsize="end"-->
+        <!--            android:fontFamily="@font/kanit_light"-->
+        <!--            android:maxLines="1"-->
+        <!--            android:singleLine="true"-->
+        <!--            android:text="Price: 200.000/đĩa VNĐ"-->
+        <!--            android:textSize="14sp"-->
+        <!--            app:layout_constraintEnd_toEndOf="parent"-->
+        <!--            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"-->
+        <!--            app:layout_constraintTop_toBottomOf="@id/tvCreateAt" />-->
+
+        <!--        <androidx.appcompat.widget.AppCompatTextView-->
+        <!--            android:id="@+id/tv"-->
+        <!--            android:layout_width="0dp"-->
+        <!--            android:layout_height="wrap_content"-->
+        <!--            android:layout_marginStart="10dp"-->
+        <!--            android:ellipsize="end"-->
+        <!--            android:fontFamily="@font/kanit_light"-->
+        <!--            android:maxLines="1"-->
+        <!--            android:singleLine="true"-->
+        <!--            android:text="Create by: admin"-->
+        <!--            android:textSize="14sp"-->
+        <!--            app:layout_constraintEnd_toEndOf="parent"-->
+        <!--            app:layout_constraintStart_toEndOf="@id/cardViewAvatar"-->
+        <!--            app:layout_constraintTop_toBottomOf="@id/tvRole" />-->
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <changeSet id="2" author="antigravity">
+        <!-- Add missing columns to RESTAURANT_TABLES -->
+        <addColumn tableName="RESTAURANT_TABLES">
+            <column name="CURRENT_ORDER_ID" type="VARCHAR2(50)"/>
+            <column name="CREATED_DATE" type="TIMESTAMP"/>
+            <column name="UPDATED_DATE" type="TIMESTAMP"/>
+            <column name="UPDATED_BY" type="VARCHAR2(100)"/>
+        </addColumn>
+
+        <!-- Add missing columns to ORDERS -->
+        <addColumn tableName="ORDERS">
+            <column name="WAITER_ID" type="VARCHAR2(50)"/>
+        </addColumn>
+
+        <!-- Add missing columns to ORDER_ITEMS -->
+        <addColumn tableName="ORDER_ITEMS">
+            <column name="ORDER_ITEM_ID" type="VARCHAR2(50)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

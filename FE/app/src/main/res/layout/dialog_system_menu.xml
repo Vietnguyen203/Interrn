@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="40dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="10dp">
+
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Row 1 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewDashboard"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_dashboard"
+                app:titleText="Dashboard" />
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewFoodMenu"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_food_menu_v2"
+                app:titleText="Food Menu" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- Row 2 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewOrderManagement"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_order_manager"
+                app:titleText="Order Management" />
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewTables"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_tables"
+                app:titleText="Tables" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- Row 3 -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewStaff"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_staff"
+                app:titleText="Staff" />
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewReport"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_analysis"
+                app:titleText="Reports" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- Row 4 (NEW): Order + Logout -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewOrder"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@drawable/icon_order_manager"
+                app:titleText="Order" />
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewLogout"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@android:drawable/ic_menu_close_clear_cancel"
+                app:titleText="Logout" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- Row 5: Settings -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewSettings"
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                app:iconSrc="@android:drawable/ic_menu_manage"
+                app:titleText="Settings" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="140dp"
+                android:layout_weight="1"
+                android:visibility="invisible" />
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+</androidx.cardview.widget.CardView>
