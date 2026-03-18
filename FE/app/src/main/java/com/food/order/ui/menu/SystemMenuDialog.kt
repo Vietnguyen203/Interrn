@@ -15,6 +15,10 @@ class SystemMenuDialog private constructor(
     private val onSelect: (String) -> Unit
 ) : DialogFragment() {
 
+    private val userRole: com.food.order.data.Role by lazy {
+        com.food.order.data.AppConstants.userModel?.role?.let { com.food.order.data.Role.from(it) } ?: com.food.order.data.Role.UNKNOWN
+    }
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         // Dùng theme mặc định để tránh phụ thuộc style ngoài
         return Dialog(requireContext())
@@ -57,12 +61,19 @@ class SystemMenuDialog private constructor(
         view.findViewById<View>(R.id.menuViewSettings)?.setOnClickListener {
             onSelect("SETTINGS"); dismiss()
         }
-
-        // --- ẨN HẲN ô Order (nếu có trong layout) ---
-        view.findViewById<View>(R.id.menuViewOrder)?.apply {
-            visibility = View.GONE
-            setOnClickListener(null)
+        view.findViewById<View>(R.id.menuViewKitchen)?.setOnClickListener {
+            onSelect("KITCHEN"); dismiss()
         }
+
+        // --- Role based visibility ---
+        if (userRole == com.food.order.data.Role.KITCHEN) {
+           view.findViewById<View>(R.id.menuViewDashboard)?.visibility = View.GONE
+           view.findViewById<View>(R.id.menuViewStaff)?.visibility = View.GONE
+           view.findViewById<View>(R.id.menuViewOrderManagement)?.visibility = View.GONE
+           view.findViewById<View>(R.id.menuViewReport)?.visibility = View.GONE
+        }
+
+        // No menuViewOrder in this layout version
     }
 
     override fun onStart() {

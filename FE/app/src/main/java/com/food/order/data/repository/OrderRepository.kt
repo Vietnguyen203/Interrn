@@ -96,5 +96,11 @@ object OrderRepository {
         val meta = apiRes.page ?: error("Missing page meta")
 
         emit(pagedData.orders to meta)
-    }.flowOn(Dispatchers.IO)
+    }
+    // ====== KITCHEN ======
+    suspend fun getKitchenItems(token: String): ApiResponse<List<OrderItemResponse>> =
+        api.getKitchenItems(token)
+
+    suspend fun updateKitchenItemStatus(token: String, orderItemId: String, status: String): ApiResponse<Void> =
+        api.updateKitchenItemStatus(token, orderItemId, mapOf("status" to status))
 }

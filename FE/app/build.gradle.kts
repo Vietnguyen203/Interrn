@@ -20,8 +20,9 @@ android {
     buildTypes {
         // Dev / Emulator → gọi BE ở host qua 10.0.2.2
         getByName("debug") {
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:9720/foodordersystem/api/\"")
-            buildConfigField("String", "FILE_BASE_URL", "\"http://10.0.2.2:9720/\"")
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/foodordersystem/api/\"")
+            buildConfigField("String", "FILE_BASE_URL", "\"http://10.0.2.2:8080/\"")
+
             manifestPlaceholders["usesCleartext"] = "true"
         }
         // Release nội bộ / LAN
@@ -31,8 +32,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BASE_URL", "\"http://192.168.1.6:9720/foodordersystem/api/\"")
-            buildConfigField("String", "FILE_BASE_URL", "\"http://192.168.1.6:9720/\"")
+            buildConfigField("String", "BASE_URL", "\"http://192.168.1.6:8080/foodordersystem/api/\"")
+            buildConfigField("String", "FILE_BASE_URL", "\"http://192.168.1.6:8080/\"")
             manifestPlaceholders["usesCleartext"] = "false"
         }
     }

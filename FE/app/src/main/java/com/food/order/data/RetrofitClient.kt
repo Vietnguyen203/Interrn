@@ -15,7 +15,7 @@ import com.google.gson.GsonBuilder
 object RetrofitClient {
 
     // BASE URL mặc định cho emulator (host máy): 10.0.2.2
-    private const val DEFAULT_BASE_URL = "http://10.0.2.2:9720/foodordersystem/api/"
+    private const val DEFAULT_BASE_URL = "http://10.0.2.2:8080/foodordersystem/api/"
 
     private const val PREFS = "app_prefs"
     private const val KEY_BASE_URL = "server_address"   // chỗ từng bị lưu nhầm "server-1"

@@ -279,6 +279,16 @@
             android:textColor="#11117F" />
 
         <RadioButton
+            android:id="@+id/rbKitchen"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/kanit_regular"
+            android:gravity="center"
+            android:text="KITCHEN"
+            android:textColor="#11117F" />
+
+        <RadioButton
             android:id="@+id/rbAdmin"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

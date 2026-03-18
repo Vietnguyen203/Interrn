@@ -127,12 +127,15 @@ class LoginFragment : Fragment() {
                         // (tuỳ chọn) Thông báo nhỏ để kiểm tra nhanh
                         // Toast.makeText(requireContext(), "Signed in as $normalizedRole", Toast.LENGTH_SHORT).show()
 
-                        // 4) Điều hướng về Dashboard & xoá back stack
+                        // 4) Điều hướng về Dashboard hoặc Kitchen & xoá back stack
                         val navOptions = NavOptions.Builder()
                             .setPopUpTo(R.id.mobile_navigation, true)
                             .build()
+                        
+                        val destinationUri = if (normalizedRole == "KITCHEN") "fo://kitchen" else "fo://dashboard"
+                        
                         val request = NavDeepLinkRequest.Builder
-                            .fromUri(Uri.parse("fo://dashboard"))
+                            .fromUri(Uri.parse(destinationUri))
                             .build()
                         findNavController().navigate(request, navOptions)
                     }

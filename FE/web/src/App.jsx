@@ -221,7 +221,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
 // Dashboard Screen
 // ---------------------------------------------------------
 const DashboardScreen = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState(user?.role === 'KITCHEN' ? 'Kitchen' : 'Overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Data States
@@ -241,7 +241,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [staffFormData, setStaffFormData] = useState({
-    username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: 'HCM'
+    username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: 'HCM', gender: 'MALE'
   });
 
   const [loadingConfig, setLoadingConfig] = useState({
@@ -249,13 +249,17 @@ const DashboardScreen = ({ user, onLogout }) => {
   });
 
   const navItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Overview' },
-    { icon: <ClipboardList size={20} />, label: 'Orders' },
-    { icon: <Utensils size={20} />, label: 'Menu & Food' },
-    { icon: <Users size={20} />, label: 'Staff' },
-    { icon: <PieChart size={20} />, label: 'Reports' },
-    { icon: <Settings size={20} />, label: 'Settings' },
+    { icon: <LayoutDashboard size={20} />, label: 'Overview', roles: ['ADMIN'] },
+    { icon: <ClipboardList size={20} />, label: 'Orders', roles: ['ADMIN'] },
+    { icon: <Utensils size={20} />, label: 'Kitchen', roles: ['ADMIN', 'KITCHEN'] },
+    { icon: <Utensils size={20} />, label: 'Menu & Food', roles: ['ADMIN'] },
+    { icon: <Users size={20} />, label: 'Staff', roles: ['ADMIN'] },
+    { icon: <PieChart size={20} />, label: 'Reports', roles: ['ADMIN'] },
+    { icon: <Settings size={20} />, label: 'Settings', roles: ['ADMIN'] },
   ];
+
+  // Filter nav items based on user role
+  const filteredNavItems = navItems.filter(item => item.roles.includes(user?.role || 'USER'));
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -263,7 +267,25 @@ const DashboardScreen = ({ user, onLogout }) => {
     else if (activeTab === 'Orders') fetchOrdersData();
     else if (activeTab === 'Menu & Food') fetchFoodsData();
     else if (activeTab === 'Staff') fetchStaffData();
+    else if (activeTab === 'Kitchen') fetchKitchenData();
   }, [activeTab]);
+
+  const [kitchenItems, setKitchenItems] = useState([]);
+  const fetchKitchenData = async () => {
+    setLoadingConfig(prev => ({ ...prev, kitchen: true }));
+    try {
+      const res = await apiService.kitchen.getPendingItems();
+      if (res.data) setKitchenItems(res.data);
+    } catch (error) { console.error('Error fetching kitchen data:', error); }
+    finally { setLoadingConfig(prev => ({ ...prev, kitchen: false })); }
+  };
+
+  const handleUpdateItemStatus = async (itemId, newStatus) => {
+    try {
+      await apiService.kitchen.updateItemStatus(itemId, newStatus);
+      fetchKitchenData();
+    } catch (error) { alert("Error updating status: " + error.message); }
+  };
 
   const fetchOverviewData = async () => {
     setLoadingConfig(prev => ({ ...prev, overview: true }));
@@ -375,10 +397,16 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleOpenStaffModal = (person = null) => {
     if (person) {
       setEditingStaff(person);
-      setStaffFormData({ ...person, password: '', birthday: person.birthday || '' });
+      setStaffFormData({ 
+        ...person, 
+        username: person.employeeId, // Use employeeId as username for display/tracking
+        password: '', 
+        birthday: person.birthday || '',
+        gender: person.gender || 'MALE'
+      });
     } else {
       setEditingStaff(null);
-      setStaffFormData({ username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: user?.server || 'HCM' });
+      setStaffFormData({ username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: user?.server || 'HCM', gender: 'MALE' });
     }
     setIsStaffModalOpen(true);
   };
@@ -386,10 +414,15 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleSaveStaff = async (e) => {
     e.preventDefault();
     try {
+      const payload = { ...staffFormData };
+      if (editingStaff && !payload.password) {
+        delete payload.password; // Don't send empty password on update
+      }
+      
       if (editingStaff) {
-        await apiService.dashboard.updateStaff(editingStaff.server, editingStaff.uid, staffFormData);
+        await apiService.dashboard.updateStaff(editingStaff.server, editingStaff.uid, payload);
       } else {
-        await apiService.dashboard.createStaff(staffFormData);
+        await apiService.dashboard.createStaff(payload);
       }
       setIsStaffModalOpen(false);
       fetchStaffData();
@@ -421,7 +454,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
         <nav style={{ flex: 1, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
           <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingLeft: '8px' }}>Menu</div>
-          {navItems.map((item, idx) => (
+          {filteredNavItems.map((item, idx) => (
             <button key={idx} onClick={() => setActiveTab(item.label)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: activeTab === item.label ? 'var(--primary-light)' : 'transparent', color: activeTab === item.label ? 'var(--primary)' : 'var(--text-secondary)', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', fontWeight: activeTab === item.label ? '600' : '400', transition: 'var(--transition)' }}>
               {item.icon} <span style={{ fontSize: '15px' }}>{item.label}</span>
             </button>
@@ -537,6 +570,48 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* KITCHEN TAB */}
+          {activeTab === 'Kitchen' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '600' }}>In-Progress Orders</h3>
+                <button onClick={fetchKitchenData} className="btn-ghost" style={{ padding: '8px 16px', fontSize: '14px' }}>Refresh</button>
+              </div>
+
+              {loadingConfig.kitchen ? (
+                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading kitchen items...</p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+                  {kitchenItems.map(item => (
+                    <div key={item.id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${item.status === 'PENDING' ? 'var(--status-cancelled)' : 'var(--status-ordering)'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <h4 style={{ fontSize: '18px', fontWeight: '700' }}>{item.foodName}</h4>
+                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: item.status === 'PENDING' ? 'var(--status-cancelled)' : 'var(--status-ordering)' }}>{item.status}</span>
+                      </div>
+                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Quantity: <strong>{item.quantity}</strong></p>
+                      {item.note && <p style={{ fontSize: '13px', fontStyle: 'italic', backgroundColor: '#f9f9f9', padding: '8px', borderRadius: '4px', marginBottom: '16px' }}>Note: {item.note}</p>}
+                      
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        {item.status === 'PENDING' && (
+                          <button onClick={() => handleUpdateItemStatus(item.orderItemId, 'PREPARING')} className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Accept Order</button>
+                        )}
+                        {item.status === 'PREPARING' && (
+                          <button onClick={() => handleUpdateItemStatus(item.orderItemId, 'READY')} className="btn" style={{ flex: 1, padding: '8px', backgroundColor: 'var(--status-completed)', color: 'white', border: 'none' }}>Mark Completed</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {kitchenItems.length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
+                      <Utensils size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+                      <p>Currently no pending orders in the kitchen.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -723,9 +798,12 @@ const DashboardScreen = ({ user, onLogout }) => {
                             <div style={{ opacity: 0.8 }}>{person.email || '-'}</div>
                           </td>
                           <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                               <span style={{ fontSize: '13px' }}>{person.server}</span>
-                              <button onClick={() => handleDeleteStaff(person.server, person.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }} title="Remove Staff"><LogOut size={16} /></button>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => handleOpenStaffModal(person)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }} title="Edit Staff"><Settings size={16} /></button>
+                                <button onClick={() => handleDeleteStaff(person.server, person.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }} title="Remove Staff"><LogOut size={16} /></button>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -823,6 +901,22 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                 </div>
 
+                 <div className="input-group">
+                  <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Gender</label>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    {['MALE', 'FEMALE', 'OTHER'].map(g => (
+                      <label key={g} style={{
+                        flex: 1, padding: '10px', borderRadius: '8px', border: staffFormData.gender === g ? '2px solid #11117F' : '1px solid #E0E0E0',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                        fontSize: '13px', color: staffFormData.gender === g ? '#11117F' : '#666', fontWeight: staffFormData.gender === g ? '700' : '500'
+                      }}>
+                        <input type="radio" name="gender" value={g} checked={staffFormData.gender === g} onChange={() => setStaffFormData({ ...staffFormData, gender: g })} style={{ display: 'none' }} />
+                        {g === 'MALE' ? 'Male' : g === 'FEMALE' ? 'Female' : 'Other'}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="input-group">
                   <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Assigned Server</label>
                   <div style={{ position: 'relative' }}>
@@ -840,7 +934,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                 <div className="input-group" style={{ gridColumn: 'span 2' }}>
                   <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Access Role</label>
                   <div style={{ display: 'flex', gap: '16px' }}>
-                    {['WAITER', 'ADMIN'].map(role => (
+                    {['WAITER', 'KITCHEN', 'ADMIN'].map(role => (
                       <label key={role} style={{
                         flex: 1, padding: '14px', borderRadius: '12px', border: staffFormData.role === role ? '2px solid #11117F' : '1px solid #E0E0E0',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer',
@@ -855,7 +949,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                           onChange={() => setStaffFormData({ ...staffFormData, role })}
                           style={{ display: 'none' }}
                         />
-                        {role === 'WAITER' ? 'WAITRESS/WAITER' : 'ADMINISTRATOR'}
+                        {role === 'WAITER' ? 'WAITRESS/WAITER' : role === 'KITCHEN' ? 'KITCHEN' : 'ADMINISTRATOR'}
                       </label>
                     ))}
                   </div>

@@ -12,6 +12,7 @@ data class UserResponse(
     @SerializedName("role") val role: String?,
     @SerializedName("server") val server: String?,
     @SerializedName("birthday") val birthday: String?,
+    @SerializedName("gender") val gender: String?,
     @SerializedName("createdDate") val createdDate: String?,
     @SerializedName("created_by") val createdBy: String?
 ) : Serializable {
@@ -24,6 +25,7 @@ data class UserResponse(
             birthday = birthday,
             email = email,
             phoneNumber = phoneNumber,
+            gender = gender,
             createdAt = createdDate,
             createdBy = createdBy
         )

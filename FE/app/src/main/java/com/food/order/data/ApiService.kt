@@ -260,4 +260,14 @@ interface ApiService {
         @Query("type") type: String = "day",
         @Query("date") date: String? = null
     ): ApiResponse<FoodStatisticsResponse>
+    // ===== KITCHEN =====
+    @GET("kitchen/items")
+    suspend fun getKitchenItems(@Header("Authorization") token: String): ApiResponse<List<OrderItemResponse>>
+
+    @PUT("kitchen/items/{orderItemId}/status")
+    suspend fun updateKitchenItemStatus(
+        @Header("Authorization") token: String,
+        @Path("orderItemId") orderItemId: String,
+        @Body body: Map<String, String>
+    ): ApiResponse<Void>
 }

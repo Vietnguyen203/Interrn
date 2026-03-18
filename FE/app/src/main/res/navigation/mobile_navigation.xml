@@ -142,6 +142,14 @@
         <deepLink app:uri="fo://report" />
     </fragment>
 
+    <fragment
+        android:id="@+id/navigation_kitchen"
+        android:name="com.food.order.ui.kitchen.KitchenFragment"
+        android:label="Kitchen Console"
+        tools:layout="@layout/fragment_kitchen">
+        <deepLink app:uri="fo://kitchen" />
+    </fragment>
+
     <!-- Logout dialog -->
     <dialog
         android:id="@+id/navigation_logout_dialog"

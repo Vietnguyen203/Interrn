@@ -82,19 +82,19 @@
                 app:titleText="Reports" />
         </androidx.appcompat.widget.LinearLayoutCompat>
 
-        <!-- Row 4 (NEW): Order + Logout -->
+        <!-- Row 4 (NEW): Kitchen + Logout -->
         <androidx.appcompat.widget.LinearLayoutCompat
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <com.food.order.utils.widget.SystemMenuView
-                android:id="@+id/menuViewOrder"
+                android:id="@+id/menuViewKitchen"
                 android:layout_width="0dp"
                 android:layout_height="140dp"
                 android:layout_weight="1"
-                app:iconSrc="@drawable/icon_order_manager"
-                app:titleText="Order" />
+                app:iconSrc="@drawable/icon_food_menu_v2"
+                app:titleText="Kitchen Console" />
 
             <com.food.order.utils.widget.SystemMenuView
                 android:id="@+id/menuViewLogout"

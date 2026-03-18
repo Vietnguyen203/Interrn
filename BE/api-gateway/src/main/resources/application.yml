@@ -1,0 +1,35 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      routes:
+        - id: account-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/foodordersystem/api/auth/**,/foodordersystem/api/users/**,/foodordersystem/api/staffs/**,/foodordersystem/api/roles/**
+        - id: catalog-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/foodordersystem/api/foods/**,/foodordersystem/api/food-categories/**,/foodordersystem/api/uploads/**
+        - id: order-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/foodordersystem/api/orders/**,/foodordersystem/api/tables/**
+        - id: kitchen-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/foodordersystem/api/kitchen/**
+        - id: statistics-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/foodordersystem/api/statistics/**

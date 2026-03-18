@@ -100,6 +100,7 @@ class DashboardFragment : Fragment() {
                         "REPORTS"          -> safeNavigate(R.id.navigation_report)
                         "SETTINGS"         -> Toast.makeText(requireContext(), "Settings screen is not implemented yet.", Toast.LENGTH_SHORT).show()
                         "ORDER"            -> safeNavigate(R.id.navigation_order_table)
+                        "KITCHEN"          -> safeNavigate(R.id.navigation_kitchen)
                         "LOGOUT"           -> safeNavigate(R.id.navigation_logout_dialog)
                     }
                 }.show(fm, tag)

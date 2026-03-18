@@ -63,12 +63,13 @@ class UpdateStaffFragment : Fragment() {
                         binding.edtPhoneNumber.setText(staff.phoneNumber ?: "")
                         when (staff.gender) {
                             "FEMALE" -> binding.rbFemale.isChecked = true
-                            else     -> binding.rbMale.isChecked   = true
+                            "MALE"   -> binding.rbMale.isChecked   = true
+                            else     -> { /* Can be OTHER if we add it to RadioGroup */ }
                         }
-                        if (staff.role == "WAITER") {
-                            binding.rbWaiter.isChecked = true
-                        } else {
-                            binding.rbAdmin.isChecked = true
+                        when (staff.role) {
+                            "WAITER"  -> binding.rbWaiter.isChecked  = true
+                            "KITCHEN" -> binding.rbKitchen.isChecked = true
+                            else      -> binding.rbAdmin.isChecked   = true
                         }
                         binding.tvBirthdayValue.text = DateUtils.formatBirthday(staff.birthday)
                     }
@@ -117,22 +118,22 @@ class UpdateStaffFragment : Fragment() {
 
         binding.btnUpdate.setOnClickListener {
             val employeeId  = binding.edtEmployeeId.text.toString().trim()
-            val password    = binding.edtPassword.text.toString().trim()
+            val password    = binding.edtPassword.text.toString().trim().ifEmpty { null }
             val displayName = binding.edtDisplayName.text.toString().trim()
             val email       = binding.edtEmail.text.toString().trim().ifEmpty { null }
             val phone       = binding.edtPhoneNumber.text.toString().trim().ifEmpty { null }
             val gender      = when (binding.radioGroupGender.checkedRadioButtonId) {
                 R.id.rbMale   -> "MALE"
                 R.id.rbFemale -> "FEMALE"
-                else          -> "OTHER"
+                else          -> "MALE"
             }
-            val role = if (binding.rbWaiter.isChecked) "WAITER" else "ADMIN"
+            val role = when {
+                binding.rbWaiter.isChecked  -> "WAITER"
+                binding.rbKitchen.isChecked -> "KITCHEN"
+                else                        -> "ADMIN"
+            }
             val birthday = binding.tvBirthdayValue.text.toString().trim().ifEmpty { null }
 
-            if (password.isEmpty()) {
-                binding.edtPassword.error = "Password is required"
-                return@setOnClickListener
-            }
             if (displayName.isEmpty()) {
                 binding.edtDisplayName.error = "Display name is required"
                 return@setOnClickListener
@@ -143,6 +144,7 @@ class UpdateStaffFragment : Fragment() {
                 role = role,
                 password = password,
                 email = email,
+                phoneNumber = phone,
                 gender = gender,
                 birthday = DateUtils.toApiDate(birthday)
             )

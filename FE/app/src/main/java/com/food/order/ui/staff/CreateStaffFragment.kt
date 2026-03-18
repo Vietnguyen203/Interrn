@@ -83,7 +83,11 @@ class CreateStaffFragment : Fragment() {
                 R.id.rbFemale -> "FEMALE"
                 else          -> "MALE"
             }
-            val role = if (binding.radioGroupRole.checkedRadioButtonId == R.id.rbAdmin) "ADMIN" else "WAITER"
+            val role = when (binding.radioGroupRole.checkedRadioButtonId) {
+                R.id.rbAdmin   -> "ADMIN"
+                R.id.rbKitchen -> "KITCHEN"
+                else           -> "WAITER"
+            }
             val birthday = binding.tvBirthdayValue.text.toString().trim().ifEmpty { null }
 
             if (username.isEmpty()) {

@@ -86,5 +86,10 @@ export const apiService = {
         createStaff: (staffData) => apiService.post('/users/register', staffData),
         updateStaff: (server, employeeId, staffData) => apiService.put(`/users/${server}/${employeeId}`, staffData),
         deleteStaff: (server, employeeId) => apiService.delete(`/users/${server}/${employeeId}`),
+    },
+
+    kitchen: {
+        getPendingItems: () => apiService.get('/kitchen/items'),
+        updateItemStatus: (orderItemId, status) => apiService.put(`/kitchen/items/${orderItemId}/status`, { status })
     }
 };
