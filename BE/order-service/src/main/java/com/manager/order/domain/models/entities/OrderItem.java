@@ -38,7 +38,7 @@ public class OrderItem {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "STATUS")
-    private com.manager.order.domain.models.enums.OrderItemStatus status = com.manager.order.domain.models.enums.OrderItemStatus.PENDING;
+    private com.manager.common.domain.models.enums.OrderItemStatus status = com.manager.common.domain.models.enums.OrderItemStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ORDER_ID")

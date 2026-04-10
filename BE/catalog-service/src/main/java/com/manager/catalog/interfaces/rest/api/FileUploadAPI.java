@@ -1,4 +1,4 @@
-package com.manager.catalog.interfaces.rest.controllers;
+package com.manager.catalog.interfaces.rest.api;
 
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import com.manager.catalog.application.services.FileStorageService;
@@ -11,7 +11,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/files")
 @RequiredArgsConstructor
-public class FileUploadController {
+public class FileUploadAPI {
 
     private final FileStorageService fileStorageService;
 
@@ -20,10 +20,9 @@ public class FileUploadController {
         try {
             // FileStorageService đã trả về URL đầy đủ (baseUrl + fileName)
             String fileUrl = fileStorageService.storeFile(file);
-
             return new BaseResponseDTO("OK", "Success", Map.of("url", fileUrl));
         } catch (Exception e) {
-            return new BaseResponseDTO("ERROR", e.getMessage());
+            return new BaseResponseDTO("ERROR", "Lỗi tải tệp: " + e.getMessage());
         }
     }
 }

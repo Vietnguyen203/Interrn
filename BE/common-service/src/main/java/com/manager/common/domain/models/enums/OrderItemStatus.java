@@ -1,4 +1,4 @@
-package com.manager.order.domain.models.enums;
+package com.manager.common.domain.models.enums;
 
 public enum OrderItemStatus {
     PENDING, // Món mới nhận, chờ chế biến

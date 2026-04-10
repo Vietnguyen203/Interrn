@@ -1,24 +1,20 @@
-package com.manager.kitchen.interfaces.rest.controllers;
+package com.manager.kitchen.interfaces.rest.api;
 
-import com.manager.order.domain.models.entities.OrderItem;
-import com.manager.order.domain.models.enums.OrderItemStatus;
-import com.manager.order.infrastructure.persistence.jpa.OrderItemRepository;
+import com.manager.kitchen.infrastructure.clients.OrderServiceClient;
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/kitchen")
 @RequiredArgsConstructor
-public class KitchenController {
+public class KitchenAPI {
 
-    private final OrderItemRepository orderItemRepository;
+    private final OrderServiceClient orderServiceClient;
 
     private String resolveServer(HttpServletRequest request) {
         Object claimsObj = request.getAttribute("claims");
@@ -46,10 +42,7 @@ public class KitchenController {
             }
         }
 
-        List<OrderItemStatus> statuses = Arrays.asList(OrderItemStatus.PENDING, OrderItemStatus.PREPARING);
-        List<OrderItem> items = orderItemRepository.findByOrderServerAndStatusIn(server, statuses);
-
-        return new BaseResponseDTO("OK", "Success", items);
+        return orderServiceClient.getPendingItems(server);
     }
 
     @PutMapping("/items/{orderItemId}/status")
@@ -78,25 +71,7 @@ public class KitchenController {
             return new BaseResponseDTO("ERROR", "Missing status");
         }
 
-        OrderItemStatus newStatus;
-        try {
-            newStatus = OrderItemStatus.valueOf(statusStr);
-        } catch (IllegalArgumentException e) {
-            return new BaseResponseDTO("ERROR", "Invalid status: " + statusStr);
-        }
-
-        OrderItem item = orderItemRepository.findByOrderItemIdAndOrderServer(orderItemId, server)
-                .orElse(null);
-
-        if (item == null) {
-            return new BaseResponseDTO("ERROR", "Item not found");
-        }
-
-        // Workflow validation (optional but good)
-        // PENDING -> PREPARING -> READY
-        item.setStatus(newStatus);
-        orderItemRepository.save(item);
-
-        return new BaseResponseDTO("OK", "Status updated successfully. Item is now " + newStatus);
+        // Trực tiếp chuyển tiếp yêu cầu sang order-service qua Feign Client
+        return orderServiceClient.updateItemStatus(orderItemId, body);
     }
 }

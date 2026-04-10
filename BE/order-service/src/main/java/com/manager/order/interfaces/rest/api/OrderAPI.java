@@ -1,19 +1,18 @@
-package com.manager.order.interfaces.rest.controllers;
+package com.manager.order.interfaces.rest.api;
 
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import com.manager.common.interfaces.rest.dto.PageMeta;
 import com.manager.order.interfaces.rest.dto.OrderDTOs;
 import com.manager.order.domain.models.entities.Order;
-import com.manager.order.domain.models.entities.OrderItem;
-import com.manager.order.domain.models.enums.OrderStatus;
-import com.manager.order.domain.models.entities.Table;
 import com.manager.order.infrastructure.persistence.jpa.OrderRepository;
-import com.manager.order.infrastructure.persistence.jpa.TableRepository;
+import com.manager.order.application.services.OrderService;
+import com.manager.common.domain.models.enums.OrderItemStatus;
+import com.manager.order.interfaces.rest.dto.response.OrderItemResponseDTO;
+import com.manager.order.interfaces.rest.dto.response.OrderResponseDTO;
 
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,10 +24,10 @@ import java.util.*;
 @RestController
 @RequestMapping("/orders")
 @RequiredArgsConstructor
-public class OrderController {
+public class OrderAPI {
 
     private final OrderRepository orderRepository;
-    private final TableRepository tableRepository;
+    private final OrderService orderService;
 
     private String resolveServer(HttpServletRequest request, String serverParam) {
         if (serverParam != null && !serverParam.isBlank())
@@ -60,18 +59,6 @@ public class OrderController {
         return Map.of("from", from, "to", to);
     }
 
-    private static double itemTotal(OrderItem i) {
-        try {
-            return i.getPrice() * i.getQuantity();
-        } catch (NullPointerException e) {
-            return 0d;
-        }
-    }
-
-    private static double recomputeTotal(List<OrderItem> items) {
-        return items.stream().mapToDouble(OrderController::itemTotal).sum();
-    }
-
     @GetMapping("/list")
     public BaseResponseDTO getOrdersByServerAndTime(
             HttpServletRequest request,
@@ -87,6 +74,60 @@ public class OrderController {
         return new BaseResponseDTO("OK", "Success", orders);
     }
 
+    @GetMapping("/items/pending")
+    public BaseResponseDTO getPendingItems(HttpServletRequest request,
+                                           @RequestParam(required = false) String server) {
+        String resolvedServer = resolveServer(request, server);
+        if (resolvedServer == null) {
+            return new BaseResponseDTO("ERROR", "Missing 'server'");
+        }
+        List<OrderItemResponseDTO> items = orderService.getPendingItems(resolvedServer);
+        return new BaseResponseDTO("OK", "Success", items);
+    }
+
+    @GetMapping("/completed")
+    public BaseResponseDTO getCompletedOrders(
+            HttpServletRequest request,
+            @RequestParam(required = false) String server,
+            @RequestParam String from,
+            @RequestParam String to) {
+        String resolvedServer = resolveServer(request, server);
+        if (resolvedServer == null) {
+            return new BaseResponseDTO("ERROR", "Missing 'server'");
+        }
+        try {
+            LocalDateTime fromDt = LocalDateTime.parse(from);
+            LocalDateTime toDt = LocalDateTime.parse(to);
+            List<OrderResponseDTO> orders = orderService.getCompletedOrders(resolvedServer, fromDt, toDt);
+            return new BaseResponseDTO("OK", "Success", orders);
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", "Invalid date format or range: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/items/{orderItemId}/status")
+    public BaseResponseDTO updateItemStatus(HttpServletRequest request,
+                                            @PathVariable String orderItemId,
+                                            @RequestBody Map<String, String> body) {
+        String server = resolveServer(request, null);
+        if (server == null) {
+            return new BaseResponseDTO("ERROR", "Missing server in token");
+        }
+        String statusStr = body.get("status");
+        if (statusStr == null) {
+            return new BaseResponseDTO("ERROR", "Missing status");
+        }
+        try {
+            OrderItemStatus status = OrderItemStatus.valueOf(statusStr);
+            orderService.updateItemStatus(orderItemId, server, status);
+            return new BaseResponseDTO("OK", "Status updated successfully");
+        } catch (IllegalArgumentException e) {
+            return new BaseResponseDTO("ERROR", "Invalid status: " + statusStr);
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", e.getMessage());
+        }
+    }
+
     @GetMapping("/revenue-by-week")
     public BaseResponseDTO getRevenueByWeek(
             HttpServletRequest request,
@@ -97,21 +138,8 @@ public class OrderController {
             return new BaseResponseDTO("ERROR", "Missing 'server'");
 
         Map<String, LocalDateTime> range = resolveTimeRange(time, null, null);
-        List<Order> orders = orderRepository.findByServerAndStatusAndCreatedAtBetween(
-                resolvedServer, OrderStatus.COMPLETED, range.get("from"), range.get("to"));
-
-        // Tính doanh thu theo tuần trong tháng
-        Map<Integer, Double> weekTotals = new LinkedHashMap<>();
-        for (Order o : orders) {
-            int week = o.getCreatedAt().getDayOfMonth() / 7 + 1;
-            weekTotals.merge(week, o.getTotalAmount(), (v1, v2) -> v1 + v2);
-        }
-
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Map.Entry<Integer, Double> e : weekTotals.entrySet()) {
-            result.add(Map.of("week", e.getKey(), "total", e.getValue()));
-        }
-        return new BaseResponseDTO("OK", "Success", result);
+        Object data = orderService.getRevenueByWeek(resolvedServer, range.get("from"), range.get("to"));
+        return new BaseResponseDTO("OK", "Success", data);
     }
 
     @GetMapping("/most-favorite-food")
@@ -124,37 +152,10 @@ public class OrderController {
             return new BaseResponseDTO("ERROR", "Missing 'server'");
 
         Map<String, LocalDateTime> range = resolveTimeRange(time, null, null);
-        List<Order> orders = orderRepository.findByServerAndCreatedAtBetween(
-                resolvedServer, range.get("from"), range.get("to"));
-
-        // Đếm số lần xuất hiện của từng món ăn
-        Map<String, Long> countMap = new LinkedHashMap<>();
-        Map<String, String> nameMap = new LinkedHashMap<>();
-        for (Order o : orders) {
-            for (OrderItem item : o.getItems()) {
-                String id = item.getFoodId() != null ? item.getFoodId() : item.getFoodName();
-                if (id == null)
-                    continue;
-                countMap.merge(id, (long) item.getQuantity(), (v1, v2) -> v1 + v2);
-                nameMap.putIfAbsent(id, item.getFoodName() != null ? item.getFoodName() : id);
-            }
-        }
-
-        if (countMap.isEmpty())
-            return new BaseResponseDTO("OK", "No data", null);
-
-        String topId = countMap.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey).orElse(null);
-
-        Map<String, Object> data = Map.of(
-                "foodId", topId != null ? topId : "",
-                "foodName", topId != null ? nameMap.getOrDefault(topId, "") : "",
-                "count", topId != null ? countMap.get(topId) : 0L);
+        Object data = orderService.getMostFavoriteFood(resolvedServer, range.get("from"), range.get("to"));
         return new BaseResponseDTO("OK", "Success", data);
     }
 
-    @Transactional
     @PostMapping("/create")
     public BaseResponseDTO createOrder(HttpServletRequest request,
             @Valid @RequestBody OrderDTOs.OrderRequest orderRequest) {
@@ -162,26 +163,15 @@ public class OrderController {
         if (claims == null)
             return new BaseResponseDTO("ERROR", "Unauthorized");
         String server = claims.get("server", String.class);
-        Table table = tableRepository.findByIdAndServer(orderRequest.getTableId(), server).orElse(null);
-        if (table == null)
-            return new BaseResponseDTO("ERROR", "Table not found");
-
-        Order order = new Order();
-        order.setId(java.util.UUID.randomUUID().toString());
-        order.setTableId(orderRequest.getTableId());
-        order.setServer(server);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setCreatedBy(claims.getSubject());
-        order.setStatus(OrderStatus.ORDERING);
-        order.setTotalAmount(0);
-        orderRepository.save(order);
-
-        table.setCurrentOrderId(order.getId());
-        tableRepository.save(table);
-        return new BaseResponseDTO("OK", "Order created", Map.of("orderId", order.getId()));
+        
+        try {
+            String orderId = orderService.createOrder(claims.getSubject(), server, orderRequest.getTableId());
+            return new BaseResponseDTO("OK", "Order created", Map.of("orderId", orderId));
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", e.getMessage());
+        }
     }
 
-    @Transactional
     @PutMapping("/{id}/add-item")
     public BaseResponseDTO addItemToOrder(HttpServletRequest request, @PathVariable String id,
             @RequestBody OrderDTOs.AddOrderItemRequest newItem) {
@@ -189,25 +179,15 @@ public class OrderController {
         if (claims == null)
             return new BaseResponseDTO("ERROR", "Unauthorized");
         String server = claims.get("server", String.class);
-        Order order = orderRepository.findByIdAndServer(id, server).orElse(null);
-        if (order == null)
-            return new BaseResponseDTO("ERROR", "Order not found");
-
-        OrderItem item = new OrderItem();
-        item.setId(java.util.UUID.randomUUID().toString());
-        item.setOrderItemId(java.util.UUID.randomUUID().toString());
-        item.setFoodId(newItem.getFoodId());
-        item.setFoodName(newItem.getFoodName());
-        item.setPrice(newItem.getPrice());
-        item.setQuantity(newItem.getQuantity());
-        item.setOrder(order);
-        order.getItems().add(item);
-        order.setTotalAmount(recomputeTotal(order.getItems()));
-        orderRepository.save(order);
-        return new BaseResponseDTO("OK", "Item added");
+        
+        try {
+            orderService.addItemToOrder(id, server, newItem);
+            return new BaseResponseDTO("OK", "Item added");
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", e.getMessage());
+        }
     }
 
-    @Transactional
     @PutMapping("/{id}/checkout")
     public BaseResponseDTO checkoutOrder(HttpServletRequest request, @PathVariable String id,
             @RequestBody OrderDTOs.CheckoutRequest body) {
@@ -215,20 +195,13 @@ public class OrderController {
         if (claims == null)
             return new BaseResponseDTO("ERROR", "Unauthorized");
         String server = claims.get("server", String.class);
-        Order order = orderRepository.findByIdAndServer(id, server).orElse(null);
-        if (order == null)
-            return new BaseResponseDTO("ERROR", "Order not found");
-
-        order.setStatus(OrderStatus.COMPLETED);
-        order.setTotalAmount(recomputeTotal(order.getItems()));
-        orderRepository.save(order);
-
-        Table table = tableRepository.findByIdAndServer(order.getTableId(), server).orElse(null);
-        if (table != null && id.equals(table.getCurrentOrderId())) {
-            table.setCurrentOrderId(null);
-            tableRepository.save(table);
+        
+        try {
+            Object receipt = orderService.checkout(id, server, body);
+            return new BaseResponseDTO("OK", "Checked out", receipt);
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", e.getMessage());
         }
-        return new BaseResponseDTO("OK", "Checked out");
     }
 
     @GetMapping
@@ -248,7 +221,6 @@ public class OrderController {
         return new BaseResponseDTO("OK", "Success", pageData.getContent(), meta);
     }
 
-    @Transactional
     @PutMapping("/{id}/waiter")
     public BaseResponseDTO updateWaiter(HttpServletRequest request, @PathVariable String id,
             @RequestBody Map<String, String> body) {
@@ -258,13 +230,11 @@ public class OrderController {
         String server = claims.get("server", String.class);
         String waiterId = body.get("waiterId");
 
-        Optional<Order> opt = orderRepository.findByIdAndServer(id, server);
-        if (opt.isEmpty())
-            return new BaseResponseDTO("ERROR", "Order not found");
-
-        Order order = opt.get();
-        order.setWaiterId(waiterId);
-        orderRepository.save(order);
-        return new BaseResponseDTO("OK", "Waiter updated");
+        try {
+            orderService.updateWaiter(id, server, waiterId);
+            return new BaseResponseDTO("OK", "Waiter updated");
+        } catch (Exception e) {
+            return new BaseResponseDTO("ERROR", e.getMessage());
+        }
     }
 }

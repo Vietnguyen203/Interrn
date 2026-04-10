@@ -1,4 +1,4 @@
-package com.manager.account.interfaces.rest.controllers;
+package com.manager.account.interfaces.rest.api;
 
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import com.manager.account.interfaces.rest.dto.UserDTOs;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/users")
 @RequiredArgsConstructor
 @Validated
-public class UserController {
+public class UserAPI {
 
     private final UserService userService;
     private final UserRepository userRepository;

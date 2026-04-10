@@ -3,10 +3,11 @@ package com.manager.statistics.application.services;
 import com.manager.statistics.application.strategies.ChartPeriodStrategy;
 import com.manager.statistics.application.strategies.ChartStrategyFactory;
 import com.manager.statistics.application.strategies.impl.FoodPieChartStrategy;
-import com.manager.order.domain.models.enums.OrderStatus;
-import com.manager.order.domain.models.entities.Order;
-import com.manager.order.infrastructure.persistence.jpa.OrderRepository;
+import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
+import com.manager.statistics.infrastructure.clients.OrderServiceClient;
+import com.manager.statistics.infrastructure.clients.dto.OrderResponseDTO;
 import com.manager.statistics.interfaces.rest.dto.StatisticsDTOs;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +15,28 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsService {
 
-    private final OrderRepository orderRepository;
+    private final OrderServiceClient orderServiceClient;
     private final FoodPieChartStrategy foodPieChartStrategy;
     private final ChartStrategyFactory chartStrategyFactory;
+    private final ObjectMapper objectMapper;
+
+    @SuppressWarnings("unchecked")
+    private List<OrderResponseDTO> fetchCompletedOrders(String server, LocalDateTime from, LocalDateTime to) {
+        BaseResponseDTO response = orderServiceClient.getCompletedOrders(server, from.toString(), to.toString());
+        if ("OK".equals(response.getCode()) && response.getData() != null) {
+            List<Object> data = (List<Object>) response.getData();
+            return data.stream()
+                    .map(obj -> objectMapper.convertValue(obj, OrderResponseDTO.class))
+                    .collect(Collectors.toList());
+        }
+        return new ArrayList<>();
+    }
 
     // ─── Pie chart: phân bổ món ăn ───────────────────────────────────────────
 
@@ -47,8 +62,7 @@ public class StatisticsService {
             to = date.atTime(23, 59, 59);
         }
 
-        List<Order> orders = orderRepository.findByServerAndStatusAndCreatedAtBetween(
-                server, OrderStatus.COMPLETED, from, to);
+        List<OrderResponseDTO> orders = fetchCompletedOrders(server, from, to);
 
         return foodPieChartStrategy.calculate(orders);
     }
@@ -78,10 +92,9 @@ public class StatisticsService {
             LocalDateTime pointStart = strategy.getPointStart(label, date);
             LocalDateTime pointEnd = strategy.getPointEnd(label, date);
 
-            List<Order> orders = orderRepository.findByServerAndStatusAndCreatedAtBetween(
-                    server, OrderStatus.COMPLETED, pointStart, pointEnd);
+            List<OrderResponseDTO> orders = fetchCompletedOrders(server, pointStart, pointEnd);
 
-            double revenue = orders.stream().mapToDouble(Order::getTotalAmount).sum();
+            double revenue = orders.stream().mapToDouble(OrderResponseDTO::getTotalAmount).sum();
             // Round to 2 decimal places
             revenue = Math.round(revenue * 100.0) / 100.0;
 

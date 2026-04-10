@@ -1,8 +1,8 @@
 package com.manager.statistics.application.strategies.impl;
 
 import com.manager.statistics.application.strategies.StatisticsStrategy;
-import com.manager.order.domain.models.entities.Order;
-import com.manager.order.domain.models.entities.OrderItem;
+import com.manager.statistics.infrastructure.clients.dto.OrderItemResponseDTO;
+import com.manager.statistics.infrastructure.clients.dto.OrderResponseDTO;
 import com.manager.statistics.interfaces.rest.dto.StatisticsDTOs;
 import org.springframework.stereotype.Component;
 
@@ -15,12 +15,12 @@ import java.util.stream.Collectors;
 public class FoodPieChartStrategy implements StatisticsStrategy<StatisticsDTOs.FoodStatisticsResponse> {
 
     @Override
-    public StatisticsDTOs.FoodStatisticsResponse calculate(List<Order> orders) {
+    public StatisticsDTOs.FoodStatisticsResponse calculate(List<OrderResponseDTO> orders) {
         Map<String, Integer> foodCounts = new HashMap<>();
         int totalQuantity = 0;
 
-        for (Order order : orders) {
-            for (OrderItem item : order.getItems()) {
+        for (OrderResponseDTO order : orders) {
+            for (OrderItemResponseDTO item : order.getItems()) {
                 String foodName = item.getFoodName();
                 int qty = item.getQuantity();
                 foodCounts.put(foodName, foodCounts.getOrDefault(foodName, 0) + qty);

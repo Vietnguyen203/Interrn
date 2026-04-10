@@ -1,4 +1,4 @@
-package com.manager.statistics.interfaces.rest.controllers;
+package com.manager.statistics.interfaces.rest.api;
 
 import com.manager.statistics.application.services.StatisticsService;
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
@@ -15,7 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 @RestController
 @RequestMapping("/statistics")
 @RequiredArgsConstructor
-public class StatisticsController {
+public class StatisticsAPI {
 
     private final StatisticsService statisticsService;
 

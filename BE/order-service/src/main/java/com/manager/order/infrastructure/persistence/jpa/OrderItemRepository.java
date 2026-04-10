@@ -1,7 +1,7 @@
 package com.manager.order.infrastructure.persistence.jpa;
 
 import com.manager.order.domain.models.entities.OrderItem;
-import com.manager.order.domain.models.enums.OrderItemStatus;
+import com.manager.common.domain.models.enums.OrderItemStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

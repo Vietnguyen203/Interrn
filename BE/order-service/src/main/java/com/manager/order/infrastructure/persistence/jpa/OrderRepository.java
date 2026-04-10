@@ -1,7 +1,7 @@
 package com.manager.order.infrastructure.persistence.jpa;
 
 import com.manager.order.domain.models.entities.Order;
-import com.manager.order.domain.models.enums.OrderStatus;
+import com.manager.common.domain.models.enums.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

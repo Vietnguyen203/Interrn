@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import com.manager.order.domain.models.entities.OrderItem;
-import com.manager.order.domain.models.enums.OrderStatus;
+import com.manager.common.domain.models.enums.OrderStatus;
 
 @Getter
 @Setter

@@ -1,4 +1,4 @@
-package com.manager.account.infrastructure.security;
+package com.manager.common.infrastructure.security;
 
 import com.manager.common.infrastructure.utils.JwtUtil;
 import io.jsonwebtoken.Claims;
@@ -26,8 +26,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@org.springframework.lang.NonNull HttpServletRequest request,
-            @org.springframework.lang.NonNull HttpServletResponse response,
-            @org.springframework.lang.NonNull FilterChain filterChain)
+                                    @org.springframework.lang.NonNull HttpServletResponse response,
+                                    @org.springframework.lang.NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
@@ -45,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (jwtUtil.validateToken(jwt, username)) {
                     Claims claims = jwtUtil.extractAllClaims(jwt);
 
-                    // Set claims attribute for controllers (replaces redundant JwtFilter)
+                    // Set claims attribute for APIs
                     request.setAttribute("claims", claims);
 
                     String role = (String) claims.get("role");
@@ -54,8 +54,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         role = "USER";
 
                     // Spring Security expects roles to have "ROLE_" prefix for hasRole()
-                    // If your check in SecurityConfig uses hasRole('ADMIN'), it checks for
-                    // "ROLE_ADMIN"
                     String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
 
                     List<SimpleGrantedAuthority> authorities = Collections

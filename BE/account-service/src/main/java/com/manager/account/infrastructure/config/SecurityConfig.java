@@ -14,7 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import com.manager.account.infrastructure.security.JwtAuthenticationFilter;
+import com.manager.common.infrastructure.security.JwtAuthenticationFilter;
 
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -79,21 +79,6 @@ public class SecurityConfig {
                         "/users/forgot-password",
                         "/users/reset-password")
                 .permitAll()
-
-                // Staff APIs (Secured)
-                .antMatchers(HttpMethod.GET, "/users").hasRole("ADMIN")
-                .antMatchers(HttpMethod.GET, "/users/count-by-server").hasRole("ADMIN")
-
-                // Reports (Secured)
-                .antMatchers("/reports/**").hasRole("ADMIN")
-
-                // Kitchen APIs (Secured)
-                .antMatchers("/kitchen/**").hasAnyRole("KITCHEN", "ADMIN")
-
-                // Foods / Tables / Users Management (Secured Mutations)
-                .antMatchers(HttpMethod.POST, "/foods/**", "/tables/**").hasRole("ADMIN")
-                .antMatchers(HttpMethod.PUT, "/foods/**", "/tables/**", "/users/**").hasRole("ADMIN")
-                .antMatchers(HttpMethod.DELETE, "/foods/**", "/tables/**", "/users/**").hasRole("ADMIN")
 
                 // Media / Files (Permit read)
                 .antMatchers("/files/**", "/uploads/**").permitAll()

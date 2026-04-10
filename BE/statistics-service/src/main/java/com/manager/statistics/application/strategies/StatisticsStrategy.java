@@ -1,9 +1,9 @@
 package com.manager.statistics.application.strategies;
 
-import com.manager.order.domain.models.entities.Order;
+import com.manager.statistics.infrastructure.clients.dto.OrderResponseDTO;
 
 import java.util.List;
 
 public interface StatisticsStrategy<T> {
-    T calculate(List<Order> orders);
+    T calculate(List<OrderResponseDTO> orders);
 }

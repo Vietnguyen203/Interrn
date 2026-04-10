@@ -1,4 +1,4 @@
-package com.manager.catalog.interfaces.rest.controllers;
+package com.manager.catalog.interfaces.rest.api;
 
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import com.manager.catalog.interfaces.rest.dto.FoodDTOs;
@@ -19,7 +19,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/foods")
 @RequiredArgsConstructor
-public class FoodController {
+public class FoodAPI {
 
     private final FoodRepository foodRepository;
 

@@ -1,10 +1,10 @@
-package com.manager.order.interfaces.rest.controllers;
+package com.manager.order.interfaces.rest.api;
 
 import com.manager.common.interfaces.rest.dto.BaseResponseDTO;
 import com.manager.order.interfaces.rest.dto.TableDTOs;
 import com.manager.order.domain.models.entities.Order;
 import com.manager.order.domain.models.entities.OrderItem;
-import com.manager.order.domain.models.enums.OrderStatus;
+import com.manager.common.domain.models.enums.OrderStatus;
 import com.manager.order.domain.models.entities.Table;
 import com.manager.order.infrastructure.persistence.jpa.OrderRepository;
 import com.manager.order.infrastructure.persistence.jpa.TableRepository;
@@ -24,7 +24,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/tables")
 @RequiredArgsConstructor
-public class TableController {
+public class TableAPI {
 
     private final TableRepository tableRepository;
     private final OrderRepository orderRepository;
