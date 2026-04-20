@@ -1,7 +1,7 @@
 package com.manager.account.infrastructure.security;
 
-import com.manager.account.domain.models.entities.Users;
-import com.manager.account.infrastructure.persistence.jpa.UserRepository;
+import com.manager.account.domain.Users;
+import com.manager.account.infrastructure.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
