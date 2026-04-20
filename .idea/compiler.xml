@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Gradle Imported" enabled="true">
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.projectlombok/lombok/1.18.32/17d46b3e205515e1e8efd3ee4d57ce8018914163/lombok-1.18.32.jar" />
+        </processorPath>
+        <module name="food-order-backend.account-service.main" />
+        <module name="food-order-backend.api-gateway.main" />
+        <module name="food-order-backend.common-service.main" />
+        <module name="food-order-backend.order-service.main" />
+        <module name="food-order-backend.kitchen-service.main" />
+        <module name="food-order-backend.catalog-service.main" />
+        <module name="food-order-backend.statistics-service.main" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="food-order-backend.account-service" options="-parameters" />
+      <module name="food-order-backend.account-service.main" options="-parameters" />
+      <module name="food-order-backend.account-service.test" options="-parameters" />
+      <module name="food-order-backend.catalog-service" options="-parameters" />
+      <module name="food-order-backend.catalog-service.main" options="-parameters" />
+      <module name="food-order-backend.catalog-service.test" options="-parameters" />
+      <module name="food-order-backend.kitchen-service" options="-parameters" />
+      <module name="food-order-backend.kitchen-service.main" options="-parameters" />
+      <module name="food-order-backend.kitchen-service.test" options="-parameters" />
+      <module name="food-order-backend.order-service" options="-parameters" />
+      <module name="food-order-backend.order-service.main" options="-parameters" />
+      <module name="food-order-backend.order-service.test" options="-parameters" />
+      <module name="food-order-backend.statistics-service" options="-parameters" />
+      <module name="food-order-backend.statistics-service.main" options="-parameters" />
+      <module name="food-order-backend.statistics-service.test" options="-parameters" />
+    </option>
+  </component>
+</project>

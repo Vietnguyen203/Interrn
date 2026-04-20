@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE" />
+            <option value="$PROJECT_DIR$/BE/account-service" />
+            <option value="$PROJECT_DIR$/BE/api-gateway" />
+            <option value="$PROJECT_DIR$/BE/catalog-service" />
+            <option value="$PROJECT_DIR$/BE/common-service" />
+            <option value="$PROJECT_DIR$/BE/kitchen-service" />
+            <option value="$PROJECT_DIR$/BE/order-service" />
+            <option value="$PROJECT_DIR$/BE/statistics-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/../Intern/Interrn/BE/account-service" />
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
