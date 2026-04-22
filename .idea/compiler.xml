@@ -2,12 +2,14 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
+      <module name="food-order-backend" target="17" />
       <module name="food-order-backend.account-service" target="17" />
       <module name="food-order-backend.catalog-service" target="17" />
       <module name="food-order-backend.common-service" target="17" />
       <module name="food-order-backend.kitchen-service" target="17" />
       <module name="food-order-backend.order-service" target="17" />
       <module name="food-order-backend.statistics-service" target="17" />
+      <module name="liquibase-migration" target="17" />
     </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">

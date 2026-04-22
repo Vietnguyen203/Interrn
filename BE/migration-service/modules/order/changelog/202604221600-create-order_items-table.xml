@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="202604221600-create-order_items-table" author="Vietnguyen203" labels="202604221600">
+        <createTable tableName="order_items">
+            <column name="id" type="UUID">
+            <constraints primaryKey="true"/>
+        </column>
+            <column name="order_id" type="UUID"/>
+            <column name="menu_item_id" type="UUID"/>
+            <column name="quantity" type="INT"/>
+            <column name="unit_price" type="DECIMAL(15,2)"/>
+            <column name="customer_note" type="VARCHAR(255)"/>
+            <column name="item_status" type="SMALLINT"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+        <rollback>
+            <dropTable tableName="order_items"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

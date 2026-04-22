@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="202604221600-create-menu-items-table" author="Vietnguyen203" labels="202604221600">
+        <createTable tableName="menu-items">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="category_id" type="UUID"/>
+            <column name="code" type="VARCHAR(255)"/>
+            <column name="food_name" type="VARCHAR(255)"/>
+            <column name="price" type="DECIMAL(15,2)"/>
+            <column name="image_url" type="VARCHAR(255)"/>
+            <column name="status" type="SMALLINT"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+        <rollback>
+            <dropTable tableName="menu-items"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

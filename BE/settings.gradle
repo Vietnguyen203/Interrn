@@ -1,9 +1,0 @@
-rootProject.name = 'food-order-backend'
-
-include 'common-service'
-include 'account-service'
-include 'catalog-service'
-include 'order-service'
-include 'kitchen-service'
-include 'statistics-service'
-include 'api-gateway'
