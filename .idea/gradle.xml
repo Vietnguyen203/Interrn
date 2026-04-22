@@ -19,6 +19,14 @@
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/user-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/user-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/../Intern/Interrn/BE/account-service" />
       </GradleProjectSettings>
     </option>

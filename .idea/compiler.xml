@@ -2,30 +2,34 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
-      <module name="food-order-backend" target="17" />
       <module name="food-order-backend.account-service" target="17" />
-      <module name="food-order-backend.account-service.main" target="17" />
-      <module name="food-order-backend.account-service.test" target="17" />
-      <module name="food-order-backend.api-gateway" target="17" />
-      <module name="food-order-backend.api-gateway.main" target="17" />
-      <module name="food-order-backend.api-gateway.test" target="17" />
       <module name="food-order-backend.catalog-service" target="17" />
-      <module name="food-order-backend.catalog-service.main" target="17" />
-      <module name="food-order-backend.catalog-service.test" target="17" />
       <module name="food-order-backend.common-service" target="17" />
-      <module name="food-order-backend.common-service.main" target="17" />
-      <module name="food-order-backend.common-service.test" target="17" />
       <module name="food-order-backend.kitchen-service" target="17" />
-      <module name="food-order-backend.kitchen-service.main" target="17" />
-      <module name="food-order-backend.kitchen-service.test" target="17" />
-      <module name="food-order-backend.main" target="17" />
       <module name="food-order-backend.order-service" target="17" />
-      <module name="food-order-backend.order-service.main" target="17" />
-      <module name="food-order-backend.order-service.test" target="17" />
       <module name="food-order-backend.statistics-service" target="17" />
-      <module name="food-order-backend.statistics-service.main" target="17" />
-      <module name="food-order-backend.statistics-service.test" target="17" />
-      <module name="food-order-backend.test" target="17" />
     </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="food-order-backend.account-service" options="-parameters" />
+      <module name="food-order-backend.account-service.main" options="-parameters" />
+      <module name="food-order-backend.account-service.test" options="-parameters" />
+      <module name="food-order-backend.catalog-service" options="-parameters" />
+      <module name="food-order-backend.catalog-service.main" options="-parameters" />
+      <module name="food-order-backend.catalog-service.test" options="-parameters" />
+      <module name="food-order-backend.kitchen-service" options="-parameters" />
+      <module name="food-order-backend.kitchen-service.main" options="-parameters" />
+      <module name="food-order-backend.kitchen-service.test" options="-parameters" />
+      <module name="food-order-backend.order-service" options="-parameters" />
+      <module name="food-order-backend.order-service.main" options="-parameters" />
+      <module name="food-order-backend.order-service.test" options="-parameters" />
+      <module name="food-order-backend.statistics-service" options="-parameters" />
+      <module name="food-order-backend.statistics-service.main" options="-parameters" />
+      <module name="food-order-backend.statistics-service.test" options="-parameters" />
+      <module name="user-service" options="-parameters" />
+      <module name="user-service.main" options="-parameters" />
+      <module name="user-service.test" options="-parameters" />
+    </option>
   </component>
 </project>
