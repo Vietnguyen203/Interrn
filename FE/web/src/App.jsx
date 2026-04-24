@@ -53,14 +53,17 @@ const LoginScreen = ({ onLoginSuccess }) => {
     setSuccessMessage('');
 
     try {
-      const response = await apiService.auth.login(empId, password, server);
-      const token = response.data.token;
+      // Gọi đúng signature mới: (username, password)
+      const response = await apiService.auth.login(empId, password);
+      // BE trả về: { code, message, token }
+      const token = response.token;
+      if (!token) throw new Error('Không nhận được token từ server');
       sessionStorage.setItem('token', token);
       const userPayload = parseJwt(token);
       onLoginSuccess({
-        id: userPayload?.uid || empId,
-        role: userPayload?.role || 'USER',
-        server: userPayload?.server || server,
+        id: userPayload?.sub || empId,
+        role: userPayload?.role || 'ADMIN',
+        server: 'local',
         birthday: userPayload?.birthday || ''
       });
     } catch (err) {
@@ -397,10 +400,10 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleOpenStaffModal = (person = null) => {
     if (person) {
       setEditingStaff(person);
-      setStaffFormData({ 
-        ...person, 
+      setStaffFormData({
+        ...person,
         username: person.employeeId, // Use employeeId as username for display/tracking
-        password: '', 
+        password: '',
         birthday: person.birthday || '',
         gender: person.gender || 'MALE'
       });
@@ -418,7 +421,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       if (editingStaff && !payload.password) {
         delete payload.password; // Don't send empty password on update
       }
-      
+
       if (editingStaff) {
         await apiService.dashboard.updateStaff(editingStaff.server, editingStaff.uid, payload);
       } else {
@@ -593,7 +596,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                       </div>
                       <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Quantity: <strong>{item.quantity}</strong></p>
                       {item.note && <p style={{ fontSize: '13px', fontStyle: 'italic', backgroundColor: '#f9f9f9', padding: '8px', borderRadius: '4px', marginBottom: '16px' }}>Note: {item.note}</p>}
-                      
+
                       <div style={{ display: 'flex', gap: '12px' }}>
                         {item.status === 'PENDING' && (
                           <button onClick={() => handleUpdateItemStatus(item.orderItemId, 'PREPARING')} className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Accept Order</button>
@@ -901,7 +904,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                 <div className="input-group">
+                <div className="input-group">
                   <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Gender</label>
                   <div style={{ display: 'flex', gap: '12px' }}>
                     {['MALE', 'FEMALE', 'OTHER'].map(g => (

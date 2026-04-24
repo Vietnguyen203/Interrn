@@ -2,12 +2,22 @@ const API_BASE_URL = '/api';
 
 // Helper to get auth headers
 const getAuthHeaders = () => {
-    // Check sessionStorage (clears on tab close)
     const token = sessionStorage.getItem('token');
     return {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
+};
+
+// Safe JSON parser - handles empty body
+const safeJson = async (response) => {
+    const text = await response.text();
+    if (!text || text.trim() === '') return {};
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { message: text };
+    }
 };
 
 export const apiService = {
@@ -16,7 +26,7 @@ export const apiService = {
             method: 'GET',
             headers: getAuthHeaders(),
         });
-        const data = await response.json();
+        const data = await safeJson(response);
         if (!response.ok || data.code === 'ERROR') {
             throw new Error(data.message || `API error: ${response.status}`);
         }
@@ -29,7 +39,7 @@ export const apiService = {
             headers: getAuthHeaders(),
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const data = await safeJson(response);
         if (!response.ok || data.code === 'ERROR') {
             throw new Error(data.message || `API error: ${response.status}`);
         }
@@ -42,7 +52,7 @@ export const apiService = {
             headers: getAuthHeaders(),
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const data = await safeJson(response);
         if (!response.ok || data.code === 'ERROR') {
             throw new Error(data.message || `API error: ${response.status}`);
         }
@@ -54,7 +64,7 @@ export const apiService = {
             method: 'DELETE',
             headers: getAuthHeaders(),
         });
-        const data = await response.json();
+        const data = await safeJson(response);
         if (!response.ok || data.code === 'ERROR') {
             throw new Error(data.message || `API error: ${response.status}`);
         }
@@ -63,12 +73,10 @@ export const apiService = {
 
     // Specific API calls for cleaner components
     auth: {
-        login: (employeeId, password, server = 'HCM') =>
-            apiService.post('/users/login', { employeeId, password, server }),
-        forgotPassword: (email) =>
-            apiService.post('/users/forgot-password', { email }),
-        resetPassword: (email, otp, newPassword) =>
-            apiService.post('/users/reset-password', { email, otp, new_password: newPassword })
+        login: (username, password) =>
+            apiService.post('/users-service/request/login', { username, password }),
+        resetPassword: (id, password) =>
+            apiService.put(`/users-service/request/${id}/reset-password`, { password })
     },
 
     dashboard: {
