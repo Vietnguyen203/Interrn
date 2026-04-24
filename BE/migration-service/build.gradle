@@ -2,19 +2,66 @@ plugins {
     id 'java'
 }
 
-group = 'com.vietnl'
-version = '1.0-SNAPSHOT'
+group = 'com.vietnl.rms'
+version = '1.0'
 
 repositories {
     mavenCentral()
 }
 
-dependencies {
-    testImplementation platform('org.junit:junit-bom:6.0.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+configurations {
+    liquibaseRuntime
 }
 
-test {
-    useJUnitPlatform()
+dependencies {
+    // Liquibase
+    liquibaseRuntime 'org.liquibase:liquibase-core:4.27.0'
+    liquibaseRuntime 'info.picocli:picocli:4.7.5'
+
+    // Oracle ONLY (RMS bạn dùng Oracle)
+    liquibaseRuntime 'com.oracle.database.jdbc:ojdbc11:23.3.0.23.09'
+}
+
+def modules = ['user', 'kitchen', 'order', 'catalog']
+
+modules.each { moduleName ->
+    task "migrate-${moduleName}"(type: JavaExec) {
+        group = "liquibase"
+        description = "Run liquibase update for ${moduleName}"
+        classpath = configurations.liquibaseRuntime
+        mainClass = "liquibase.integration.commandline.Main"
+
+        def env = project.hasProperty('env') ? project.getProperty('env') : 'dev'
+        def changelogFile = "modules/${moduleName}/db.changelog-master.xml"
+        def propertiesFile = "modules/${moduleName}/config/${env}/liquibase.properties"
+
+        args "--defaultsFile=${propertiesFile}"
+        args "--changeLogFile=${changelogFile}"
+        args "update"
+
+        ignoreExitValue = false
+    }
+}
+
+task "migrate-all" {
+    group = "liquibase"
+    description = "Run all liquibase migrations"
+    dependsOn modules.collect { "migrate-${it}" }
+}
+
+modules.each { moduleName ->
+    task "dropAll-${moduleName}"(type: JavaExec) {
+        group = "liquibase"
+        description = "Run liquibase dropAll for ${moduleName}"
+        classpath = configurations.liquibaseRuntime
+        mainClass = "liquibase.integration.commandline.Main"
+
+        def env = project.hasProperty('env') ? project.getProperty('env') : 'dev'
+        def propertiesFile = "modules/${moduleName}/config/${env}/liquibase.properties"
+
+        args "--defaultsFile=${propertiesFile}"
+        args "dropAll"
+        
+        ignoreExitValue = false
+    }
 }

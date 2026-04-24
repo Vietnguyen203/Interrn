@@ -4,25 +4,18 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/BE" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/migration-service" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/BE" />
-            <option value="$PROJECT_DIR$/BE/account-service" />
-            <option value="$PROJECT_DIR$/BE/api-gateway" />
-            <option value="$PROJECT_DIR$/BE/catalog-service" />
-            <option value="$PROJECT_DIR$/BE/common-service" />
-            <option value="$PROJECT_DIR$/BE/kitchen-service" />
-            <option value="$PROJECT_DIR$/BE/order-service" />
-            <option value="$PROJECT_DIR$/BE/statistics-service" />
+            <option value="$PROJECT_DIR$/BE/migration-service" />
           </set>
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/user-service" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/users-service" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/BE/user-service" />
+            <option value="$PROJECT_DIR$/BE/users-service" />
           </set>
         </option>
       </GradleProjectSettings>

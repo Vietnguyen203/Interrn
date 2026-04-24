@@ -3,13 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Food.iml" filepath="$PROJECT_DIR$/.idea/Food.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/account-service/food-order-backend.account-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/account-service/food-order-backend.account-service.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/catalog-service/food-order-backend.catalog-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/catalog-service/food-order-backend.catalog-service.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/common-service/food-order-backend.common-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/common-service/food-order-backend.common-service.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/kitchen-service/food-order-backend.kitchen-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/kitchen-service/food-order-backend.kitchen-service.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/food-order-backend.main.iml" filepath="$PROJECT_DIR$/.idea/modules/food-order-backend.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/order-service/food-order-backend.order-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/order-service/food-order-backend.order-service.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/statistics-service/food-order-backend.statistics-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/statistics-service/food-order-backend.statistics-service.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/users-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/users-service.main.iml" />
     </modules>
   </component>
 </project>

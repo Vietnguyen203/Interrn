@@ -1,0 +1,4 @@
+rootProject.name = 'users-service'
+
+//include ':shared-library'
+//project(':shared-library').projectDir = new File(settingsDir, '../shared-library')

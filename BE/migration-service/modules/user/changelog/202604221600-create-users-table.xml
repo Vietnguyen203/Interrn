@@ -16,7 +16,7 @@
             <column name="phone_number" type="VARCHAR(255)"/>
             <column name="full_name" type="VARCHAR(255)"/>
             <column name="birthday" type="TIMESTAMP"/>
-            <column name="password" type="VARCHAR(255)"/>
+            <column name="password_hash" type="VARCHAR(255)"/>
             <column name="email" type="VARCHAR(255)"/>
             <column name="citizen_pid" type="VARCHAR(255)"/>
             <column name="created_at" type="TIMESTAMP"/>
