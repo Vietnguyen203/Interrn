@@ -96,8 +96,92 @@ export const apiService = {
         deleteStaff: (server, employeeId) => apiService.delete(`/users/${server}/${employeeId}`),
     },
 
+    // ===== KITCHEN (dùng order-service port 8082) =====
     kitchen: {
-        getPendingItems: () => apiService.get('/kitchen/items'),
-        updateItemStatus: (orderItemId, status) => apiService.put(`/kitchen/items/${orderItemId}/status`, { status })
+        // Lấy tất cả đơn PENDING / CONFIRMED để bếp xử lý
+        getPendingOrders: () => orderFetch('GET', '/orders?status=PENDING'),
+        getConfirmedOrders: () => orderFetch('GET', '/orders?status=CONFIRMED'),
+
+        // Cập nhật trạng thái chế biến của 1 món
+        // status: PENDING | COOKING | READY | SERVED
+        updateItemStatus: (itemId, status) =>
+            orderFetch('PATCH', `/orders/items/${itemId}/kitchen-status?status=${status}`),
+    },
+
+    // ===== CATALOG SERVICE (port 8081 via /catalog proxy) =====
+    catalog: {
+        // Categories
+        getCategories: () => catalogFetch('GET', '/catalog-service/categories'),
+        createCategory: (data) => catalogFetch('POST', '/catalog-service/categories', data),
+        updateCategory: (id, data) => catalogFetch('PUT', `/catalog-service/categories/${id}`, data),
+        deleteCategory: (id) => catalogFetch('DELETE', `/catalog-service/categories/${id}`),
+
+        // Menu Items
+        getItems: () => catalogFetch('GET', '/catalog-service/items'),
+        getItemsByCategory: (categoryId) => catalogFetch('GET', `/catalog-service/items/category/${categoryId}`),
+        createItem: (data) => catalogFetch('POST', '/catalog-service/items', data),
+        updateItem: (id, data) => catalogFetch('PUT', `/catalog-service/items/${id}`, data),
+        deleteItem: (id) => catalogFetch('DELETE', `/catalog-service/items/${id}`),
+    },
+
+    // ===== ORDER SERVICE (port 8082 via /order proxy) =====
+    order: {
+        // Lấy tất cả đơn / lọc theo status
+        getAll: (status) => orderFetch('GET', `/orders${status ? `?status=${status}` : ''}`),
+        getById: (id) => orderFetch('GET', `/orders/${id}`),
+
+        // Tạo đơn hàng mới
+        create: (data) => orderFetch('POST', '/orders', data),
+
+        // Thêm / sửa / xóa món trong đơn
+        addItem: (orderId, item) => orderFetch('POST', `/orders/${orderId}/items`, item),
+        updateItem: (orderId, itemId, data) => orderFetch('PUT', `/orders/${orderId}/items/${itemId}`, data),
+        removeItem: (orderId, itemId) => orderFetch('DELETE', `/orders/${orderId}/items/${itemId}`),
+
+        // Đổi trạng thái đơn: PENDING | CONFIRMED | COMPLETED | CANCELLED
+        updateStatus: (orderId, status) => orderFetch('PATCH', `/orders/${orderId}/status?status=${status}`),
+
+        // Hủy đơn
+        cancel: (orderId) => orderFetch('DELETE', `/orders/${orderId}`),
+
+        // Bếp cập nhật trạng thái chế biến: PENDING | COOKING | READY | SERVED
+        updateKitchenStatus: (itemId, status) =>
+            orderFetch('PATCH', `/orders/items/${itemId}/kitchen-status?status=${status}`),
     }
 };
+
+// Helper riêng cho catalog-service (proxy /catalog → port 8081)
+async function catalogFetch(method, path, body) {
+    const token = sessionStorage.getItem('token');
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    const response = await fetch(`/catalog${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok) throw new Error(data.message || `Catalog API error: ${response.status}`);
+    return data;
+}
+
+// Helper riêng cho order-service (proxy /order → port 8082)
+async function orderFetch(method, path, body) {
+    const token = sessionStorage.getItem('token');
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    const response = await fetch(`/order${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok) throw new Error(data.message || `Order API error: ${response.status}`);
+    return data;
+}

@@ -8,14 +8,17 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.food.order.data.ApiError
+import com.food.order.data.mapper.toFoodModel
 import com.food.order.data.model.FoodModel
 import com.food.order.data.model.ApiResponse
-import com.food.order.data.repository.FoodRepository
-import com.food.order.data.repository.OrderRepository
+import com.food.order.data.repository.CatalogRepository
 import com.food.order.data.repository.FileRepository
+import com.food.order.data.repository.OrderRepository
 import com.food.order.data.request.AddOrderItemRequest
-import com.food.order.data.request.FoodRequest
-import com.food.order.data.response.FoodResponse
+import com.food.order.data.request.MenuItemRequest
+import com.food.order.data.response.CategoryResponse
+import com.food.order.data.response.MenuItemResponse
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -26,12 +29,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
-import com.food.order.data.ApiError
 
 class FoodViewModel : ViewModel() {
 
     private val fileRepository = FileRepository
-    private val repository = FoodRepository
+    private val catalogRepository = CatalogRepository
     private val orderRepository = OrderRepository
 
     private val _imageUriFlow = MutableSharedFlow<Uri?>(replay = 0)
@@ -43,8 +45,16 @@ class FoodViewModel : ViewModel() {
     private val _errorFlow = MutableSharedFlow<String>(replay = 0)
     val errorFlow = _errorFlow.asSharedFlow()
 
-    private val _foodsFlow = MutableSharedFlow<List<FoodResponse>>(replay = 0)
+    // Emit List<MenuItemResponse> (catalog) → Fragment map sang FoodModel
+    private val _menuItemsFlow = MutableSharedFlow<List<MenuItemResponse>>(replay = 0)
+    val menuItemsFlow = _menuItemsFlow.asSharedFlow()
+
+    // Giữ lại foodsFlow để FoodFragment không cần đổi tên flow
+    private val _foodsFlow = MutableSharedFlow<List<FoodModel>>(replay = 0)
     val foodsFlow = _foodsFlow.asSharedFlow()
+
+    private val _categoriesFlow = MutableSharedFlow<List<CategoryResponse>>(replay = 0)
+    val categoriesFlow = _categoriesFlow.asSharedFlow()
 
     private val _insertFlow = MutableSharedFlow<Boolean>()
     val insertFlow = _insertFlow.asSharedFlow()
@@ -73,59 +83,56 @@ class FoodViewModel : ViewModel() {
         viewModelScope.launch { _imageUriFlow.emit(imageUri) }
     }
 
-    fun createFood(context: Context, token: String, request: FoodRequest) {
+    fun createMenuItem(context: Context, token: String, request: MenuItemRequest) {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
-                val filePart: MultipartBody.Part? = imageUri?.let { prepareFilePart(context, it) }
-                if (filePart != null) {
-                    val fileResponse = fileRepository.uploadImage(token, filePart)
-                    if (fileResponse.isSuccess) {
-                        val newRequest = request.copy(image = fileResponse.data?.url ?: "")
-                        val response = repository.createFood(token, newRequest)
-                        if (response.isSuccess) _insertFlow.emit(true) else _errorFlow.emit(response.message ?: "Create failed")
-                    } else _errorFlow.emit("Failed to upload image")
-                } else _errorFlow.emit("No image selected")
+                val response = catalogRepository.createMenuItem(context, token, request)
+                if (response.isSuccess) _insertFlow.emit(true)
+                else _errorFlow.emit(response.message ?: "Tạo món thất bại")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally { _loadingFlow.emit(false) }
         }
     }
 
-    fun updateFood(context: Context, token: String, request: FoodRequest) {
+    fun updateMenuItem(context: Context, token: String, request: MenuItemRequest) {
         viewModelScope.launch {
-            if (editFood == null) { _errorFlow.emit("Food is null"); return@launch }
+            if (editFood == null) { _errorFlow.emit("Không tìm thấy món ăn"); return@launch }
             _loadingFlow.emit(true)
             try {
-                if (imageUri != null) {
-                    val filePart: MultipartBody.Part? = prepareFilePart(context, imageUri!!)
-                    if (filePart != null) {
-                        val fileResponse = fileRepository.uploadImage(token, filePart)
-                        if (fileResponse.isSuccess) {
-                            val newRequest = request.copy(image = fileResponse.data?.url ?: "")
-                            val response = repository.updateFood(token, editFood!!.id, newRequest)
-                            if (response.isSuccess) _updateFlow.emit(true) else _errorFlow.emit(response.message ?: "Update failed")
-                        } else _errorFlow.emit("Failed to upload image")
-                    } else _errorFlow.emit("No image selected")
-                } else {
-                    val response = repository.updateFood(token, editFood!!.id, request)
-                    if (response.isSuccess) _updateFlow.emit(true) else _errorFlow.emit(response.message ?: "Update failed")
-                }
+                val response = catalogRepository.updateMenuItem(context, token, editFood!!.id, request)
+                if (response.isSuccess) _updateFlow.emit(true)
+                else _errorFlow.emit(response.message ?: "Cập nhật thất bại")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally { _loadingFlow.emit(false) }
         }
     }
 
-    fun getFoodsFromServer(token: String) {
+    /** Lấy tất cả món ăn từ catalog-service, emit sang foodsFlow (FoodModel) */
+    fun getFoodsFromServer(context: Context, token: String, categoryId: String? = null) {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
-                val response = repository.getFoodsFromServer(token)
-                if (response.isSuccess) _foodsFlow.emit(response.data ?: emptyList()) else _errorFlow.emit(response.message ?: "Load failed")
+                val response = catalogRepository.getMenuItems(context, token, categoryId)
+                if (response.isSuccess) {
+                    val models = (response.data ?: emptyList()).map { it.toFoodModel() }
+                    _foodsFlow.emit(models)
+                } else _errorFlow.emit(response.message ?: "Tải món ăn thất bại")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally { _loadingFlow.emit(false) }
+        }
+    }
+
+    /** Lấy danh sách danh mục */
+    fun getCategories(context: Context, token: String) {
+        viewModelScope.launch {
+            try {
+                val response = catalogRepository.getCategories(context, token)
+                if (response.isSuccess) _categoriesFlow.emit(response.data ?: emptyList())
+            } catch (_: Exception) { }
         }
     }
 
@@ -188,22 +195,17 @@ class FoodViewModel : ViewModel() {
         }
     }
 
-    fun deleteFood(token: String) {
+    fun deleteMenuItem(context: Context, token: String) {
         viewModelScope.launch {
-            if (editFood == null) {
-                _errorFlow.emit("Food is null")
-                return@launch
-            }
+            if (editFood == null) { _errorFlow.emit("Không tìm thấy món ăn"); return@launch }
             _loadingFlow.emit(true)
             try {
-                val response = repository.deleteFood(token, editFood!!.id)
+                val response = catalogRepository.deleteMenuItem(context, token, editFood!!.id)
                 _deleteFlow.emit(response.isSuccess)
-                if (!response.isSuccess) _errorFlow.emit(response.message ?: "Delete failed")
+                if (!response.isSuccess) _errorFlow.emit(response.message ?: "Xóa thất bại")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
-            } finally {
-                _loadingFlow.emit(false)
-            }
+            } finally { _loadingFlow.emit(false) }
         }
     }
 

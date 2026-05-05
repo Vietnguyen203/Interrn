@@ -4,10 +4,34 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/catalog-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/catalog-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/BE/migration-service" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$/BE/migration-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/order-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/order-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/table-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/table-service" />
           </set>
         </option>
       </GradleProjectSettings>

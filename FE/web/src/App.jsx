@@ -1,8 +1,166 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Users, Utensils, ClipboardList, PieChart, LogOut, Settings, Search, Bell, Menu, User as UserIcon, Filter, Download, Plus, AlertCircle, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, Utensils, ClipboardList, PieChart, LogOut, Settings, Search, Bell, Menu, User as UserIcon, Filter, Download, Plus, AlertCircle, Calendar, CheckCircle, XCircle, Info, X } from 'lucide-react';
 import { apiService } from './services/api';
 import './index.css';
+
+// =========================================================
+// TOAST NOTIFICATION SYSTEM
+// =========================================================
+const ToastContext = React.createContext(null);
+
+const ToastContainer = ({ toasts, onRemove }) => (
+  <div style={{
+    position: 'fixed', top: '20px', right: '20px',
+    zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px',
+    pointerEvents: 'none'
+  }}>
+    <AnimatePresence>
+      {toasts.map(t => {
+        const cfg = {
+          success: { bg: '#10b981', icon: <CheckCircle size={18} />, label: 'Thành công' },
+          error: { bg: '#ef4444', icon: <XCircle size={18} />, label: 'Lỗi' },
+          info: { bg: '#6366f1', icon: <Info size={18} />, label: 'Thông báo' },
+          warning: { bg: '#f59e0b', icon: <AlertCircle size={18} />, label: 'Cảnh báo' },
+        }[t.type] || { bg: '#6366f1', icon: <Info size={18} />, label: '' };
+        return (
+          <motion.div key={t.id}
+            initial={{ opacity: 0, x: 80, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.85 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            style={{
+              pointerEvents: 'all',
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+              background: 'white', borderRadius: '12px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.14)', padding: '14px 16px',
+              minWidth: '280px', maxWidth: '360px',
+              borderLeft: `4px solid ${cfg.bg}`,
+            }}>
+            <span style={{ color: cfg.bg, flexShrink: 0, marginTop: '1px' }}>{cfg.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: '13px', fontWeight: '700', margin: '0 0 2px', color: '#1a1a2e' }}>{cfg.label}</p>
+              <p style={{ fontSize: '13px', color: '#555', margin: 0, wordBreak: 'break-word' }}>{t.message}</p>
+            </div>
+            <button onClick={() => onRemove(t.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', padding: '0', flexShrink: 0 }}>
+              <X size={15} />
+            </button>
+          </motion.div>
+        );
+      })}
+    </AnimatePresence>
+  </div>
+);
+
+const useToast = () => {
+  const [toasts, setToasts] = useState([]);
+  const timerRef = useRef({});
+
+  const remove = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+    clearTimeout(timerRef.current[id]);
+  }, []);
+
+  const show = useCallback((message, type = 'info', duration = 4000) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev.slice(-4), { id, message, type }]);
+    timerRef.current[id] = setTimeout(() => remove(id), duration);
+    return id;
+  }, [remove]);
+
+  const toast = {
+    success: (msg, dur) => show(msg, 'success', dur),
+    error: (msg, dur) => show(msg, 'error', dur || 5000),
+    info: (msg, dur) => show(msg, 'info', dur),
+    warning: (msg, dur) => show(msg, 'warning', dur),
+  };
+
+  return { toasts, toast, remove };
+};
+
+// =========================================================
+// CONFIRM DIALOG
+// =========================================================
+const ConfirmDialog = ({ open, title, message, onConfirm, onCancel, confirmLabel = 'Xác nhận', danger = false }) => {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}
+      onClick={onCancel}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: 'spring', damping: 22, stiffness: 350 }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'white', borderRadius: '16px', padding: '28px 32px',
+          minWidth: '340px', maxWidth: '440px', width: '90%',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <span style={{
+            width: '38px', height: '38px', borderRadius: '50%',
+            backgroundColor: danger ? '#fee2e2' : '#eff6ff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+          }}>
+            <AlertCircle size={20} color={danger ? '#ef4444' : '#6366f1'} />
+          </span>
+          <h3 style={{ fontSize: '17px', fontWeight: '700', margin: 0, color: '#1a1a2e' }}>{title}</h3>
+        </div>
+        <p style={{ fontSize: '14px', color: '#555', margin: '0 0 24px', lineHeight: '1.6' }}>{message}</p>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button onClick={onCancel}
+            style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', background: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: '600', color: '#555' }}>
+            Hủy bỏ
+          </button>
+          <button onClick={onConfirm}
+            style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: '700', backgroundColor: danger ? '#ef4444' : '#6366f1', color: 'white' }}>
+            {confirmLabel}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const useConfirm = () => {
+  const [state, setState] = useState({ open: false, title: '', message: '', danger: false, confirmLabel: 'Xác nhận', resolve: null });
+
+  const confirm = useCallback((title, message, { danger = false, confirmLabel = 'Xác nhận' } = {}) => {
+    return new Promise(resolve => {
+      setState({ open: true, title, message, danger, confirmLabel, resolve });
+    });
+  }, []);
+
+  const handleConfirm = useCallback(() => {
+    state.resolve?.(true);
+    setState(s => ({ ...s, open: false }));
+  }, [state]);
+
+  const handleCancel = useCallback(() => {
+    state.resolve?.(false);
+    setState(s => ({ ...s, open: false }));
+  }, [state]);
+
+  const ConfirmUI = (
+    <ConfirmDialog
+      open={state.open}
+      title={state.title}
+      message={state.message}
+      danger={state.danger}
+      confirmLabel={state.confirmLabel}
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
+    />
+  );
+
+  return { confirm, ConfirmUI };
+};
 
 // --- Token helper to decode JWT payload (base64) ---
 const parseJwt = (token) => {
@@ -224,6 +382,8 @@ const LoginScreen = ({ onLoginSuccess }) => {
 // Dashboard Screen
 // ---------------------------------------------------------
 const DashboardScreen = ({ user, onLogout }) => {
+  const { toasts, toast, remove: removeToast } = useToast();
+  const { confirm, ConfirmUI } = useConfirm();
   const [activeTab, setActiveTab] = useState(user?.role === 'KITCHEN' ? 'Kitchen' : 'Overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -232,13 +392,22 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [foods, setFoods] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null); // null = đang xem danh mục; object = đang xem món của danh mục đó
+
   const [staff, setStaff] = useState([]);
 
   // Modal States
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [foodFormData, setFoodFormData] = useState({
-    foodName: '', price: '', unit: '', category: 'MAIN_COURSE', image: '', description: ''
+    code: '', foodName: '', price: '', categoryId: '', imageUrl: ''
+  });
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryFormData, setCategoryFormData] = useState({
+    code: '', name: '', description: ''
   });
 
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -277,8 +446,29 @@ const DashboardScreen = ({ user, onLogout }) => {
   const fetchKitchenData = async () => {
     setLoadingConfig(prev => ({ ...prev, kitchen: true }));
     try {
-      const res = await apiService.kitchen.getPendingItems();
-      if (res.data) setKitchenItems(res.data);
+      // Lấy cả đơn PENDING và CONFIRMED, flatten items để bếp thấy từng món
+      const [pendingRes, confirmedRes] = await Promise.allSettled([
+        apiService.kitchen.getPendingOrders(),
+        apiService.kitchen.getConfirmedOrders(),
+      ]);
+
+      const orders = [
+        ...(pendingRes.status === 'fulfilled' ? (pendingRes.value.data || []) : []),
+        ...(confirmedRes.status === 'fulfilled' ? (confirmedRes.value.data || []) : []),
+      ];
+
+      // Flatten: mỗi item giữ thông tin đơn (bàn, orderId, orderStatus)
+      const flatItems = orders.flatMap(order =>
+        (order.items || []).map(item => ({
+          ...item,
+          tableNumber: order.tableNumber || order.tableId || '—',
+          orderId: order.id,
+          orderStatus: order.status,
+          createdAt: order.createdAt,
+        }))
+      ).filter(item => item.kitchenStatus !== 'SERVED'); // ẩn món đã phục vụ xong
+
+      setKitchenItems(flatItems);
     } catch (error) { console.error('Error fetching kitchen data:', error); }
     finally { setLoadingConfig(prev => ({ ...prev, kitchen: false })); }
   };
@@ -286,38 +476,64 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleUpdateItemStatus = async (itemId, newStatus) => {
     try {
       await apiService.kitchen.updateItemStatus(itemId, newStatus);
+      const labels = { COOKING: 'đang nấu', READY: 'sẵn sàng', SERVED: 'đã phục vụ' };
+      toast.success(`Cập nhật món → ${labels[newStatus] || newStatus}`);
       fetchKitchenData();
-    } catch (error) { alert("Error updating status: " + error.message); }
+    } catch (error) { toast.error('Lỗi cập nhật: ' + error.message); }
   };
 
   const fetchOverviewData = async () => {
     setLoadingConfig(prev => ({ ...prev, overview: true }));
     try {
-      const [tablesRes, ordersRes] = await Promise.all([
-        apiService.dashboard.getTables(),
-        apiService.dashboard.getRecentOrders()
-      ]);
-      if (tablesRes.data) setTables(tablesRes.data);
-      if (ordersRes.data) setRecentOrders(ordersRes.data);
-    } catch (error) { console.error('Error fetching overview:', error); }
-    finally { setLoadingConfig(prev => ({ ...prev, overview: false })); }
+      const ordersRes = await apiService.order.getAll();
+      if (ordersRes.data) {
+        setRecentOrders(ordersRes.data.slice(0, 5));
+        setAllOrders(ordersRes.data);
+      }
+    } catch { }
+    setLoadingConfig(prev => ({ ...prev, overview: false }));
   };
 
-  const fetchOrdersData = async () => {
+
+
+  const fetchOrdersData = async (statusFilter) => {
     setLoadingConfig(prev => ({ ...prev, orders: true }));
     try {
-      const res = await apiService.dashboard.getAllOrders(0, 50);
+      const res = await apiService.order.getAll(statusFilter);
       if (res.data) setAllOrders(res.data);
-    } catch (error) { console.error('Error fetching orders:', error); }
+    } catch (error) { toast.error('Không thể tải đơn hàng: ' + error.message); }
     finally { setLoadingConfig(prev => ({ ...prev, orders: false })); }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    const ok = await confirm('Hủy đơn hàng', 'Bạn có chắc muốn hủy đơn hàng này không?', { danger: true, confirmLabel: 'Hủy đơn' });
+    if (!ok) return;
+    try {
+      await apiService.order.cancel(orderId);
+      toast.success('Đã hủy đơn hàng');
+      fetchOrdersData();
+    } catch (e) { toast.error('Lỗi hủy đơn: ' + e.message); }
+  };
+
+  const handleUpdateOrderStatus = async (orderId, status) => {
+    try {
+      await apiService.order.updateStatus(orderId, status);
+      const labels = { CONFIRMED: 'Đã xác nhận', COMPLETED: 'Hoàn thành', CANCELLED: 'Đã hủy' };
+      toast.success(`Đơn hàng → ${labels[status] || status}`);
+      fetchOrdersData();
+    } catch (e) { toast.error('Lỗi cập nhật đơn: ' + e.message); }
   };
 
   const fetchFoodsData = async () => {
     setLoadingConfig(prev => ({ ...prev, foods: true }));
     try {
-      const res = await apiService.dashboard.getFoods();
-      if (res.data) setFoods(res.data);
-    } catch (error) { console.error('Error fetching foods:', error); }
+      const [itemsRes, catsRes] = await Promise.all([
+        apiService.catalog.getItems(),
+        apiService.catalog.getCategories(),
+      ]);
+      if (itemsRes.data) setFoods(itemsRes.data);
+      if (catsRes.data) setCategories(catsRes.data);
+    } catch (error) { toast.error('Không thể tải thực đơn: ' + error.message); }
     finally { setLoadingConfig(prev => ({ ...prev, foods: false })); }
   };
 
@@ -325,15 +541,10 @@ const DashboardScreen = ({ user, onLogout }) => {
     setLoadingConfig(prev => ({ ...prev, staff: true }));
     try {
       const server = user?.server || 'HCM';
-      console.log(`[DEBUG] Fetching staff for server: ${server}`);
       const res = await apiService.dashboard.getStaff(server);
-      console.log('[DEBUG] Staff response:', res);
-      if (res.data) {
-        setStaff(res.data);
-        console.log(`[DEBUG] Staff state updated with ${res.data.length} items.`);
-      }
+      if (res.data) setStaff(res.data);
     } catch (error) {
-      console.error('Error fetching staff:', error);
+      toast.error('Không thể tải danh sách nhân viên: ' + error.message);
     } finally {
       setLoadingConfig(prev => ({ ...prev, staff: false }));
     }
@@ -349,8 +560,10 @@ const DashboardScreen = ({ user, onLogout }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'COMPLETED': return 'var(--status-completed)';
-      case 'ORDERING': return 'var(--status-ordering)';
+      case 'CONFIRMED': return 'var(--status-ordering)';
+      case 'PENDING': return '#f59e0b';  // amber
       case 'CANCELLED': return 'var(--status-cancelled)';
+      case 'ORDERING': return 'var(--status-ordering)';
       default: return 'var(--text-secondary)';
     }
   };
@@ -364,10 +577,10 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleOpenFoodModal = (food = null) => {
     if (food) {
       setEditingFood(food);
-      setFoodFormData(food);
+      setFoodFormData({ code: food.code || '', foodName: food.foodName || '', price: food.price || '', categoryId: food.categoryId || '', imageUrl: food.imageUrl || '' });
     } else {
       setEditingFood(null);
-      setFoodFormData({ foodName: '', price: '', unit: '', category: 'MAIN_COURSE', image: '', description: '' });
+      setFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '' });
     }
     setIsFoodModalOpen(true);
   };
@@ -375,26 +588,63 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleSaveFood = async (e) => {
     e.preventDefault();
     try {
+      const payload = { ...foodFormData, price: parseFloat(foodFormData.price) };
       if (editingFood) {
-        await apiService.dashboard.updateFood(editingFood.id, foodFormData);
+        await apiService.catalog.updateItem(editingFood.id, payload);
+        toast.success('Cập nhật món ăn thành công');
       } else {
-        await apiService.dashboard.createFood(foodFormData);
+        await apiService.catalog.createItem(payload);
+        toast.success('Thêm món ăn thành công');
       }
       setIsFoodModalOpen(false);
-      fetchFoodsData(); // Reload
-    } catch (err) {
-      alert("Error saving food: " + err.message);
-    }
+      fetchFoodsData();
+    } catch (err) { toast.error('Lỗi lưu món ăn: ' + err.message); }
   };
 
   const handleDeleteFood = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this food item?")) return;
+    const ok = await confirm('Xóa món ăn', 'Bạn có chắc muốn xóa món ăn này không?', { danger: true, confirmLabel: 'Xóa' });
+    if (!ok) return;
     try {
-      await apiService.dashboard.deleteFood(id);
+      await apiService.catalog.deleteItem(id);
+      toast.success('Đã xóa món ăn');
       fetchFoodsData();
-    } catch (err) {
-      alert("Error deleting food: " + err.message);
+    } catch (err) { toast.error('Lỗi xóa món ăn: ' + err.message); }
+  };
+
+  const handleOpenCategoryModal = (cat = null) => {
+    if (cat) {
+      setEditingCategory(cat);
+      setCategoryFormData({ code: cat.code || '', name: cat.name || '', description: cat.description || '' });
+    } else {
+      setEditingCategory(null);
+      setCategoryFormData({ code: '', name: '', description: '' });
     }
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingCategory) {
+        await apiService.catalog.updateCategory(editingCategory.id, categoryFormData);
+        toast.success('Cập nhật danh mục thành công');
+      } else {
+        await apiService.catalog.createCategory(categoryFormData);
+        toast.success('Thêm danh mục thành công');
+      }
+      setIsCategoryModalOpen(false);
+      fetchFoodsData();
+    } catch (err) { toast.error('Lỗi lưu danh mục: ' + err.message); }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    const ok = await confirm('Xóa danh mục', 'Các món ăn thuộc danh mục này sẽ bị ảnh hưởng. Bạn có chắc muốn xóa?', { danger: true, confirmLabel: 'Xóa danh mục' });
+    if (!ok) return;
+    try {
+      await apiService.catalog.deleteCategory(id);
+      toast.success('Đã xóa danh mục');
+      fetchFoodsData();
+    } catch (err) { toast.error('Lỗi xóa danh mục: ' + err.message); }
   };
 
   const handleOpenStaffModal = (person = null) => {
@@ -419,33 +669,38 @@ const DashboardScreen = ({ user, onLogout }) => {
     try {
       const payload = { ...staffFormData };
       if (editingStaff && !payload.password) {
-        delete payload.password; // Don't send empty password on update
+        delete payload.password;
       }
-
       if (editingStaff) {
         await apiService.dashboard.updateStaff(editingStaff.server, editingStaff.uid, payload);
+        toast.success('Cập nhật nhân viên thành công');
       } else {
         await apiService.dashboard.createStaff(payload);
+        toast.success('Thêm nhân viên thành công');
       }
       setIsStaffModalOpen(false);
       fetchStaffData();
     } catch (err) {
-      alert("Error saving staff: " + err.message);
+      toast.error('Lỗi lưu nhân viên: ' + err.message);
     }
   };
 
   const handleDeleteStaff = async (server, employeeId) => {
-    if (!window.confirm("Are you sure you want to remove this staff member?")) return;
+    const ok = await confirm('Xóa nhân viên', 'Bạn có chắc muốn xóa nhân viên này không?', { danger: true, confirmLabel: 'Xóa' });
+    if (!ok) return;
     try {
       await apiService.dashboard.deleteStaff(server, employeeId);
+      toast.success('Đã xóa nhân viên');
       fetchStaffData();
     } catch (err) {
-      alert("Error deleting staff: " + err.message);
+      toast.error('Lỗi xóa nhân viên: ' + err.message);
     }
   };
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', backgroundColor: 'var(--bg-app)' }}>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      {ConfirmUI}
       {/* Sidebar */}
       <motion.aside initial={false} animate={{ width: isSidebarOpen ? '260px' : '0px', opacity: isSidebarOpen ? 1 : 0 }} style={{ backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', overflow: 'hidden', whiteSpace: 'nowrap' }}>
         <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -579,40 +834,78 @@ const DashboardScreen = ({ user, onLogout }) => {
           {/* KITCHEN TAB */}
           {activeTab === 'Kitchen' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '600' }}>In-Progress Orders</h3>
-                <button onClick={fetchKitchenData} className="btn-ghost" style={{ padding: '8px 16px', fontSize: '14px' }}>Refresh</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>🍳 Bếp — Đơn cần chế biến</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {kitchenItems.filter(i => i.kitchenStatus === 'PENDING').length} chờ &middot;{' '}
+                    {kitchenItems.filter(i => i.kitchenStatus === 'COOKING').length} đang nấu &middot;{' '}
+                    {kitchenItems.filter(i => i.kitchenStatus === 'READY').length} sẵn sàng
+                  </p>
+                </div>
+                <button onClick={fetchKitchenData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
               </div>
 
               {loadingConfig.kitchen ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading kitchen items...</p>
+                <p style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu bếp...</p>
+              ) : kitchenItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '80px', color: 'var(--text-secondary)' }}>
+                  <Utensils size={52} style={{ margin: '0 auto 16px', opacity: 0.25 }} />
+                  <p style={{ fontWeight: '600', fontSize: '16px' }}>Không có món nào cần chế biến</p>
+                  <p style={{ fontSize: '13px', marginTop: '4px' }}>Tất cả đơn đã được phục vụ hoặc chưa có đơn mới.</p>
+                </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-                  {kitchenItems.map(item => (
-                    <div key={item.id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${item.status === 'PENDING' ? 'var(--status-cancelled)' : 'var(--status-ordering)'}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <h4 style={{ fontSize: '18px', fontWeight: '700' }}>{item.foodName}</h4>
-                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: item.status === 'PENDING' ? 'var(--status-cancelled)' : 'var(--status-ordering)' }}>{item.status}</span>
-                      </div>
-                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Quantity: <strong>{item.quantity}</strong></p>
-                      {item.note && <p style={{ fontSize: '13px', fontStyle: 'italic', backgroundColor: '#f9f9f9', padding: '8px', borderRadius: '4px', marginBottom: '16px' }}>Note: {item.note}</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '20px' }}>
+                  {kitchenItems.map(item => {
+                    const ks = item.kitchenStatus;
+                    const borderColor = ks === 'PENDING' ? '#f59e0b' : ks === 'COOKING' ? '#ef4444' : ks === 'READY' ? '#10b981' : '#6b7280';
+                    return (
+                      <div key={item.id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${borderColor}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                              🪑 {item.tableNumber}
+                            </span>
+                            <h4 style={{ fontSize: '17px', fontWeight: '700', margin: '4px 0 0' }}>{item.foodName}</h4>
+                          </div>
+                          <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', backgroundColor: `${borderColor}20`, color: borderColor, whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                            {ks === 'PENDING' ? '⏳ Chờ' : ks === 'COOKING' ? '🔥 Nấu' : ks === 'READY' ? '✅ Sẵn sàng' : ks}
+                          </span>
+                        </div>
 
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        {item.status === 'PENDING' && (
-                          <button onClick={() => handleUpdateItemStatus(item.orderItemId, 'PREPARING')} className="btn btn-primary" style={{ flex: 1, padding: '8px' }}>Accept Order</button>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                          Số lượng: <strong style={{ fontSize: '16px', color: 'var(--text-primary)' }}>x{item.quantity}</strong>
+                        </p>
+
+                        {item.note && (
+                          <p style={{ fontSize: '13px', fontStyle: 'italic', backgroundColor: '#fffbeb', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', color: '#92400e', border: '1px solid #fde68a' }}>
+                            📝 {item.note}
+                          </p>
                         )}
-                        {item.status === 'PREPARING' && (
-                          <button onClick={() => handleUpdateItemStatus(item.orderItemId, 'READY')} className="btn" style={{ flex: 1, padding: '8px', backgroundColor: 'var(--status-completed)', color: 'white', border: 'none' }}>Mark Completed</button>
-                        )}
+
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          {ks === 'PENDING' && (
+                            <button onClick={() => handleUpdateItemStatus(item.id, 'COOKING')}
+                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white' }}>
+                              🔥 Bắt đầu nấu
+                            </button>
+                          )}
+                          {ks === 'COOKING' && (
+                            <button onClick={() => handleUpdateItemStatus(item.id, 'READY')}
+                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10b981', color: 'white' }}>
+                              ✅ Hoàn thành
+                            </button>
+                          )}
+                          {ks === 'READY' && (
+                            <button onClick={() => handleUpdateItemStatus(item.id, 'SERVED')}
+                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#6366f1', color: 'white' }}>
+                              🛎️ Đã phục vụ
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {kitchenItems.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
-                      <Utensils size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
-                      <p>Currently no pending orders in the kitchen.</p>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
@@ -621,142 +914,300 @@ const DashboardScreen = ({ user, onLogout }) => {
           {/* ORDERS TAB */}
           {activeTab === 'Orders' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '600' }}>All Orders</h3>
-                <button onClick={fetchOrdersData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>Refresh</button>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <div>
+                  <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>📋 Quản lý Đơn hàng</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{allOrders.length} đơn hàng</p>
+                </div>
+                <button onClick={() => fetchOrdersData()} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
               </div>
+
+              {/* Status Filter Tabs */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                {[null, 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map(s => (
+                  <button key={s ?? 'all'} onClick={() => fetchOrdersData(s)}
+                    className="btn" style={{
+                      padding: '6px 16px', fontSize: '13px', fontWeight: '600',
+                      backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)',
+                      color: 'var(--text-secondary)', borderRadius: '20px', cursor: 'pointer'
+                    }}>
+                    {s === null ? '🔍 Tất cả' : s === 'PENDING' ? '⏳ Chờ xác nhận' : s === 'CONFIRMED' ? '✅ Đã xác nhận' : s === 'COMPLETED' ? '🎉 Hoàn thành' : '❌ Đã hủy'}
+                  </button>
+                ))}
+              </div>
+
               {loadingConfig.orders ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading orders...</p>
+                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Đang tải đơn hàng...</p>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
-                      <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '500' }}>Order ID</th>
-                      <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '500' }}>Table</th>
-                      <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '500' }}>Total Amount</th>
-                      <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '500' }}>Created By</th>
-                      <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '500' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allOrders.map((order) => (
-                      <tr key={order.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '16px', fontWeight: '500' }}>{order.id}</td>
-                        <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{order.tableId}</td>
-                        <td style={{ padding: '16px', fontWeight: '600' }}>{order.totalAmount}</td>
-                        <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{order.createdBy}</td>
-                        <td style={{ padding: '16px' }}>
-                          <span style={{ padding: '6px 12px', borderRadius: '4px', fontSize: '13px', fontWeight: '600', backgroundColor: `${getStatusColor(order.status)}15`, color: getStatusColor(order.status) }}>
-                            {order.status}
-                          </span>
-                        </td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Mã đơn</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Bàn</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Tổng tiền</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Người tạo</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Ngày tạo</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Trạng thái</th>
+                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Thao tác</th>
                       </tr>
-                    ))}
-                    {allOrders.length === 0 && (
-                      <tr><td colSpan="5" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No orders found.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {allOrders.map((order) => (
+                        <tr key={order.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                          <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            {String(order.id).slice(0, 8)}…
+                          </td>
+                          <td style={{ padding: '14px 16px', fontWeight: '600' }}>
+                            {order.tableNumber || order.tableId || '—'}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontWeight: '700', color: 'var(--status-ordering)' }}>
+                            {Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ
+                          </td>
+                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{order.createdBy || '—'}</td>
+                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(order.createdAt)}</td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span style={{
+                              padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
+                              backgroundColor: `${getStatusColor(order.status)}15`,
+                              color: getStatusColor(order.status)
+                            }}>
+                              {order.status === 'PENDING' ? 'Chờ xác nhận'
+                                : order.status === 'CONFIRMED' ? 'Đã xác nhận'
+                                  : order.status === 'COMPLETED' ? 'Hoàn thành'
+                                    : order.status === 'CANCELLED' ? 'Đã hủy'
+                                      : order.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              {order.status === 'PENDING' && (
+                                <button onClick={() => handleUpdateOrderStatus(order.id, 'CONFIRMED')}
+                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--primary)', color: 'white' }}>
+                                  Xác nhận
+                                </button>
+                              )}
+                              {order.status === 'CONFIRMED' && (
+                                <button onClick={() => handleUpdateOrderStatus(order.id, 'COMPLETED')}
+                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--status-completed)', color: 'white' }}>
+                                  Hoàn thành
+                                </button>
+                              )}
+                              {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
+                                <button onClick={() => handleCancelOrder(order.id)}
+                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--status-cancelled)', color: 'white' }}>
+                                  Hủy
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {allOrders.length === 0 && (
+                        <tr>
+                          <td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <ClipboardList size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                            <p>Chưa có đơn hàng nào.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </motion.div>
           )}
 
+
+
           {/* MENU & FOOD TAB */}
+
           {activeTab === 'Menu & Food' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '600' }}>Menu Management</h3>
-                <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-                  <Plus size={16} /> Add Food
-                </button>
-              </div>
 
               {loadingConfig.foods ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading menu items...</p>
-              ) : foods.length === 0 ? (
-                <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>No food items available. Connect database or add items.</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '24px' }}>
-                  {foods.map(food => (
-                    <div key={food.id} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ height: '160px', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        {food.image ? (
-                          <img src={food.image} alt={food.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <Utensils size={40} color="var(--border-color)" />
-                        )}
-                      </div>
-                      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                          <h4 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)', margin: 0 }}>{food.foodName}</h4>
-                          <span style={{ fontSize: '12px', padding: '2px 8px', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '12px', fontWeight: '600' }}>{food.category}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                          <p style={{ fontSize: '18px', fontWeight: '700', color: 'var(--status-ordering)', margin: 0 }}>
-                            {food.price} <span style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '400' }}>{food.unit}</span>
-                          </p>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => handleOpenFoodModal(food)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Settings size={16} /></button>
-                            <button onClick={() => handleDeleteFood(food.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }}><LogOut size={16} /></button>
+                <p style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu...</p>
+              ) : selectedCategory === null ? (
+
+                /* ===== MÀN HÌNH 1: LƯỚI DANH MỤC ===== */
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>📂 Danh mục thực đơn</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Chọn danh mục để xem và quản lý món ăn</p>
+                    </div>
+                    <button onClick={() => handleOpenCategoryModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Plus size={16} /> Thêm Danh Mục
+                    </button>
+                  </div>
+
+                  {categories.length === 0 ? (
+                    <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <p style={{ fontSize: '48px', margin: '0 0 16px' }}>📂</p>
+                      <p style={{ fontWeight: '600' }}>Chưa có danh mục nào.</p>
+                      <p style={{ fontSize: '13px' }}>Hãy tạo danh mục đầu tiên để bắt đầu quản lý thực đơn!</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+                      {categories.map(cat => (
+                        <div key={cat.id} className="card" style={{ padding: '0', overflow: 'hidden', cursor: 'pointer', transition: 'var(--transition)', border: '2px solid transparent' }}
+                          onClick={() => setSelectedCategory(cat)}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+                        >
+                          {/* Header màu */}
+                          <div style={{ height: '8px', background: 'linear-gradient(90deg, var(--primary), var(--primary-hover))' }} />
+                          <div style={{ padding: '20px' }}>
+                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>#{cat.code}</p>
+                            <h4 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 6px', color: 'var(--text-primary)' }}>{cat.name}</h4>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', minHeight: '20px' }}>{cat.description || '—'}</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: '20px' }}>
+                                {foods.filter(f => f.categoryId === cat.id).length} món
+                              </span>
+                              <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                                <button onClick={() => handleOpenCategoryModal(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}><Settings size={15} /></button>
+                                <button onClick={() => handleDeleteCategory(cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }}><LogOut size={15} /></button>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+
+              ) : (
+
+                /* ===== MÀN HÌNH 2: DANH SÁCH MÓN ĂN THEO DANH MỤC ===== */
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button onClick={() => setSelectedCategory(null)} style={{ background: 'var(--bg-app)', border: 'none', borderRadius: '8px', padding: '8px 12px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '600' }}>
+                        ← Danh mục
+                      </button>
+                      <div>
+                        <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>🍽️ {selectedCategory.name}</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>#{selectedCategory.code}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Plus size={16} /> Thêm Món
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const catFoods = foods.filter(f => f.categoryId === selectedCategory.id);
+                    return catFoods.length === 0 ? (
+                      <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <p style={{ fontSize: '48px', margin: '0 0 16px' }}>🍽️</p>
+                        <p style={{ fontWeight: '600' }}>Danh mục này chưa có món ăn nào.</p>
+                        <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ marginTop: '16px' }}>+ Thêm món đầu tiên</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+                        {catFoods.map(food => (
+                          <div key={food.id} className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <div style={{ height: '150px', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                              {food.imageUrl ? (
+                                <img src={food.imageUrl} alt={food.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
+                              ) : (
+                                <Utensils size={40} color="var(--border-color)" />
+                              )}
+                            </div>
+                            <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{food.foodName}</h4>
+                              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>#{food.code}</p>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
+                                <p style={{ fontSize: '17px', fontWeight: '700', color: 'var(--status-ordering)', margin: 0 }}>
+                                  {Number(food.price).toLocaleString('vi-VN')}<span style={{ fontSize: '12px', fontWeight: '400', color: 'var(--text-secondary)' }}> đ</span>
+                                </p>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button onClick={() => handleOpenFoodModal(food)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Settings size={15} /></button>
+                                  <button onClick={() => handleDeleteFood(food.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }}><LogOut size={15} /></button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
               )}
 
-              {/* Food Modal overlay */}
+              {/* Modal Thêm/Sửa Món ăn */}
               {isFoodModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '500px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '24px' }}>{editingFood ? 'Edit Food' : 'Add Food Item'}</h2>
-
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '480px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px' }}>{editingFood ? '✏️ Sửa Món Ăn' : '➕ Thêm Món Ăn'}</h2>
                     <form onSubmit={handleSaveFood} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div className="input-group">
-                        <label>Food Name</label>
-                        <input type="text" required value={foodFormData.foodName} onChange={e => setFoodFormData({ ...foodFormData, foodName: e.target.value })} className="input-field" placeholder="E.g. Spicy Chicken Burger" />
+                        <label>Mã món (code) *</label>
+                        <input type="text" required value={foodFormData.code} onChange={e => setFoodFormData({ ...foodFormData, code: e.target.value })} className="input-field" placeholder="VD: COM001" />
+                      </div>
+                      <div className="input-group">
+                        <label>Tên món ăn *</label>
+                        <input type="text" required value={foodFormData.foodName} onChange={e => setFoodFormData({ ...foodFormData, foodName: e.target.value })} className="input-field" placeholder="VD: Cơm chiên dương châu" />
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div className="input-group">
-                          <label>Price</label>
-                          <input type="number" required value={foodFormData.price} onChange={e => setFoodFormData({ ...foodFormData, price: e.target.value })} className="input-field" placeholder="100000" />
+                          <label>Giá (đ) *</label>
+                          <input type="number" required min="1000" value={foodFormData.price} onChange={e => setFoodFormData({ ...foodFormData, price: e.target.value })} className="input-field" placeholder="45000" />
                         </div>
                         <div className="input-group">
-                          <label>Unit</label>
-                          <input type="text" required value={foodFormData.unit} onChange={e => setFoodFormData({ ...foodFormData, unit: e.target.value })} className="input-field" placeholder="VND" />
+                          <label>Danh mục *</label>
+                          <select required value={foodFormData.categoryId} onChange={e => setFoodFormData({ ...foodFormData, categoryId: e.target.value })} className="input-field">
+                            <option value="">-- Chọn danh mục --</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
                         </div>
                       </div>
                       <div className="input-group">
-                        <label>Category</label>
-                        <select value={foodFormData.category} onChange={e => setFoodFormData({ ...foodFormData, category: e.target.value })} className="input-field">
-                          <option value="APPETIZER">Appetizer</option>
-                          <option value="MAIN_COURSE">Main Course</option>
-                          <option value="DESSERT">Dessert</option>
-                          <option value="DRINK">Drink</option>
-                          <option value="OTHER">Other</option>
-                        </select>
+                        <label>URL Hình ảnh (tuỳ chọn)</label>
+                        <input type="url" value={foodFormData.imageUrl || ''} onChange={e => setFoodFormData({ ...foodFormData, imageUrl: e.target.value })} className="input-field" placeholder="https://example.com/image.jpg" />
                       </div>
-                      <div className="input-group">
-                        <label>Image URL (Optional)</label>
-                        <input type="url" value={foodFormData.image || ''} onChange={e => setFoodFormData({ ...foodFormData, image: e.target.value })} className="input-field" placeholder="https://example.com/image.jpg" />
-                      </div>
-                      <div className="input-group">
-                        <label>Description (Optional)</label>
-                        <textarea value={foodFormData.description || ''} onChange={e => setFoodFormData({ ...foodFormData, description: e.target.value })} className="input-field" placeholder="A short description..." style={{ minHeight: '80px', resize: 'vertical' }}></textarea>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                        <button type="button" onClick={() => setIsFoodModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Food</button>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => setIsFoodModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Món Ăn</button>
                       </div>
                     </form>
                   </motion.div>
                 </div>
               )}
+
+              {/* Modal Thêm/Sửa Danh mục */}
+              {isCategoryModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '440px', padding: '32px' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px' }}>{editingCategory ? '✏️ Sửa Danh Mục' : '➕ Thêm Danh Mục'}</h2>
+                    <form onSubmit={handleSaveCategory} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Mã danh mục (code) *</label>
+                        <input type="text" required value={categoryFormData.code} onChange={e => setCategoryFormData({ ...categoryFormData, code: e.target.value })} className="input-field" placeholder="VD: MAIN" />
+                      </div>
+                      <div className="input-group">
+                        <label>Tên danh mục *</label>
+                        <input type="text" required value={categoryFormData.name} onChange={e => setCategoryFormData({ ...categoryFormData, name: e.target.value })} className="input-field" placeholder="VD: Món chính" />
+                      </div>
+                      <div className="input-group">
+                        <label>Mô tả (tuỳ chọn)</label>
+                        <input type="text" value={categoryFormData.description || ''} onChange={e => setCategoryFormData({ ...categoryFormData, description: e.target.value })} className="input-field" placeholder="Mô tả ngắn về danh mục..." />
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => setIsCategoryModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Danh Mục</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+
             </motion.div>
           )}
-
           {/* STAFF TAB */}
           {activeTab === 'Staff' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card" style={{ padding: '24px' }}>

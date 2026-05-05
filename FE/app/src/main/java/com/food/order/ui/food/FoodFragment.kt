@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.food.order.R
 import com.food.order.adapter.FoodAdapter
 import com.food.order.data.SessionManager
-import com.food.order.data.mapper.toFoodModel
 import com.food.order.data.model.FoodModel
 import com.food.order.databinding.FragmentFoodBinding
 import kotlinx.coroutines.flow.collectLatest
@@ -64,22 +63,14 @@ class FoodFragment : Fragment() {
                     binding.loadingView.isVisible = loading
                 }
             }
-            // data
+            // data — ViewModel emit FoodModel trực tiếp
             launch {
-                viewModel.foodsFlow.collectLatest { foods ->
-                    val items: List<FoodModel> = foods.mapNotNull { fr ->
-                        runCatching { fr.toFoodModel() }.getOrNull()
-                    }
-
+                viewModel.foodsFlow.collectLatest { items ->
                     binding.recyclerView.isVisible = items.isNotEmpty()
                     binding.ivEmpty.isVisible = items.isEmpty()
-
                     runCatching { adapter.updateData(items) }
                         .onFailure {
-                            Toast.makeText(
-                                requireContext(),
-                                "Adapter error: ${it.message}", Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(requireContext(), "Lỗi hiển thị: ${it.message}", Toast.LENGTH_SHORT).show()
                         }
                 }
             }
@@ -103,13 +94,13 @@ class FoodFragment : Fragment() {
         }
 
         // gọi lần đầu
-        viewModel.getFoodsFromServer(userToken)
+        viewModel.getFoodsFromServer(requireContext(), userToken)
     }
 
     override fun onResume() {
         super.onResume()
-        // ✅ CHANGED: refresh mỗi lần quay lại Menu
-        viewModel.getFoodsFromServer(userToken)
+        // refresh mỗi lần quay lại
+        viewModel.getFoodsFromServer(requireContext(), userToken)
     }
 
     override fun onDestroyView() {
