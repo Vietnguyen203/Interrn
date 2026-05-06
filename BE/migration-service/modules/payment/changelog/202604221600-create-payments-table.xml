@@ -11,7 +11,7 @@
                 <constraints primaryKey="true"/>
             </column>
             <column name="order_id" type="UUID"/>
-            <column name="amount" type="DECIMAL(15,2)"/>
+            <column name="amount" type="NUMBER(15,2)"/>
             <column name="method" type="VARCHAR(255)"/>
             <column name="status" type="SMALLINT"/>
             <column name="transaction_code" type="VARCHAR(255)"/>

@@ -11,9 +11,10 @@ import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderRepo
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // ===== TẠO ĐƠN HÀNG =====
     @Transactional
@@ -49,6 +51,20 @@ public class OrderService {
 
         order.recalculateTotal();
         Order saved = orderRepository.save(order);
+
+        // Báo cho table-service để gán đơn vào bàn (đổi màu thành OCCUPIED)
+        if (request.getTableId() != null) {
+            try {
+                restTemplate.patchForObject(
+                        "http://localhost:8083/tables/" + request.getTableId() + "/assign-order",
+                        Map.of("orderId", saved.getId().toString()),
+                        String.class
+                );
+            } catch (Exception e) {
+                System.err.println("Lỗi khi đồng bộ trạng thái bàn: " + e.getMessage());
+            }
+        }
+
         return OrderResponse.from(saved);
     }
 
@@ -143,7 +159,24 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
         order.setStatus(status);
-        return OrderResponse.from(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        // Nếu đơn hoàn thành hoặc hủy, báo cho table-service để giải phóng bàn (về AVAILABLE)
+        if ("COMPLETED".equals(status) || "CANCELLED".equals(status)) {
+            if (order.getTableId() != null) {
+                try {
+                    restTemplate.patchForObject(
+                            "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
+                            Map.of("orderId", ""),
+                            String.class
+                    );
+                } catch (Exception e) {
+                    System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+                }
+            }
+        }
+
+        return OrderResponse.from(saved);
     }
 
     // ===== XÓA ĐƠN HÀNG =====
@@ -156,6 +189,19 @@ public class OrderService {
         }
         order.setStatus("CANCELLED");
         orderRepository.save(order);
+
+        // Giải phóng bàn
+        if (order.getTableId() != null) {
+            try {
+                restTemplate.patchForObject(
+                        "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
+                        Map.of("orderId", ""),
+                        String.class
+                );
+            } catch (Exception e) {
+                System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+            }
+        }
     }
 
     // ===== CẬP NHẬT TRẠNG THÁI BẾP =====

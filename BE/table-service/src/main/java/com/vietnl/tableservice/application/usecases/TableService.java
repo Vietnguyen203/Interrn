@@ -6,7 +6,9 @@ import com.vietnl.tableservice.domain.enums.TableStatus;
 import com.vietnl.tableservice.domain.validator.TableValidator;
 import com.vietnl.tableservice.infrastructure.persistence.TableRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,6 +19,29 @@ public class TableService {
 
     private final TableRepository tableRepository;
     private final TableValidator tableValidator;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private void notifyTableChange() {
+        messagingTemplate.convertAndSend("/topic/tables", "REFRESH_TABLES");
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void resetTablesStatus() {
+        try {
+            List<RestaurantTable> tables = tableRepository.findAll();
+            tables.forEach(t -> {
+                t.setStatus(TableStatus.AVAILABLE);
+                t.setCurrentOrderId(null);
+            });
+            tableRepository.saveAllAndFlush(tables); // Dùng Flush để đẩy dữ liệu xuống DB ngay lập tức
+            System.out.println(">>> [TableService] RESET THÀNH CÔNG. Danh sách bàn hiện tại:");
+            tableRepository.findAll().forEach(t -> 
+                System.out.println("  - Bàn " + t.getTableNumber() + ": " + t.getStatus())
+            );
+        } catch (Exception e) {
+            System.err.println(">>> [TableService] LỖI RESET: " + e.getMessage());
+        }
+    }
 
     public List<RestaurantTable> getAll() {
         return tableRepository.findAll();
@@ -43,7 +68,9 @@ public class TableService {
                 .status(TableStatus.AVAILABLE)
                 .build();
 
-        return tableRepository.save(table);
+        RestaurantTable savedTable = tableRepository.save(table);
+        notifyTableChange();
+        return savedTable;
     }
 
     public RestaurantTable update(UUID id, TableRequest request) {
@@ -54,7 +81,9 @@ public class TableService {
         if (request.getLocation() != null) table.setLocation(request.getLocation());
         if (request.getAreaRefId() != null) table.setAreaRefId(request.getAreaRefId());
 
-        return tableRepository.save(table);
+        RestaurantTable savedTable = tableRepository.save(table);
+        notifyTableChange();
+        return savedTable;
     }
 
     public RestaurantTable updateStatus(UUID id, TableStatus status) {
@@ -78,12 +107,15 @@ public class TableService {
         table.setCurrentOrderId(UUID.fromString(orderId));
         table.setStatus(TableStatus.OCCUPIED);
 
-        return tableRepository.save(table);
+        RestaurantTable savedTable = tableRepository.save(table);
+        notifyTableChange();
+        return savedTable;
     }
 
     public void delete(UUID id) {
         RestaurantTable table = getById(id);
         tableValidator.validateDelete(table);
         tableRepository.delete(table);
+        notifyTableChange();
     }
 }

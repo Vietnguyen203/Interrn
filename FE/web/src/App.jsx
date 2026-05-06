@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Users, Utensils, ClipboardList, PieChart, LogOut, Settings, Search, Bell, Menu, User as UserIcon, Filter, Download, Plus, AlertCircle, Calendar, CheckCircle, XCircle, Info, X } from 'lucide-react';
+import { 
+  LayoutDashboard, Users, Utensils, ClipboardList, Settings, LogOut, Menu, X, Plus, 
+  User as UserIcon, Calendar, BarChart as BarChartIcon, TrendingUp, PieChart as PieChartIcon, 
+  Search, Download, Trash2, Edit, Bell, Filter, CheckCircle, XCircle, Info, RefreshCw, AlertCircle, QrCode 
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  LineChart, Line, PieChart, Cell, Pie 
+} from 'recharts';
 import { apiService } from './services/api';
 import './index.css';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 
 // =========================================================
 // TOAST NOTIFICATION SYSTEM
@@ -216,14 +226,17 @@ const LoginScreen = ({ onLoginSuccess }) => {
       // BE trả về: { code, message, token }
       const token = response.token;
       if (!token) throw new Error('Không nhận được token từ server');
+      
       sessionStorage.setItem('token', token);
       const userPayload = parseJwt(token);
-      onLoginSuccess({
-        id: userPayload?.sub || empId,
-        role: userPayload?.role || 'ADMIN',
-        server: 'local',
-        birthday: userPayload?.birthday || ''
-      });
+      const userData = {
+        fullName: userPayload.fullName || userPayload.sub,
+        role: userPayload.role || 'ADMIN'
+      };
+      
+      sessionStorage.setItem('user', JSON.stringify(userData));
+      
+      onLoginSuccess(userData);
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -384,7 +397,14 @@ const LoginScreen = ({ onLoginSuccess }) => {
 const DashboardScreen = ({ user, onLogout }) => {
   const { toasts, toast, remove: removeToast } = useToast();
   const { confirm, ConfirmUI } = useConfirm();
-  const [activeTab, setActiveTab] = useState(user?.role === 'KITCHEN' ? 'Kitchen' : 'Overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem('activeTab') || 'Overview';
+  });
+  
+  useEffect(() => {
+    sessionStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Data States
@@ -413,7 +433,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [staffFormData, setStaffFormData] = useState({
-    username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: 'HCM', gender: 'MALE'
+    username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: 'HCM', gender: 'MALE', citizenPid: ''
   });
 
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
@@ -422,9 +442,54 @@ const DashboardScreen = ({ user, onLogout }) => {
     tableNumber: '', capacity: 4, location: ''
   });
 
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  // Create Order States
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const [cartItems, setCartItems] = useState([]); // { menuItemId, foodName, unitPrice, quantity, note }
+  const [selectedTableId, setSelectedTableId] = useState('');
+  const [orderNote, setOrderNote] = useState('');
+
+  // Checkout (Payment) States
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [checkoutOrder, setCheckoutOrder] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('CASH'); // CASH or TRANSFER
+  const [customerCash, setCustomerCash] = useState('');
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+
   const [loadingConfig, setLoadingConfig] = useState({
     overview: true, orders: false, foods: false, staff: false, tables: false
   });
+
+  // WebSocket Connection for Real-time Tables
+  useEffect(() => {
+    const socket = new SockJS('http://localhost:8083/ws');
+    const stompClient = new Client({
+      webSocketFactory: () => socket,
+      debug: (str) => console.log('>>> [WS Debug]:', str),
+      onConnect: () => {
+        console.log('>>> WebSocket Connected to table-service');
+        stompClient.subscribe('/topic/tables', (message) => {
+          console.log('>>> Received WS Message:', message.body);
+          if (message.body === 'REFRESH_TABLES') {
+            fetchTablesData();
+            if (activeTab === 'Overview') fetchOverviewData();
+          }
+        });
+      },
+      onStompError: (frame) => {
+        console.error('>>> Broker reported error: ' + frame.headers['message']);
+        console.error('>>> Additional details: ' + frame.body);
+      }
+    });
+
+    stompClient.activate();
+
+    return () => {
+      if (stompClient.active) stompClient.deactivate();
+    };
+  }, [activeTab]);
 
   const navItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Overview', roles: ['ADMIN'] },
@@ -448,7 +513,24 @@ const DashboardScreen = ({ user, onLogout }) => {
     else if (activeTab === 'Menu & Food') fetchFoodsData();
     else if (activeTab === 'Staff') fetchStaffData();
     else if (activeTab === 'Kitchen') fetchKitchenData();
+    else if (activeTab === 'Reports') fetchReportData();
   }, [activeTab]);
+
+  const [reportData, setReportData] = useState([]);
+  const [reportType, setReportType] = useState('DATE');
+
+  const fetchReportData = async (type = reportType) => {
+    setLoadingConfig(prev => ({ ...prev, reports: true }));
+    try {
+      const res = await apiService.order.getReports(type);
+      setReportData(res.data || []);
+      setReportType(type);
+    } catch (error) {
+      toast.error('Lỗi tải báo cáo: ' + error.message);
+    } finally {
+      setLoadingConfig(prev => ({ ...prev, reports: false }));
+    }
+  };
 
   const [kitchenItems, setKitchenItems] = useState([]);
   const fetchKitchenData = async () => {
@@ -466,15 +548,18 @@ const DashboardScreen = ({ user, onLogout }) => {
       ];
 
       // Flatten: mỗi item giữ thông tin đơn (bàn, orderId, orderStatus)
-      const flatItems = orders.flatMap(order =>
-        (order.items || []).map(item => ({
+      const flatItems = orders.flatMap(order => {
+        const table = tables.find(t => String(t.id) === String(order.tableId));
+        const tableName = table ? `Bàn ${table.tableNumber}` : (order.tableNumber || order.tableId || '—');
+        
+        return (order.items || []).map(item => ({
           ...item,
-          tableNumber: order.tableNumber || order.tableId || '—',
+          tableNumber: tableName,
           orderId: order.id,
           orderStatus: order.status,
           createdAt: order.createdAt,
-        }))
-      ).filter(item => item.kitchenStatus !== 'SERVED'); // ẩn món đã phục vụ xong
+        }));
+      }).filter(item => item.kitchenStatus !== 'SERVED');
 
       setKitchenItems(flatItems);
     } catch (error) { console.error('Error fetching kitchen data:', error); }
@@ -505,8 +590,20 @@ const DashboardScreen = ({ user, onLogout }) => {
 
       if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
         const ordersArr = Array.isArray(ordersRes.value.data) ? ordersRes.value.data : (ordersRes.value.data.content || []);
-        setRecentOrders(ordersArr.slice(0, 5));
-        setAllOrders(ordersArr);
+        
+        // Làm giàu dữ liệu tên bàn
+        const enrichedOrders = ordersArr.map(order => {
+          const table = (tablesRes.status === 'fulfilled' && tablesRes.value.data) 
+            ? (Array.isArray(tablesRes.value.data) ? tablesRes.value.data : tablesRes.value.data.content).find(t => String(t.id) === String(order.tableId))
+            : null;
+          return {
+            ...order,
+            tableNumber: table ? `Bàn ${table.tableNumber}` : (order.tableNumber || order.tableId)
+          };
+        });
+
+        setRecentOrders(enrichedOrders.slice(0, 5));
+        setAllOrders(enrichedOrders);
       }
       if (tablesRes.status === 'fulfilled' && tablesRes.value.data) {
         const tablesArr = Array.isArray(tablesRes.value.data) ? tablesRes.value.data : (tablesRes.value.data.content || []);
@@ -526,10 +623,22 @@ const DashboardScreen = ({ user, onLogout }) => {
 
 
   const fetchOrdersData = async (statusFilter) => {
+    // Đảm bảo statusFilter là chuỗi, nếu là Object (Event) thì coi như null
+    const finalStatus = (statusFilter && typeof statusFilter === 'string') ? statusFilter : null;
+    
     setLoadingConfig(prev => ({ ...prev, orders: true }));
     try {
-      const res = await apiService.order.getAll(statusFilter);
-      if (res.data) setAllOrders(res.data);
+      const res = await apiService.order.getAll(finalStatus);
+      if (res.data) {
+        const enrichedOrders = res.data.map(order => {
+          const table = tables.find(t => String(t.id) === String(order.tableId));
+          return {
+            ...order,
+            tableNumber: table ? `Bàn ${table.tableNumber}` : (order.tableNumber || order.tableId)
+          };
+        });
+        setAllOrders(enrichedOrders);
+      }
     } catch (error) { toast.error('Không thể tải đơn hàng: ' + error.message); }
     finally { setLoadingConfig(prev => ({ ...prev, orders: false })); }
   };
@@ -552,6 +661,113 @@ const DashboardScreen = ({ user, onLogout }) => {
       fetchOrdersData();
     } catch (e) { toast.error('Lỗi cập nhật đơn: ' + e.message); }
   };
+
+  // ---- Logic Gọi Món (Create Order) ----
+  useEffect(() => {
+    if (isCreateOrderModalOpen) {
+      // Đảm bảo luôn có dữ liệu bàn và món ăn mới nhất khi mở Modal
+      fetchTablesData();
+      fetchFoodsData();
+    }
+  }, [isCreateOrderModalOpen]);
+
+  const handleAddToCart = (food) => {
+    setCartItems(prev => {
+      const existing = prev.find(item => item.menuItemId === food.id);
+      if (existing) {
+        return prev.map(item => item.menuItemId === food.id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { menuItemId: food.id, foodName: food.foodName, unitPrice: food.price, quantity: 1, note: '' }];
+    });
+  };
+
+  const handleUpdateCartItem = (menuItemId, delta, note = undefined) => {
+    setCartItems(prev => prev.map(item => {
+      if (item.menuItemId !== menuItemId) return item;
+      const updated = { ...item };
+      if (delta !== 0) updated.quantity = Math.max(1, updated.quantity + delta);
+      if (note !== undefined) updated.note = note;
+      return updated;
+    }));
+  };
+
+  const handleRemoveFromCart = (menuItemId) => {
+    setCartItems(prev => prev.filter(item => item.menuItemId !== menuItemId));
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!selectedTableId) {
+      toast.error('Vui lòng chọn bàn!');
+      return;
+    }
+    if (cartItems.length === 0) {
+      toast.error('Giỏ hàng trống, vui lòng chọn món!');
+      return;
+    }
+
+    try {
+      const selectedTable = tables.find(t => String(t.id) === String(selectedTableId));
+      const payload = {
+        tableId: selectedTable.id,
+        tableNumber: selectedTable.tableNumber || selectedTable.id,
+        note: orderNote,
+        items: cartItems
+      };
+
+      await apiService.order.create(payload);
+      toast.success('🎉 Đã tạo đơn hàng thành công!');
+      
+      // Cleanup & Refresh
+      setIsCreateOrderModalOpen(false);
+      setCartItems([]);
+      setSelectedTableId('');
+      setOrderNote('');
+      fetchOrdersData();
+    } catch (err) {
+      toast.error('Lỗi khi tạo đơn hàng: ' + err.message);
+    }
+  };
+
+  // ---- Logic Thanh Toán (Checkout) ----
+  const handleOpenCheckout = (order) => {
+    setCheckoutOrder(order);
+    setPaymentMethod('CASH');
+    setCustomerCash('');
+    setIsCheckoutModalOpen(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (paymentMethod === 'CASH' && checkoutOrder) {
+      const total = Number(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0);
+      const cash = Number(customerCash.replace(/\D/g, '') || 0);
+      if (cash < total) {
+        toast.error('Tiền khách đưa không đủ để thanh toán!');
+        return;
+      }
+    }
+
+    try {
+      // 1. Lưu lịch sử thanh toán vào payment-service (Port 8085)
+      await apiService.payment.create({
+        orderId: checkoutOrder.id,
+        amount: checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0,
+        method: paymentMethod,
+        note: paymentMethod === 'CASH' ? `Khách đưa: ${customerCash}đ` : 'Thanh toán chuyển khoản VietQR'
+      });
+
+      // 2. Cập nhật trạng thái đơn hàng sang COMPLETED (Port 8082)
+      await handleUpdateOrderStatus(checkoutOrder.id, 'COMPLETED');
+      
+      toast.success('🎉 Thanh toán thành công và đã đóng đơn hàng!');
+      setIsCheckoutModalOpen(false);
+      setCheckoutOrder(null);
+      setCustomerCash('');
+    } catch (error) {
+      toast.error('❌ Lỗi thanh toán: ' + error.message);
+      console.error('Payment Error:', error);
+    }
+  };
+  // ------------------------------------
 
   const fetchFoodsData = async () => {
     setLoadingConfig(prev => ({ ...prev, foods: true }));
@@ -651,7 +867,12 @@ const DashboardScreen = ({ user, onLogout }) => {
     },
     { title: 'Total Orders', value: allOrders.length || 0, change: 'All time', positive: true },
     { title: 'Total Menu Items', value: foods.length || 0, change: 'Active', positive: true },
-    { title: 'Total Tables', value: tables.length || 0, change: `${tables.filter(t => t.status === 'OCCUPIED').length} Occupied`, positive: true },
+    { 
+      title: 'Total Tables', 
+      value: tables.length || 0, 
+      change: `${tables.filter(t => String(t.status).toUpperCase() === 'OCCUPIED' || String(t.status) === '1').length} Occupied`, 
+      positive: true 
+    },
   ];
 
   const getStatusColor = (status) => {
@@ -666,8 +887,9 @@ const DashboardScreen = ({ user, onLogout }) => {
   };
 
   // ---- Handlers ----
-  const handleLogoutClick = () => {
+  const handleLogout = () => {
     sessionStorage.clear();
+    toast.info('Đã đăng xuất');
     onLogout();
   };
 
@@ -809,10 +1031,8 @@ const DashboardScreen = ({ user, onLogout }) => {
       {/* Sidebar */}
       <motion.aside initial={false} animate={{ width: isSidebarOpen ? '260px' : '0px', opacity: isSidebarOpen ? 1 : 0 }} style={{ backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', overflow: 'hidden', whiteSpace: 'nowrap' }}>
         <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-color)' }}>
-          <div style={{ background: 'var(--primary)', padding: '8px', borderRadius: '10px' }}>
-            <Utensils color="white" size={20} />
-          </div>
-          <h2 style={{ fontSize: '20px', color: 'var(--primary)' }}>FoodOrder</h2>
+          <img src="/food_order_logo_1778061110379.png" alt="Logo" style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }} />
+          <h2 style={{ fontSize: '22px', fontWeight: '900', color: '#11117F', letterSpacing: '-0.5px' }}>Food<span style={{ color: 'var(--primary)' }}>Order</span></h2>
         </div>
 
         <nav style={{ flex: 1, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
@@ -837,7 +1057,7 @@ const DashboardScreen = ({ user, onLogout }) => {
               </p>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sys: {user?.server} • {user?.role}</p>
             </div>
-            <button onClick={handleLogoutClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }} title="Logout">
+            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }} title="Logout">
               <LogOut size={20} />
             </button>
           </div>
@@ -880,8 +1100,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Order ID</th>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Table ID</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Mã đơn</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Table</th>
                           <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Amount</th>
                           <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Status</th>
                         </tr>
@@ -894,8 +1114,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                         ) : (
                           recentOrders.map((order, idx) => (
                             <tr key={idx} style={{ borderBottom: '1px solid var(--bg-app)' }}>
-                              <td style={{ padding: '16px 12px', fontWeight: '500' }}>{order.id.slice(0, 8)}...</td>
-                              <td style={{ padding: '16px 12px', color: 'var(--text-secondary)' }}>{order.tableId}</td>
+                              <td style={{ padding: '16px 12px', fontWeight: '700', color: 'var(--primary)', fontFamily: 'monospace' }}>ORD-{String(order.id).slice(0, 8).toUpperCase()}</td>
+                              <td style={{ padding: '16px 12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{order.tableNumber || order.tableId}</td>
                               <td style={{ padding: '16px 12px', fontWeight: '600' }}>{order.totalAmount}</td>
                               <td style={{ padding: '16px 12px' }}>
                                 <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: `${getStatusColor(order.status)}20`, color: getStatusColor(order.status) }}>
@@ -920,20 +1140,30 @@ const DashboardScreen = ({ user, onLogout }) => {
                     ) : tables.length === 0 ? (
                       <p style={{ color: 'var(--text-secondary)', gridColumn: '1 / -1', textAlign: 'center' }}>No tables.</p>
                     ) : tables.map((table) => {
-                      // Ép kiểu về String để so sánh chính xác nhất
                       const status = String(table.status).toUpperCase();
                       const isAvailable = status === 'AVAILABLE' || status === '0';
                       const isOccupied = status === 'OCCUPIED' || status === '1';
                       const isCleaning = status === 'CLEANING' || status === '3';
 
                       return (
-                        <div key={table.id} style={{ padding: '16px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`, backgroundColor: isOccupied ? 'rgba(9, 52, 219, 0.05)' : 'var(--bg-app)' }}>
-                          <span style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Bàn {table.tableNumber} <small style={{fontWeight: 400, opacity: 0.5}}>({table.status})</small></span>
+                        <div key={table.id} style={{ 
+                          padding: '16px', 
+                          borderRadius: 'var(--radius-md)', 
+                          textAlign: 'center', 
+                          border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`, 
+                          backgroundColor: isOccupied ? 'rgba(9, 52, 219, 0.05)' : 'var(--bg-app)',
+                          transition: 'all 0.3s ease'
+                        }}>
+                          <span style={{ display: 'block', fontSize: '15px', fontWeight: '700', marginBottom: '6px', color: '#11117F' }}>
+                            Bàn {table.tableNumber}
+                          </span>
                           <span className={`badge ${isOccupied ? 'badge-occupied' : 'badge-empty'}`} style={{ 
-                            backgroundColor: isAvailable ? 'var(--status-completed)20' : 
-                                            isOccupied ? 'var(--secondary)20' : '#f59e0b20',
-                            color: isAvailable ? 'var(--status-completed)' : 
-                                   isOccupied ? 'var(--secondary)' : '#f59e0b'
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            backgroundColor: isAvailable ? '#ecfdf5' : isOccupied ? '#fef2f2' : '#fffbeb',
+                            color: isAvailable ? '#10b981' : isOccupied ? '#ef4444' : '#f59e0b'
                           }}>
                             {isAvailable ? 'Sẵn sàng' : isOccupied ? 'Có khách' : isCleaning ? 'Đang dọn' : status}
                           </span>
@@ -1035,7 +1265,10 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>📋 Quản lý Đơn hàng</h3>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{allOrders.length} đơn hàng</p>
                 </div>
-                <button onClick={() => fetchOrdersData()} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button onClick={() => fetchOrdersData()} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
+                  <button onClick={() => setIsCreateOrderModalOpen(true)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px', backgroundColor: '#10b981', borderColor: '#10b981' }}>➕ Tạo Đơn Mới</button>
+                </div>
               </div>
 
               {/* Status Filter Tabs */}
@@ -1073,8 +1306,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                         <tr key={order.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s' }}
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                          <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            {String(order.id).slice(0, 8)}…
+                          <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '13px', fontWeight: '700', color: 'var(--primary)' }}>
+                            ORD-{String(order.id).slice(0, 8).toUpperCase()}
                           </td>
                           <td style={{ padding: '14px 16px', fontWeight: '600' }}>
                             {order.tableNumber || order.tableId || '—'}
@@ -1106,9 +1339,9 @@ const DashboardScreen = ({ user, onLogout }) => {
                                 </button>
                               )}
                               {order.status === 'CONFIRMED' && (
-                                <button onClick={() => handleUpdateOrderStatus(order.id, 'COMPLETED')}
+                                <button onClick={() => handleOpenCheckout(order)}
                                   style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--status-completed)', color: 'white' }}>
-                                  Hoàn thành
+                                  💳 Thanh toán
                                 </button>
                               )}
                               {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
@@ -1323,92 +1556,95 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             </motion.div>
           )}
-          {/* TABLES TAB */}
+
+          {/* TABLES TAB - Payment History & Invoices */}
           {activeTab === 'Tables' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>🪑 Quản lý bàn</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Xem và quản lý danh sách bàn trong nhà hàng</p>
+                  <h2 style={{ fontSize: '26px', fontWeight: '800', color: '#11117F', letterSpacing: '-0.5px' }}>Lịch sử hóa đơn</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Quản lý và tra cứu các giao dịch đã hoàn tất</p>
                 </div>
-                <button onClick={() => handleOpenTableModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Plus size={16} /> Thêm Bàn
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button onClick={fetchOrdersData} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}>
+                    <RefreshCw size={16} /> Làm mới
+                  </button>
+                  <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', boxShadow: '0 4px 12px rgba(9, 52, 219, 0.2)' }}>
+                    <Download size={16} /> Xuất báo cáo
+                  </button>
+                </div>
               </div>
 
-              {loadingConfig.tables ? (
-                <p style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu bàn...</p>
-              ) : tables.length === 0 ? (
-                <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  <p style={{ fontSize: '48px', margin: '0 0 16px' }}>🪑</p>
-                  <p style={{ fontWeight: '600' }}>Chưa có bàn nào được tạo.</p>
-                  <p style={{ fontSize: '13px' }}>Hãy thêm bàn mới để bắt đầu quản lý chỗ ngồi!</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
-                  {tables.map(table => {
-                    const statusVal = String(table.status).toUpperCase();
-                    const statusConfigMap = {
-                      'AVAILABLE': { label: 'Trống', color: '#10b981', bg: '#ecfdf5' },
-                      '0': { label: 'Trống', color: '#10b981', bg: '#ecfdf5' },
-                      'OCCUPIED': { label: 'Có khách', color: '#ef4444', bg: '#fef2f2' },
-                      '1': { label: 'Có khách', color: '#ef4444', bg: '#fef2f2' },
-                      'RESERVED': { label: 'Đã đặt', color: '#f59e0b', bg: '#fffbeb' },
-                      '2': { label: 'Đã đặt', color: '#f59e0b', bg: '#fffbeb' },
-                      'CLEANING': { label: 'Đang dọn', color: '#6366f1', bg: '#eef2ff' },
-                      '3': { label: 'Đang dọn', color: '#6366f1', bg: '#eef2ff' },
-                    };
-                    const statusConfig = statusConfigMap[statusVal] || { label: statusVal, color: '#666', bg: '#eee' };
-                    const tableId = table.id || table.ID;
-
-                    return (
-                      <div key={tableId} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)', position: 'relative' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <h4 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--primary)' }}>Bàn {table.tableNumber}</h4>
-                          <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', backgroundColor: statusConfig.bg, color: statusConfig.color }}>
-                            {statusConfig.label}
+              <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #EEF2F6' }}>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mã đơn</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Vị trí bàn</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Thời gian</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Tổng thanh toán</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Trạng thái</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allOrders.filter(o => o.status === 'COMPLETED').map(order => (
+                      <tr key={order.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'all 0.2s' }} className="table-row-hover">
+                        <td style={{ padding: '20px 24px' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--primary)', fontFamily: 'monospace', fontSize: '14px' }}>ORD-{String(order.id).slice(0, 8).toUpperCase()}</span>
+                        </td>
+                        <td style={{ padding: '20px 24px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#11117F', fontWeight: '800', fontSize: '12px' }}>
+                              {order.tableNumber || '?'}
+                            </div>
+                            <span style={{ fontWeight: '600', color: '#1E293B' }}>Bàn {order.tableNumber || order.tableId}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '20px 24px' }}>
+                          <div style={{ color: '#475569', fontSize: '13px', fontWeight: '500' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
+                          <div style={{ color: '#94A3B8', fontSize: '11px' }}>{new Date(order.updatedAt || order.createdAt).toLocaleDateString('vi-VN')}</div>
+                        </td>
+                        <td style={{ padding: '20px 24px' }}>
+                          <div style={{ fontWeight: '800', color: '#0F172A', fontSize: '16px' }}>
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount || order.totalPrice || 0)}
+                          </div>
+                        </td>
+                        <td style={{ padding: '20px 24px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', backgroundColor: '#DCFCE7', color: '#166534' }}>
+                            <CheckCircle size={14} /> Thành công
                           </span>
-                        </div>
-                        <div>
-                          <p style={{ fontSize: '13px', margin: '0 0 4px', color: 'var(--text-secondary)' }}>Sức chứa: <b>{table.capacity} người</b></p>
-                          <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-secondary)' }}>Vị trí: <b>{table.location || '—'}</b></p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                          <button onClick={() => handleOpenTableModal(table)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '12px' }}>Sửa</button>
-                          <button onClick={() => handleDeleteTable(tableId)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '12px', color: 'var(--status-cancelled)', borderColor: 'var(--status-cancelled)' }}>Xóa</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Modal Thêm/Sửa Bàn */}
-              {isTableModalOpen && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
-                    <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px' }}>{editingTable ? '✏️ Sửa Thông Tin Bàn' : '➕ Thêm Bàn Mới'}</h2>
-                    <form onSubmit={handleSaveTable} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div className="input-group">
-                        <label>Số bàn *</label>
-                        <input type="number" required value={tableFormData.tableNumber} onChange={e => setTableFormData({ ...tableFormData, tableNumber: e.target.value })} className="input-field" placeholder="VD: 10" />
-                      </div>
-                      <div className="input-group">
-                        <label>Sức chứa (người) *</label>
-                        <input type="number" required min="1" value={tableFormData.capacity} onChange={e => setTableFormData({ ...tableFormData, capacity: e.target.value })} className="input-field" placeholder="VD: 4" />
-                      </div>
-                      <div className="input-group">
-                        <label>Vị trí (tầng, khu vực)</label>
-                        <input type="text" value={tableFormData.location} onChange={e => setTableFormData({ ...tableFormData, location: e.target.value })} className="input-field" placeholder="VD: Tầng 1, cạnh cửa sổ" />
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                        <button type="button" onClick={() => setIsTableModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Bàn</button>
-                      </div>
-                    </form>
-                  </motion.div>
-                </div>
-              )}
+                        </td>
+                        <td style={{ padding: '20px 24px', textAlign: 'center' }}>
+                          <button 
+                            className="btn-ghost" 
+                            style={{ color: '#6366F1', fontWeight: '700', fontSize: '13px', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: 'transparent' }}
+                            onClick={() => {
+                              setSelectedInvoice(order);
+                              setIsInvoiceModalOpen(true);
+                            }}
+                          >
+                            Chi tiết
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {allOrders.filter(o => o.status === 'COMPLETED').length === 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ padding: '100px 24px', textAlign: 'center' }}>
+                          <div style={{ opacity: 0.4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                            <ClipboardList size={64} strokeWidth={1.5} />
+                            <div>
+                              <p style={{ fontSize: '18px', fontWeight: '700', color: '#1E293B', margin: 0 }}>Chưa có hóa đơn nào</p>
+                              <p style={{ fontSize: '14px', color: '#64748B', marginTop: '4px' }}>Dữ liệu thanh toán sẽ xuất hiện tại đây sau khi hoàn tất đơn hàng.</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </motion.div>
           )}
           {/* STAFF TAB */}
@@ -1479,15 +1715,186 @@ const DashboardScreen = ({ user, onLogout }) => {
             </motion.div>
           )}
 
-          {/* Development Placeholders for others */}
-          {['Reports', 'Settings'].includes(activeTab) && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyItems: 'center', height: '400px', width: '100%' }}>
-              <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <Settings size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                <h2>{activeTab} module under construction</h2>
-                <p>This feature will be available in the next release.</p>
+          {/* SETTINGS TAB - System Configuration */}
+          {activeTab === 'Settings' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              
+              {/* Table Management Section */}
+              <div className="card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, color: 'var(--primary)' }}>🪑 Quản lý sơ đồ bàn</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Thêm, sửa, xóa các bàn trong nhà hàng</p>
+                  </div>
+                  <button onClick={() => handleOpenTableModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Plus size={16} /> Thêm Bàn
+                  </button>
+                </div>
+
+                {loadingConfig.tables ? (
+                  <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu bàn...</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+                    {tables.map(table => {
+                      const tableId = table.id || table.ID;
+                      return (
+                        <div key={tableId} style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ display: 'block', fontWeight: '700', fontSize: '16px' }}>Bàn {table.tableNumber}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{table.capacity} chỗ &middot; {table.location || '—'}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => handleOpenTableModal(table)} className="btn-ghost" style={{ color: 'var(--primary)', padding: '4px' }}><Settings size={16} /></button>
+                            <button onClick={() => handleDeleteTable(tableId)} className="btn-ghost" style={{ color: 'var(--status-cancelled)', padding: '4px' }}><Trash2 size={16} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
+
+              {/* Other Settings Placeholder */}
+              <div className="card" style={{ padding: '24px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '16px' }}>⚙️ Cấu hình hệ thống khác</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ fontWeight: '600', marginBottom: '4px' }}>Thông tin nhà hàng</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tên, địa chỉ, số điện thoại, logo...</p>
+                  </div>
+                  <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ fontWeight: '600', marginBottom: '4px' }}>Phân quyền nâng cao</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Quản lý chi tiết quyền truy cập các nhóm...</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Thêm/Sửa Bàn (Đặt trong Settings) */}
+              {isTableModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px' }}>{editingTable ? '✏️ Sửa Thông Tin Bàn' : '➕ Thêm Bàn Mới'}</h2>
+                    <form onSubmit={handleSaveTable} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Số bàn *</label>
+                        <input type="number" required value={tableFormData.tableNumber} onChange={e => setTableFormData({ ...tableFormData, tableNumber: e.target.value })} className="input-field" placeholder="VD: 10" />
+                      </div>
+                      <div className="input-group">
+                        <label>Sức chứa (người) *</label>
+                        <input type="number" required min="1" value={tableFormData.capacity} onChange={e => setTableFormData({ ...tableFormData, capacity: e.target.value })} className="input-field" placeholder="VD: 4" />
+                      </div>
+                      <div className="input-group">
+                        <label>Vị trí (tầng, khu vực)</label>
+                        <input type="text" value={tableFormData.location} onChange={e => setTableFormData({ ...tableFormData, location: e.target.value })} className="input-field" placeholder="VD: Tầng 1, cạnh cửa sổ" />
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => setIsTableModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Bàn</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Development Placeholders for others */}
+          {activeTab === 'Reports' && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(17, 17, 127, 0.1)', color: '#11117F' }}>
+                      <BarChartIcon size={24} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}>Hệ thống Báo cáo Thông minh</h3>
+                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>Phân tích hiệu quả kinh doanh dựa trên dữ liệu thực tế</p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
+                    {['DAY', 'MONTH', 'YEAR', 'CATEGORY'].map(type => (
+                      <button 
+                        key={type}
+                        onClick={() => fetchReportData(type)} 
+                        style={{ 
+                          padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', 
+                          fontWeight: '700', fontSize: '12px',
+                          backgroundColor: reportType === type ? '#FFF' : 'transparent', 
+                          color: reportType === type ? '#11117F' : '#64748B', 
+                          boxShadow: reportType === type ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none' 
+                        }}
+                      >
+                        {type === 'DAY' ? '📅 Ngày' : type === 'MONTH' ? '🗓️ Tháng' : type === 'YEAR' ? '📆 Năm' : '🍔 Món Ăn'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ height: '450px', width: '100%', marginTop: '20px' }}>
+                  {loadingConfig.reports ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <RefreshCw className="animate-spin" size={32} color="var(--primary)" />
+                    </div>
+                  ) : reportData.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '100px 0' }}>
+                      <TrendingUp size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                      <p style={{ color: 'var(--text-secondary)' }}>Chưa có đủ dữ liệu để tạo biểu đồ.</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      {reportType === 'DATE' ? (
+                        <BarChart data={reportData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']}
+                          />
+                          <Bar dataKey="value" fill="#11117F" radius={[6, 6, 0, 0]} barSize={40} />
+                        </BarChart>
+                      ) : (
+                        <PieChart>
+                          <Pie
+                            data={reportData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={80}
+                            outerRadius={140}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {reportData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#11117F', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 5]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']} />
+                          <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                      )}
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F' }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>TỔNG DOANH THU</p>
+                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>
+                    {new Intl.NumberFormat('vi-VN').format(reportData.reduce((acc, curr) => acc + curr.value, 0))}đ
+                  </h4>
+                </div>
+                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981' }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>SỐ LƯỢNG MỤC</p>
+                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>{reportData.length}</h4>
+                </div>
+                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B' }}>
+                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>LOẠI BÁO CÁO</p>
+                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>{reportType}</h4>
+                </div>
+              </div>
+            </motion.div>
           )}
 
         </div>
@@ -1579,7 +1986,12 @@ const DashboardScreen = ({ user, onLogout }) => {
                 </div>
 
                 <div className="input-group">
-                  <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Assigned Server</label>
+                  <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Số CCCD (Citizen ID) *</label>
+                  <input type="text" required value={staffFormData.citizenPid} onChange={e => setStaffFormData({ ...staffFormData, citizenPid: e.target.value })} className="form-input" placeholder="Nhập 12 số CCCD" style={{ borderColor: '#E0E0E0' }} />
+                </div>
+
+                <div className="input-group">
+                  <label className="form-label" style={{ color: '#11117F', fontWeight: '700' }}>Phân quyền (Role)</label>
                   <div style={{ position: 'relative' }}>
                     <select value={staffFormData.server} onChange={e => setStaffFormData({ ...staffFormData, server: e.target.value })} className="form-input" style={{ appearance: 'none', paddingRight: '40px', borderColor: '#E0E0E0' }}>
                       <option value="HCM">Ho Chi Minh (HCM)</option>
@@ -1627,6 +2039,371 @@ const DashboardScreen = ({ user, onLogout }) => {
           </motion.div>
         </div>
       )}
+
+      {/* CREATE ORDER MODAL (POS) */}
+      {isCreateOrderModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ background: '#F8FAFC', borderRadius: '16px', width: '100%', maxWidth: '1100px', height: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.3)' }}>
+            
+            {/* Header */}
+            <div style={{ padding: '20px 24px', backgroundColor: '#FFF', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>TẠO ĐƠN HÀNG MỚI (POS)</h3>
+              <button onClick={() => setIsCreateOrderModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={24} /></button>
+            </div>
+
+            {/* Split Content */}
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              
+              {/* LEFT COLUMN: Menus & Tables */}
+              <div style={{ flex: 6, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', overflow: 'hidden' }}>
+                <div style={{ padding: '20px', backgroundColor: '#FFF', borderBottom: '1px solid #E2E8F0' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>CHỌN BÀN (Chỉ hiển thị bàn trống)</label>
+                  <select 
+                    value={selectedTableId} 
+                    onChange={(e) => setSelectedTableId(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '15px', fontWeight: '600', color: '#0F172A' }}
+                  >
+                    <option value="">-- Bấm để chọn bàn --</option>
+                    {tables.filter(t => t.status === 'AVAILABLE' || t.status === '0').map(t => (
+                      <option key={t.id} value={t.id}>Bàn {t.tableNumber || t.id} (Sức chứa: {t.capacity})</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+                  <h4 style={{ margin: '0 0 16px', fontSize: '15px', color: '#475569' }}>DANH SÁCH MÓN ĂN</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+                    {foods.map(food => (
+                      <div key={food.id} style={{ backgroundColor: '#FFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', cursor: 'pointer' }} onClick={() => handleAddToCart(food)}>
+                        <div style={{ height: '120px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {food.imageUrl ? (
+                            <img src={food.imageUrl} alt={food.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <Utensils size={40} color="#94A3B8" />
+                          )}
+                        </div>
+                        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                          <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A', lineHeight: 1.3 }}>{food.foodName}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#10B981' }}>{new Intl.NumberFormat('vi-VN').format(food.price)}đ</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Cart */}
+              <div style={{ flex: 4, display: 'flex', flexDirection: 'column', backgroundColor: '#FFF' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#F1F5F9' }}>
+                  <h4 style={{ margin: 0, fontSize: '15px', color: '#0F172A', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>GIỎ HÀNG</span>
+                    <span style={{ backgroundColor: '#10B981', color: '#FFF', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} món</span>
+                  </h4>
+                </div>
+
+                <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
+                  {cartItems.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: '12px' }}>
+                      <ClipboardList size={48} />
+                      <p>Chưa có món nào được chọn</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {cartItems.map(item => (
+                        <div key={item.menuItemId} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '16px', borderBottom: '1px dashed #E2E8F0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{item.foodName}</p>
+                              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748B' }}>{new Intl.NumberFormat('vi-VN').format(item.unitPrice)}đ / món</p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #CBD5E1', borderRadius: '6px', overflow: 'hidden' }}>
+                                <button onClick={() => handleUpdateCartItem(item.menuItemId, -1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>-</button>
+                                <span style={{ padding: '0 12px', fontSize: '14px', fontWeight: '600' }}>{item.quantity}</span>
+                                <button onClick={() => handleUpdateCartItem(item.menuItemId, 1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>+</button>
+                              </div>
+                              <button onClick={() => handleRemoveFromCart(item.menuItemId)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }}><X size={18} /></button>
+                            </div>
+                          </div>
+                          {/* Note input for each item */}
+                          <input 
+                            type="text" 
+                            placeholder="Ghi chú món (ví dụ: ít cay...)" 
+                            value={item.note || ''}
+                            onChange={(e) => handleUpdateCartItem(item.menuItemId, 0, e.target.value)}
+                            style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', outline: 'none' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '20px', borderTop: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                  <textarea 
+                    placeholder="Ghi chú chung cho đơn hàng..." 
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', marginBottom: '16px', resize: 'none', outline: 'none' }}
+                    rows={2}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: '700', color: '#475569' }}>TỔNG CỘNG:</span>
+                    <span style={{ fontSize: '24px', fontWeight: '800', color: '#10B981' }}>
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cartItems.reduce((acc, i) => acc + (i.unitPrice * i.quantity), 0))}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={handleSubmitOrder}
+                    disabled={cartItems.length === 0 || !selectedTableId}
+                    style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: (cartItems.length === 0 || !selectedTableId) ? '#94A3B8' : '#10B981', color: '#FFF', fontSize: '16px', fontWeight: '800', cursor: (cartItems.length === 0 || !selectedTableId) ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
+                  >
+                    XÁC NHẬN GỌI MÓN
+                  </button>
+                </div>
+
+              </div>
+            </div>
+            
+          </motion.div>
+        </div>
+      )}
+
+      {/* INVOICE MODAL */}
+      {isInvoiceModalOpen && selectedInvoice && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '16px', width: '100%', maxWidth: '450px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
+            
+            {/* Header */}
+            <div style={{ padding: '24px', backgroundColor: '#F8FAFC', borderBottom: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>HÓA ĐƠN CHI TIẾT</h3>
+                <p style={{ margin: '4px 0 0', color: 'var(--primary)', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>ORD-{String(selectedInvoice.id).slice(0,8).toUpperCase()}</p>
+              </div>
+              <button onClick={() => setIsInvoiceModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={24} /></button>
+            </div>
+
+            {/* Content (Scrollable) */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>Vị trí bàn</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#0F172A', fontWeight: '700' }}>{selectedInvoice.tableNumber || selectedInvoice.tableId}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>Thời gian</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#0F172A', fontWeight: '600' }}>
+                    {new Date(selectedInvoice.updatedAt || selectedInvoice.createdAt).toLocaleString('vi-VN')}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid #EEF2F6', borderBottom: '1px solid #EEF2F6', padding: '16px 0', marginBottom: '24px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ color: '#64748B' }}>
+                      <th style={{ textAlign: 'left', paddingBottom: '12px', fontWeight: '600' }}>Món ăn</th>
+                      <th style={{ textAlign: 'center', paddingBottom: '12px', fontWeight: '600' }}>SL</th>
+                      <th style={{ textAlign: 'right', paddingBottom: '12px', fontWeight: '600' }}>Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedInvoice.items || []).map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={{ padding: '8px 0', color: '#1E293B', fontWeight: '500' }}>{item.foodName}</td>
+                        <td style={{ padding: '8px 0', textAlign: 'center', color: '#475569' }}>{item.quantity}</td>
+                        <td style={{ padding: '8px 0', textAlign: 'right', color: '#1E293B', fontWeight: '600' }}>
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.unitPrice * item.quantity)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '14px' }}>
+                  <span>Tạm tính</span>
+                  <span>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedInvoice.totalPrice || selectedInvoice.totalAmount || 0)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '14px' }}>
+                  <span>Phí dịch vụ</span>
+                  <span>đ 0</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '16px', borderTop: '1px dashed #CBD5E1', fontSize: '18px', fontWeight: '800', color: '#0F172A' }}>
+                  <span>TỔNG CỘNG</span>
+                  <span style={{ color: 'var(--primary)' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedInvoice.totalPrice || selectedInvoice.totalAmount || 0)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '24px', backgroundColor: '#F8FAFC', display: 'flex', gap: '12px' }}>
+              <button className="btn btn-outline" style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <Download size={18} /> Tải PDF
+              </button>
+              <button onClick={() => setIsInvoiceModalOpen(false)} className="btn btn-primary" style={{ flex: 1, padding: '12px' }}>
+                Đóng Hóa Đơn
+              </button>
+            </div>
+            
+          </motion.div>
+        </div>
+      )}
+
+      {/* CHECKOUT MODAL (PAYMENT) */}
+      {isCheckoutModalOpen && checkoutOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '16px', width: '100%', maxWidth: '600px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.3)' }}>
+            
+            {/* Header */}
+            <div style={{ padding: '20px 24px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>THANH TOÁN ĐƠN HÀNG</h3>
+              <button onClick={() => setIsCheckoutModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={24} /></button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Order Summary Summary */}
+              <div style={{ backgroundColor: '#F1F5F9', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>Đơn hàng: #{String(checkoutOrder.id).slice(0,8).toUpperCase()}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#0F172A', fontWeight: '700' }}>{checkoutOrder.tableNumber || checkoutOrder.tableId}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>TỔNG THANH TOÁN</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '24px', color: '#10B981', fontWeight: '800' }}>
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div>
+                <label style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A', marginBottom: '12px', display: 'block' }}>Phương thức thanh toán</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button onClick={() => setPaymentMethod('CASH')} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: paymentMethod === 'CASH' ? '2px solid #3B82F6' : '1px solid #CBD5E1', backgroundColor: paymentMethod === 'CASH' ? '#EFF6FF' : '#FFF', color: paymentMethod === 'CASH' ? '#1D4ED8' : '#475569', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
+                    💵 Tiền mặt
+                  </button>
+                  <button onClick={() => { setPaymentMethod('TRANSFER'); setIsQRModalOpen(true); }} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: paymentMethod === 'TRANSFER' ? '2px solid #3B82F6' : '1px solid #CBD5E1', backgroundColor: paymentMethod === 'TRANSFER' ? '#EFF6FF' : '#FFF', color: paymentMethod === 'TRANSFER' ? '#1D4ED8' : '#475569', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
+                    🏦 Chuyển khoản (QR)
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Payment Body */}
+              <div style={{ minHeight: '180px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                {paymentMethod === 'CASH' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>Tiền khách đưa (VNĐ)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Nhập số tiền..."
+                        value={customerCash}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setCustomerCash(val ? new Intl.NumberFormat('vi-VN').format(val) : '');
+                        }}
+                        style={{ width: '100%', padding: '16px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '20px', fontWeight: '700', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#F8FAFC', border: '1px dashed #94A3B8', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '15px', fontWeight: '600', color: '#475569' }}>Tiền thừa trả khách:</span>
+                      <span style={{ fontSize: '20px', fontWeight: '800', color: '#EF4444' }}>
+                        {(() => {
+                          const total = Number(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0);
+                          const cash = Number(customerCash.replace(/\D/g, '') || 0);
+                          if (cash < total || !cash) return '0 đ';
+                          return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cash - total);
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F9FF', padding: '32px', borderRadius: '12px', border: '1px solid #BAE6FD' }}>
+                    <div style={{ padding: '16px', backgroundColor: '#3B82F6', borderRadius: '50%', color: '#FFF', marginBottom: '16px' }}>
+                      <QrCode size={32} />
+                    </div>
+                    <p style={{ margin: 0, fontSize: '16px', color: '#0369A1', fontWeight: '700' }}>Phương thức: Chuyển khoản</p>
+                    <button 
+                      onClick={() => setIsQRModalOpen(true)}
+                      style={{ marginTop: '12px', padding: '8px 16px', background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      Xem lại mã QR
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '20px 24px', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
+              <button onClick={() => setIsCheckoutModalOpen(false)} className="btn btn-outline" style={{ flex: 1, padding: '14px' }}>
+                Hủy
+              </button>
+              <button 
+                onClick={handleConfirmPayment} 
+                className="btn btn-primary" 
+                style={{ flex: 2, padding: '14px', backgroundColor: '#3B82F6', borderColor: '#3B82F6', fontSize: '16px' }}
+              >
+                XÁC NHẬN ĐÃ THU TIỀN
+              </button>
+            </div>
+            
+          </motion.div>
+        </div>
+      )}
+
+      {/* QR CODE POPUP MODAL */}
+      {isQRModalOpen && checkoutOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '24px', width: '100%', maxWidth: '420px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            
+            {/* Header with Bank Color */}
+            <div style={{ padding: '20px', background: '#E01020', color: '#FFF', textAlign: 'center', position: 'relative' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>TECHCOMBANK</h3>
+              <button onClick={() => setIsQRModalOpen(false)} style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#FFF' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Chủ tài khoản</p>
+                <p style={{ margin: '4px 0 0', fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>NGUYEN LAN VIET</p>
+                <p style={{ margin: '8px 0 0', fontSize: '18px', color: '#11117F', fontWeight: '700', letterSpacing: '1px' }}>1903 7974 1810 12</p>
+              </div>
+
+              {/* QR Image */}
+              <div style={{ padding: '16px', backgroundColor: '#FFF', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #F1F5F9' }}>
+                <img 
+                  src={`https://img.vietqr.io/image/970407-19037974181012-print.jpg?amount=${checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0}&addInfo=Thanh toan don ${String(checkoutOrder.id).slice(0,8)}&accountName=NGUYEN LAN VIET`} 
+                  alt="QR Code" 
+                  style={{ width: '280px', height: '280px', objectFit: 'contain' }}
+                />
+              </div>
+
+              <div style={{ textAlign: 'center', backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '12px', width: '100%' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>SỐ TIỀN CẦN CHUYỂN</p>
+                <p style={{ margin: '4px 0 0', fontSize: '26px', color: '#10B981', fontWeight: '900' }}>
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0)}
+                </p>
+              </div>
+
+              <button 
+                onClick={() => setIsQRModalOpen(false)}
+                style={{ width: '100%', padding: '16px', borderRadius: '12px', background: '#0F172A', color: '#FFF', border: 'none', fontSize: '16px', fontWeight: '700', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.target.style.opacity = '1'}
+              >
+                ĐÃ QUÉT XONG
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1643,7 +2420,12 @@ const App = () => {
     if (token) {
       const payload = parseJwt(token);
       if (payload) {
-        setCurrentUser({ id: payload.uid, role: payload.role, server: payload.server });
+        setCurrentUser({ 
+          id: payload.sub || payload.uid, 
+          role: payload.role || 'ADMIN', 
+          server: 'local',
+          fullName: payload.fullName || payload.sub
+        });
       }
     }
   }, []);

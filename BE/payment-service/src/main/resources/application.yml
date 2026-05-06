@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1522/XEPDB1
+    username: Food_Order
+    password: Ab@123456
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8085

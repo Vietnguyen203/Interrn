@@ -137,6 +137,7 @@ export const apiService = {
         // Lấy tất cả đơn / lọc theo status
         getAll: (status) => orderFetch('GET', `/orders${status ? `?status=${status}` : ''}`),
         getById: (id) => orderFetch('GET', `/orders/${id}`),
+        getReports: (type) => orderFetch('GET', `/reports?type=${type}`),
 
         // Tạo đơn hàng mới
         create: (data) => orderFetch('POST', '/orders', data),
@@ -155,8 +156,39 @@ export const apiService = {
         // Bếp cập nhật trạng thái chế biến: PENDING | COOKING | READY | SERVED
         updateKitchenStatus: (itemId, status) =>
             orderFetch('PATCH', `/orders/items/${itemId}/kitchen-status?status=${status}`),
+    },
+
+    // ===== PAYMENT SERVICE (port 8085 via /payment proxy) =====
+    payment: {
+        // Tạo yêu cầu thanh toán (PENDING)
+        create: (data) => paymentFetch('POST', '/api/payments', data),
+        
+        // Xác nhận đã thu tiền thành công (PATCH -> COMPLETED)
+        complete: (orderId, transactionCode) => 
+            paymentFetch('PATCH', `/api/payments/order/${orderId}/complete?transactionCode=${transactionCode || ''}`),
+            
+        // Lấy lịch sử thanh toán của đơn hàng
+        getByOrderId: (orderId) => paymentFetch('GET', `/api/payments/order/${orderId}`),
     }
 };
+
+// Helper riêng cho payment-service (proxy /payment → port 8085)
+async function paymentFetch(method, path, body) {
+    const token = sessionStorage.getItem('token');
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    const response = await fetch(`/payment${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!response.ok) throw new Error(data.message || `Payment API error: ${response.status}`);
+    return data;
+}
 
 // Helper riêng cho catalog-service (proxy /catalog → port 8081)
 async function catalogFetch(method, path, body) {
