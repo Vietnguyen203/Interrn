@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/catalog-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/catalog-service.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/catalog-service.test.iml" filepath="$PROJECT_DIR$/.idea/modules/catalog-service.test.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/order-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/order-service.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/table-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/table-service.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/users-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/users-service.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/users-service.test.iml" filepath="$PROJECT_DIR$/.idea/modules/users-service.test.iml" />
     </modules>

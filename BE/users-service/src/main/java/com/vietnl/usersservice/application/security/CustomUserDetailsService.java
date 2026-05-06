@@ -24,10 +24,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
 
-        String roleName = "ROLE_USER"; 
-        if (user.getRole() != null) {
-            if (user.getRole() == 1) roleName = "ROLE_ADMIN";
-            else if (user.getRole() == 2) roleName = "ROLE_CHEF";
+        String roleName;
+        switch (user.getRole() != null ? user.getRole() : 0) {
+            case 1  -> roleName = "ROLE_ADMIN";
+            case 2  -> roleName = "ROLE_CHEF";
+            case 3  -> roleName = "ROLE_KITCHEN";
+            default -> roleName = "ROLE_WAITER"; // 0 = WAITER (default)
         }
         
         List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(roleName));

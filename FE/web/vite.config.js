@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      '/api/tables': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
@@ -24,5 +29,3 @@ export default defineConfig({
     }
   }
 })
-
-

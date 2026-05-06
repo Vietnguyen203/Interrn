@@ -95,6 +95,18 @@ public class UserAPI {
                                                 "message", "Deleted successfully"));
         }
 
+        // ===== UPDATE USER INFO =====
+        @PutMapping("/{id}")
+        @PreAuthorize("hasRole('ADMIN')")
+        public ResponseEntity<?> update(@PathVariable String id, @RequestBody UserRequest request) {
+                User updatedUser = userService.update(id, request);
+                return ResponseEntity.ok(
+                                Map.of(
+                                                "code", "200",
+                                                "message", "User updated",
+                                                "data", UserResponse.fromEntity(updatedUser)));
+        }
+
         // ===== UPDATE PASSWORD =====
         @PutMapping("/{id}/reset-password")
         public ResponseEntity<?> resetPassword(@PathVariable String id, @RequestBody ResetPasswordRequest request) {

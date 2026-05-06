@@ -416,13 +416,20 @@ const DashboardScreen = ({ user, onLogout }) => {
     username: '', password: '', fullName: '', email: '', phoneNumber: '', birthday: '', role: 'WAITER', server: 'HCM', gender: 'MALE'
   });
 
+  const [isTableModalOpen, setIsTableModalOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState(null);
+  const [tableFormData, setTableFormData] = useState({
+    tableNumber: '', capacity: 4, location: ''
+  });
+
   const [loadingConfig, setLoadingConfig] = useState({
-    overview: true, orders: false, foods: false, staff: false
+    overview: true, orders: false, foods: false, staff: false, tables: false
   });
 
   const navItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Overview', roles: ['ADMIN'] },
     { icon: <ClipboardList size={20} />, label: 'Orders', roles: ['ADMIN'] },
+    { icon: <LayoutDashboard size={20} />, label: 'Tables', roles: ['ADMIN', 'WAITER'] },
     { icon: <Utensils size={20} />, label: 'Kitchen', roles: ['ADMIN', 'KITCHEN'] },
     { icon: <Utensils size={20} />, label: 'Menu & Food', roles: ['ADMIN'] },
     { icon: <Users size={20} />, label: 'Staff', roles: ['ADMIN'] },
@@ -437,6 +444,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'Overview') fetchOverviewData();
     else if (activeTab === 'Orders') fetchOrdersData();
+    else if (activeTab === 'Tables') fetchTablesData();
     else if (activeTab === 'Menu & Food') fetchFoodsData();
     else if (activeTab === 'Staff') fetchStaffData();
     else if (activeTab === 'Kitchen') fetchKitchenData();
@@ -485,13 +493,34 @@ const DashboardScreen = ({ user, onLogout }) => {
   const fetchOverviewData = async () => {
     setLoadingConfig(prev => ({ ...prev, overview: true }));
     try {
-      const ordersRes = await apiService.order.getAll();
-      if (ordersRes.data) {
-        setRecentOrders(ordersRes.data.slice(0, 5));
-        setAllOrders(ordersRes.data);
+      const [ordersRes, tablesRes, foodsRes] = await Promise.allSettled([
+        apiService.order.getAll(),
+        apiService.dashboard.getTables(),
+        apiService.catalog.getItems()
+      ]);
+
+      console.log('Orders Response:', ordersRes);
+      console.log('Tables Response:', tablesRes);
+      console.log('Foods Response:', foodsRes);
+
+      if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
+        const ordersArr = Array.isArray(ordersRes.value.data) ? ordersRes.value.data : (ordersRes.value.data.content || []);
+        setRecentOrders(ordersArr.slice(0, 5));
+        setAllOrders(ordersArr);
       }
-    } catch { }
-    setLoadingConfig(prev => ({ ...prev, overview: false }));
+      if (tablesRes.status === 'fulfilled' && tablesRes.value.data) {
+        const tablesArr = Array.isArray(tablesRes.value.data) ? tablesRes.value.data : (tablesRes.value.data.content || []);
+        setTables(tablesArr);
+      }
+      if (foodsRes.status === 'fulfilled' && foodsRes.value.data) {
+        const foodsArr = Array.isArray(foodsRes.value.data) ? foodsRes.value.data : (foodsRes.value.data.content || []);
+        setFoods(foodsArr);
+      }
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu tổng quan:', error);
+    } finally {
+      setLoadingConfig(prev => ({ ...prev, overview: false }));
+    }
   };
 
 
@@ -540,8 +569,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const fetchStaffData = async () => {
     setLoadingConfig(prev => ({ ...prev, staff: true }));
     try {
-      const server = user?.server || 'HCM';
-      const res = await apiService.dashboard.getStaff(server);
+      const res = await apiService.dashboard.getStaff();
       if (res.data) setStaff(res.data);
     } catch (error) {
       toast.error('Không thể tải danh sách nhân viên: ' + error.message);
@@ -550,11 +578,80 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   };
 
+  const fetchTablesData = async () => {
+    setLoadingConfig(prev => ({ ...prev, tables: true }));
+    try {
+      const res = await apiService.dashboard.getTables();
+      if (res.data) setTables(res.data);
+    } catch (error) {
+      toast.error('Không thể tải danh sách bàn: ' + error.message);
+    } finally {
+      setLoadingConfig(prev => ({ ...prev, tables: false }));
+    }
+  };
+
+  const handleOpenTableModal = (table = null) => {
+    if (table) {
+      setEditingTable(table);
+      setTableFormData({
+        tableNumber: table.tableNumber || '',
+        capacity: table.capacity || 4,
+        location: table.location || ''
+      });
+    } else {
+      setEditingTable(null);
+      setTableFormData({ tableNumber: '', capacity: 4, location: '' });
+    }
+    setIsTableModalOpen(true);
+  };
+
+  const handleSaveTable = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...tableFormData,
+        tableNumber: parseInt(tableFormData.tableNumber),
+        capacity: parseInt(tableFormData.capacity)
+      };
+
+      if (editingTable) {
+        await apiService.dashboard.updateTable(editingTable.id, payload);
+        toast.success('Cập nhật bàn thành công');
+      } else {
+        await apiService.dashboard.createTable(payload);
+        toast.success('Thêm bàn mới thành công');
+      }
+      setIsTableModalOpen(false);
+      fetchTablesData();
+    } catch (err) {
+      toast.error('Lỗi lưu thông tin bàn: ' + err.message);
+    }
+  };
+
+  const handleDeleteTable = async (id) => {
+    const ok = await confirm('Xóa bàn', 'Bạn có chắc chắn muốn xóa bàn này không?', { danger: true, confirmLabel: 'Xóa bàn' });
+    if (!ok) return;
+    try {
+      await apiService.dashboard.deleteTable(id);
+      toast.success('Đã xóa bàn');
+      fetchTablesData();
+    } catch (err) {
+      toast.error('Lỗi xóa bàn: ' + err.message);
+    }
+  };
+
   const statCards = [
-    { title: 'Total Revenue', value: '$12,426', change: '+14%', positive: true },
-    { title: 'Total Orders', value: allOrders.length || recentOrders.length || 0, change: 'Today', positive: true },
+    { 
+      title: 'Total Revenue', 
+      value: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+        allOrders.filter(o => o.status === 'COMPLETED').reduce((acc, o) => acc + (o.totalPrice || 0), 0)
+      ), 
+      change: '+0%', 
+      positive: true 
+    },
+    { title: 'Total Orders', value: allOrders.length || 0, change: 'All time', positive: true },
     { title: 'Total Menu Items', value: foods.length || 0, change: 'Active', positive: true },
-    { title: 'Total Tables', value: tables.length || 0, change: `${tables.filter(t => t.currentOrderId).length} Occupied`, positive: true },
+    { title: 'Total Tables', value: tables.length || 0, change: `${tables.filter(t => t.status === 'OCCUPIED').length} Occupied`, positive: true },
   ];
 
   const getStatusColor = (status) => {
@@ -651,11 +748,13 @@ const DashboardScreen = ({ user, onLogout }) => {
     if (person) {
       setEditingStaff(person);
       setStaffFormData({
-        ...person,
-        username: person.employeeId, // Use employeeId as username for display/tracking
+        username: person.username || '',
         password: '',
+        fullName: person.fullName || '',
+        email: person.email || '',
+        phoneNumber: person.phoneNumber || '',
         birthday: person.birthday || '',
-        gender: person.gender || 'MALE'
+        role: person.role || 'WAITER',
       });
     } else {
       setEditingStaff(null);
@@ -667,12 +766,18 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleSaveStaff = async (e) => {
     e.preventDefault();
     try {
+      const roleStrToInt = { WAITER: 0, ADMIN: 1, CHEF: 2, KITCHEN: 3 };
       const payload = { ...staffFormData };
-      if (editingStaff && !payload.password) {
-        delete payload.password;
+      
+      // Đảm bảo birthday khớp định dạng LocalDateTime (yyyy-MM-ddTHH:mm:ss)
+      if (payload.birthday && payload.birthday.length === 10) {
+        payload.birthday = `${payload.birthday}T00:00:00`;
       }
+
+      if (typeof payload.role === 'string') payload.role = roleStrToInt[payload.role] ?? 0;
+      if (editingStaff && !payload.password) delete payload.password;
       if (editingStaff) {
-        await apiService.dashboard.updateStaff(editingStaff.server, editingStaff.uid, payload);
+        await apiService.dashboard.updateStaff(null, editingStaff.id, payload);
         toast.success('Cập nhật nhân viên thành công');
       } else {
         await apiService.dashboard.createStaff(payload);
@@ -685,11 +790,11 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   };
 
-  const handleDeleteStaff = async (server, employeeId) => {
+  const handleDeleteStaff = async (id) => {
     const ok = await confirm('Xóa nhân viên', 'Bạn có chắc muốn xóa nhân viên này không?', { danger: true, confirmLabel: 'Xóa' });
     if (!ok) return;
     try {
-      await apiService.dashboard.deleteStaff(server, employeeId);
+      await apiService.dashboard.deleteStaff(null, id);
       toast.success('Đã xóa nhân viên');
       fetchStaffData();
     } catch (err) {
@@ -815,12 +920,22 @@ const DashboardScreen = ({ user, onLogout }) => {
                     ) : tables.length === 0 ? (
                       <p style={{ color: 'var(--text-secondary)', gridColumn: '1 / -1', textAlign: 'center' }}>No tables.</p>
                     ) : tables.map((table) => {
-                      const isOccupied = table.currentOrderId != null;
+                      // Ép kiểu về String để so sánh chính xác nhất
+                      const status = String(table.status).toUpperCase();
+                      const isAvailable = status === 'AVAILABLE' || status === '0';
+                      const isOccupied = status === 'OCCUPIED' || status === '1';
+                      const isCleaning = status === 'CLEANING' || status === '3';
+
                       return (
                         <div key={table.id} style={{ padding: '16px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`, backgroundColor: isOccupied ? 'rgba(9, 52, 219, 0.05)' : 'var(--bg-app)' }}>
-                          <span style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{table.tableName}</span>
-                          <span className={`badge ${isOccupied ? 'badge-occupied' : 'badge-empty'}`}>
-                            {isOccupied ? 'Occupied' : 'Empty'}
+                          <span style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Bàn {table.tableNumber} <small style={{fontWeight: 400, opacity: 0.5}}>({table.status})</small></span>
+                          <span className={`badge ${isOccupied ? 'badge-occupied' : 'badge-empty'}`} style={{ 
+                            backgroundColor: isAvailable ? 'var(--status-completed)20' : 
+                                            isOccupied ? 'var(--secondary)20' : '#f59e0b20',
+                            color: isAvailable ? 'var(--status-completed)' : 
+                                   isOccupied ? 'var(--secondary)' : '#f59e0b'
+                          }}>
+                            {isAvailable ? 'Sẵn sàng' : isOccupied ? 'Có khách' : isCleaning ? 'Đang dọn' : status}
                           </span>
                         </div>
                       )
@@ -1208,6 +1323,94 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             </motion.div>
           )}
+          {/* TABLES TAB */}
+          {activeTab === 'Tables' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                  <h3 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>🪑 Quản lý bàn</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Xem và quản lý danh sách bàn trong nhà hàng</p>
+                </div>
+                <button onClick={() => handleOpenTableModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={16} /> Thêm Bàn
+                </button>
+              </div>
+
+              {loadingConfig.tables ? (
+                <p style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu bàn...</p>
+              ) : tables.length === 0 ? (
+                <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <p style={{ fontSize: '48px', margin: '0 0 16px' }}>🪑</p>
+                  <p style={{ fontWeight: '600' }}>Chưa có bàn nào được tạo.</p>
+                  <p style={{ fontSize: '13px' }}>Hãy thêm bàn mới để bắt đầu quản lý chỗ ngồi!</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+                  {tables.map(table => {
+                    const statusVal = String(table.status).toUpperCase();
+                    const statusConfigMap = {
+                      'AVAILABLE': { label: 'Trống', color: '#10b981', bg: '#ecfdf5' },
+                      '0': { label: 'Trống', color: '#10b981', bg: '#ecfdf5' },
+                      'OCCUPIED': { label: 'Có khách', color: '#ef4444', bg: '#fef2f2' },
+                      '1': { label: 'Có khách', color: '#ef4444', bg: '#fef2f2' },
+                      'RESERVED': { label: 'Đã đặt', color: '#f59e0b', bg: '#fffbeb' },
+                      '2': { label: 'Đã đặt', color: '#f59e0b', bg: '#fffbeb' },
+                      'CLEANING': { label: 'Đang dọn', color: '#6366f1', bg: '#eef2ff' },
+                      '3': { label: 'Đang dọn', color: '#6366f1', bg: '#eef2ff' },
+                    };
+                    const statusConfig = statusConfigMap[statusVal] || { label: statusVal, color: '#666', bg: '#eee' };
+                    const tableId = table.id || table.ID;
+
+                    return (
+                      <div key={tableId} className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border-color)', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <h4 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--primary)' }}>Bàn {table.tableNumber}</h4>
+                          <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', backgroundColor: statusConfig.bg, color: statusConfig.color }}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: '13px', margin: '0 0 4px', color: 'var(--text-secondary)' }}>Sức chứa: <b>{table.capacity} người</b></p>
+                          <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-secondary)' }}>Vị trí: <b>{table.location || '—'}</b></p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                          <button onClick={() => handleOpenTableModal(table)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '12px' }}>Sửa</button>
+                          <button onClick={() => handleDeleteTable(tableId)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '12px', color: 'var(--status-cancelled)', borderColor: 'var(--status-cancelled)' }}>Xóa</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Modal Thêm/Sửa Bàn */}
+              {isTableModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px' }}>{editingTable ? '✏️ Sửa Thông Tin Bàn' : '➕ Thêm Bàn Mới'}</h2>
+                    <form onSubmit={handleSaveTable} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="input-group">
+                        <label>Số bàn *</label>
+                        <input type="number" required value={tableFormData.tableNumber} onChange={e => setTableFormData({ ...tableFormData, tableNumber: e.target.value })} className="input-field" placeholder="VD: 10" />
+                      </div>
+                      <div className="input-group">
+                        <label>Sức chứa (người) *</label>
+                        <input type="number" required min="1" value={tableFormData.capacity} onChange={e => setTableFormData({ ...tableFormData, capacity: e.target.value })} className="input-field" placeholder="VD: 4" />
+                      </div>
+                      <div className="input-group">
+                        <label>Vị trí (tầng, khu vực)</label>
+                        <input type="text" value={tableFormData.location} onChange={e => setTableFormData({ ...tableFormData, location: e.target.value })} className="input-field" placeholder="VD: Tầng 1, cạnh cửa sổ" />
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => setIsTableModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
+                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Bàn</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </motion.div>
+          )}
           {/* STAFF TAB */}
           {activeTab === 'Staff' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card" style={{ padding: '24px' }}>
@@ -1234,34 +1437,38 @@ const DashboardScreen = ({ user, onLogout }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {staff.map((person) => (
-                        <tr key={person.uid} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{person.uid}</td>
-                          <td style={{ padding: '16px', fontWeight: '700', color: '#11117F' }}>{person.fullName || 'N/A'}</td>
-                          <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <Calendar size={14} style={{ opacity: 0.6 }} />
-                              {formatDate(person.birthday)}
-                            </div>
-                          </td>
-                          <td style={{ padding: '16px' }}>
-                            <span style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', backgroundColor: '#F0F0FF', border: '1px solid #11117F', fontWeight: '700', color: '#11117F' }}>{person.role}</span>
-                          </td>
-                          <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                            <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{person.phoneNumber || '-'}</div>
-                            <div style={{ opacity: 0.8 }}>{person.email || '-'}</div>
-                          </td>
-                          <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                              <span style={{ fontSize: '13px' }}>{person.server}</span>
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                <button onClick={() => handleOpenStaffModal(person)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }} title="Edit Staff"><Settings size={16} /></button>
-                                <button onClick={() => handleDeleteStaff(person.server, person.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }} title="Remove Staff"><LogOut size={16} /></button>
+                      {staff.map((person) => {
+                        const roleLabel = { 0: 'WAITER', 1: 'ADMIN', 2: 'CHEF', 3: 'KITCHEN' }[person.role] || String(person.role);
+                        const roleBg   = { 0: '#EFF6FF', 1: '#FEF3C7', 2: '#D1FAE5', 3: '#FFF7ED' }[person.role] || '#EFF6FF';
+                        const roleColor = { 0: '#1D4ED8', 1: '#92400E', 2: '#065F46', 3: '#C2410C' }[person.role] || '#1D4ED8';
+                        return (
+                          <tr key={person.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.id}</td>
+                            <td style={{ padding: '16px', fontWeight: '700', color: '#11117F' }}>{person.fullName || 'N/A'}</td>
+                            <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Calendar size={14} style={{ opacity: 0.6 }} />
+                                {formatDate(person.birthday)}
                               </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td style={{ padding: '16px' }}>
+                              <span style={{ padding: '5px 12px', borderRadius: '8px', fontSize: '12px', backgroundColor: roleBg, border: `1px solid ${roleColor}40`, fontWeight: '700', color: roleColor }}>
+                                {roleLabel}
+                              </span>
+                            </td>
+                            <td style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                              <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{person.phoneNumber || '-'}</div>
+                              <div style={{ opacity: 0.8 }}>{person.email || '-'}</div>
+                            </td>
+                            <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                <button onClick={() => handleOpenStaffModal(person)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: '4px' }} title="Chỉnh sửa"><Settings size={16} /></button>
+                                <button onClick={() => handleDeleteStaff(person.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }} title="Xóa nhân viên"><LogOut size={16} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {staff.length === 0 && (
                         <tr><td colSpan="5" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No staff found.</td></tr>
                       )}

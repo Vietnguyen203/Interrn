@@ -43,8 +43,9 @@ public class UserService {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(UserRole.USER.getValue()); // Default: 0 (USER)
-        user.setStatus(UserStatus.ACTIVE.getValue()); // Default: 1 (ACTIVE)
+        // Dùng role từ request nếu có, mặc định WAITER(0)
+        user.setRole(request.getRole() != null ? request.getRole().getValue() : UserRole.WAITER.getValue());
+        user.setStatus(UserStatus.ACTIVE.getValue());
         user.setPhoneNumber(request.getPhoneNumber());
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
@@ -67,6 +68,21 @@ public class UserService {
     public void delete(String id) {
         userValidator.validateExists(id);
         userRepository.deleteById(UUID.fromString(id));
+    }
+
+    public User update(String id, UserRequest request) {
+        User user = userValidator.validateExists(id);
+
+        if (request.getFullName() != null) user.setFullName(request.getFullName());
+        if (request.getEmail() != null) user.setEmail(request.getEmail());
+        if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
+        if (request.getBirthday() != null) user.setBirthday(request.getBirthday());
+        if (request.getCitizenPid() != null) user.setCitizenPid(request.getCitizenPid());
+        if (request.getRole() != null) user.setRole(request.getRole().getValue());
+        if (request.getStatus() != null) user.setStatus(request.getStatus().getValue());
+
+        user.setUpdatedAt(LocalDateTime.now());
+        return userRepository.save(user);
     }
 
     public void resetPassword(String id, ResetPasswordRequest request) {

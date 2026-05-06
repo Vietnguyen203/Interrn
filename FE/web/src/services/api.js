@@ -80,7 +80,14 @@ export const apiService = {
     },
 
     dashboard: {
-        getTables: () => apiService.get('/tables/list'),
+        // Tables (table-service) — port 8083
+        getTables: (status) => apiService.get(status ? `/tables?status=${status}` : '/tables'),
+        createTable: (data) => apiService.post('/tables', data),
+        updateTable: (id, data) => apiService.put(`/tables/${id}`, data),
+        updateTableStatus: (id, status) => apiService.patch(`/tables/${id}/status`, { status }),
+        assignTableOrder: (id, orderId) => apiService.patch(`/tables/${id}/assign-order`, { orderId }),
+        deleteTable: (id) => apiService.delete(`/tables/${id}`),
+
         getRecentOrders: () => apiService.get('/orders?page=0&size=5'),
         getRevenue: () => apiService.get('/orders/revenue-by-week'),
         getAllOrders: (page = 0, size = 50) => apiService.get(`/orders?page=${page}&size=${size}`),
@@ -90,10 +97,11 @@ export const apiService = {
         updateFood: (id, foodData) => apiService.put(`/foods/${id}`, foodData),
         deleteFood: (id) => apiService.delete(`/foods/${id}`),
 
-        getStaff: (server = 'HCM') => apiService.get(`/users?server=${server}`),
-        createStaff: (staffData) => apiService.post('/users/register', staffData),
-        updateStaff: (server, employeeId, staffData) => apiService.put(`/users/${server}/${employeeId}`, staffData),
-        deleteStaff: (server, employeeId) => apiService.delete(`/users/${server}/${employeeId}`),
+        // Staff (users-service) — base path: /users-service/request
+        getStaff: () => apiService.get('/users-service/request'),
+        createStaff: (staffData) => apiService.post('/users-service/request', staffData),
+        updateStaff: (server, uid, staffData) => apiService.put(`/users-service/request/${uid}`, staffData),
+        deleteStaff: (server, uid) => apiService.delete(`/users-service/request/${uid}`),
     },
 
     // ===== KITCHEN (dùng order-service port 8082) =====

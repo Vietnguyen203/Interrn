@@ -33,7 +33,7 @@ public class AdminSeeder implements CommandLineRunner {
             admin.setStatus(UserStatus.ACTIVE.getValue());
             
             // Các trường bắt buộc nhồi data ảo để không bị Oracle chửi Not Null
-            admin.setFullName("Tối Cao Pháp Sư Admin");
+            admin.setFullName("Admin");
             admin.setEmail("admin@food.com");
             admin.setPhoneNumber("0999999999");
             admin.setCitizenPid("000000000000");
@@ -42,10 +42,6 @@ public class AdminSeeder implements CommandLineRunner {
             admin.setUpdatedAt(LocalDateTime.now());
 
             userRepository.save(admin);
-            System.out.println("====== ĐÃ KHỞI TẠO TÀI KHOẢN ADMIN THÀNH CÔNG ======");
-            System.out.println("Tài khoản: admin");
-            System.out.println("Mật khẩu: admin");
-            System.out.println("Quyền: ADMIN (1)");
         }
     }
 }
