@@ -6,30 +6,22 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/tables': {
-        target: 'http://localhost:8083',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      },
+      // Chuyển tất cả các API calls về Gateway chạy ở cổng 8080
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      },
-      '/catalog': {
-        target: 'http://localhost:8081',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/catalog/, '')
+        changeOrigin: true
       },
       '/order': {
-        target: 'http://localhost:8082',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/order/, '')
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/catalog': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       },
       '/payment': {
-        target: 'http://localhost:8085',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/payment/, '')
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
   }

@@ -17,7 +17,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/tables")
 @RequiredArgsConstructor
-@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 public class TableAPI {
 
     private final TableService tableService;

@@ -33,6 +33,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
         
         List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(roleName));
+        System.out.println(">>> [Auth Debug] User: " + username + " loaded with role: " + roleName);
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),

@@ -12,10 +12,26 @@
         </option>
       </GradleProjectSettings>
       <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/gateway-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/gateway-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$/BE/migration-service" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$/BE/migration-service" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/BE/notification-service" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/BE/notification-service" />
           </set>
         </option>
       </GradleProjectSettings>

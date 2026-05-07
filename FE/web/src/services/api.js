@@ -74,9 +74,9 @@ export const apiService = {
     // Specific API calls for cleaner components
     auth: {
         login: (username, password) =>
-            apiService.post('/users-service/request/login', { username, password }),
+            apiService.post('/users-service/login', { username, password }),
         resetPassword: (id, password) =>
-            apiService.put(`/users-service/request/${id}/reset-password`, { password })
+            apiService.put(`/users-service/${id}/reset-password`, { password })
     },
 
     dashboard: {
@@ -98,10 +98,10 @@ export const apiService = {
         deleteFood: (id) => apiService.delete(`/foods/${id}`),
 
         // Staff (users-service) — base path: /users-service/request
-        getStaff: () => apiService.get('/users-service/request'),
-        createStaff: (staffData) => apiService.post('/users-service/request', staffData),
-        updateStaff: (server, uid, staffData) => apiService.put(`/users-service/request/${uid}`, staffData),
-        deleteStaff: (server, uid) => apiService.delete(`/users-service/request/${uid}`),
+        getStaff: () => apiService.get('/users-service'),
+        createStaff: (staffData) => apiService.post('/users-service', staffData),
+        updateStaff: (server, uid, staffData) => apiService.put(`/users-service/${uid}`, staffData),
+        deleteStaff: (server, uid) => apiService.delete(`/users-service/${uid}`),
     },
 
     // ===== KITCHEN (dùng order-service port 8082) =====

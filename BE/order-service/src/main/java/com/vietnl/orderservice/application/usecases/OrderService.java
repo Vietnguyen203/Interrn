@@ -24,6 +24,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final RestTemplate restTemplate = new RestTemplate();
 
     // ===== TẠO ĐƠN HÀNG =====
@@ -64,6 +65,14 @@ public class OrderService {
                 System.err.println("Lỗi khi đồng bộ trạng thái bàn: " + e.getMessage());
             }
         }
+
+        // Thông báo cho bếp có đơn hàng mới
+        sendNotification(
+            "Đơn hàng mới",
+            "Bàn " + saved.getTableNumber() + " vừa gọi món!",
+            "info",
+            "KITCHEN"
+        );
 
         return OrderResponse.from(saved);
     }
@@ -211,5 +220,29 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
         item.setKitchenStatus(kitchenStatus);
         orderItemRepository.save(item);
+
+        // Thông báo cho bồi bàn khi món đã sẵn sàng
+        if ("READY".equals(kitchenStatus)) {
+            sendNotification(
+                "Món ăn sẵn sàng",
+                "Món [" + item.getFoodName() + "] của " + item.getOrder().getTableNumber() + " đã xong!",
+                "info",
+                "WAITER"
+            );
+        }
+    }
+
+    private void sendNotification(String title, String message, String type, String role) {
+        try {
+            Map<String, Object> payload = Map.of(
+                "title", title,
+                "message", message,
+                "type", type,
+                "recipientRole", role
+            );
+            kafkaTemplate.send("notifications-topic", payload);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo qua Kafka: " + e.getMessage());
+        }
     }
 }

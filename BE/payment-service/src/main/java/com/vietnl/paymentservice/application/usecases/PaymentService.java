@@ -18,6 +18,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentValidator paymentValidator;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @Transactional
     public Payment createPayment(CreatePaymentRequest request) {
@@ -44,6 +45,30 @@ public class PaymentService {
         payment.setTransactionCode(transactionCode);
         payment.setPaidAt(LocalDateTime.now());
         
-        return paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+
+        // Thông báo cho Admin/Cashier/Waiter về việc thanh toán thành công
+        sendNotification(
+            "Thanh toán thành công",
+            "Đơn hàng " + orderId.toString().substring(0, 8) + " đã thanh toán: " + String.format("%,.0f", saved.getAmount().doubleValue()) + " VNĐ",
+            "success",
+            "ALL"
+        );
+
+        return saved;
+    }
+
+    private void sendNotification(String title, String message, String type, String role) {
+        try {
+            java.util.Map<String, Object> payload = java.util.Map.of(
+                "title", title,
+                "message", message,
+                "type", type,
+                "recipientRole", role
+            );
+            kafkaTemplate.send("notifications-topic", payload);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo thanh toán qua Kafka: " + e.getMessage());
+        }
     }
 }

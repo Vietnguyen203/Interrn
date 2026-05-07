@@ -400,6 +400,19 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem('activeTab') || 'Overview';
   });
+
+  const handleLogout = async () => {
+    const ok = await confirm(
+      'Đăng xuất', 
+      'Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?', 
+      { danger: true, confirmLabel: 'Đăng xuất' }
+    );
+    if (ok) {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      onLogout();
+    }
+  };
   
   useEffect(() => {
     sessionStorage.setItem('activeTab', activeTab);
@@ -450,6 +463,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [cartItems, setCartItems] = useState([]); // { menuItemId, foodName, unitPrice, quantity, note }
   const [selectedTableId, setSelectedTableId] = useState('');
   const [orderNote, setOrderNote] = useState('');
+  const [selectedTableForOrders, setSelectedTableForOrders] = useState(null);
 
   // Checkout (Payment) States
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -467,28 +481,46 @@ const DashboardScreen = ({ user, onLogout }) => {
     const socket = new SockJS('http://localhost:8083/ws');
     const stompClient = new Client({
       webSocketFactory: () => socket,
-      debug: (str) => console.log('>>> [WS Debug]:', str),
+      debug: (str) => console.log('>>> [WS Debug Table]:', str),
       onConnect: () => {
         console.log('>>> WebSocket Connected to table-service');
         stompClient.subscribe('/topic/tables', (message) => {
-          console.log('>>> Received WS Message:', message.body);
           if (message.body === 'REFRESH_TABLES') {
             fetchTablesData();
             if (activeTab === 'Overview') fetchOverviewData();
           }
         });
       },
-      onStompError: (frame) => {
-        console.error('>>> Broker reported error: ' + frame.headers['message']);
-        console.error('>>> Additional details: ' + frame.body);
-      }
     });
-
     stompClient.activate();
+    return () => { if (stompClient.active) stompClient.deactivate(); };
+  }, [activeTab]);
 
-    return () => {
-      if (stompClient.active) stompClient.deactivate();
-    };
+  // WebSocket Connection for General Notifications
+  useEffect(() => {
+    const socket = new SockJS('http://localhost:8086/ws-notifications');
+    const stompClient = new Client({
+      webSocketFactory: () => socket,
+      debug: (str) => console.log('>>> [WS Debug Note]:', str),
+      onConnect: () => {
+        console.log('>>> WebSocket Connected to notification-service');
+        stompClient.subscribe('/topic/public', (message) => {
+          try {
+            const note = JSON.parse(message.body);
+            // Hiển thị thông báo bằng hệ thống toast sẵn có
+            toast[note.type || 'info'](note.message || note.title);
+            
+            // Nếu là thông báo đơn hàng mới hoặc thanh toán, có thể refresh data
+            if (note.title?.includes('Đơn hàng') || note.title?.includes('Thanh toán')) {
+              if (activeTab === 'Orders') fetchOrdersData();
+              if (activeTab === 'Overview') fetchOverviewData();
+            }
+          } catch (e) { console.error('Error parsing notification:', e); }
+        });
+      },
+    });
+    stompClient.activate();
+    return () => { if (stompClient.active) stompClient.deactivate(); };
   }, [activeTab]);
 
   const navItems = [
@@ -887,11 +919,6 @@ const DashboardScreen = ({ user, onLogout }) => {
   };
 
   // ---- Handlers ----
-  const handleLogout = () => {
-    sessionStorage.clear();
-    toast.info('Đã đăng xuất');
-    onLogout();
-  };
 
   const handleOpenFoodModal = (food = null) => {
     if (food) {
@@ -1256,116 +1283,177 @@ const DashboardScreen = ({ user, onLogout }) => {
             </motion.div>
           )}
 
-          {/* ORDERS TAB */}
+          {/* ORDERS TAB - New Real-time Table Grid View */}
           {activeTab === 'Orders' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card" style={{ padding: '24px' }}>
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Header section */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>📋 Quản lý Đơn hàng</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{allOrders.length} đơn hàng</p>
+                  <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#11117F', margin: 0 }}>🏪 Sơ đồ bàn & Đơn hàng</h3>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {tables.filter(t => t.status === 'AVAILABLE' || t.status === '0').length} bàn trống &middot; {tables.filter(t => t.status === 'OCCUPIED' || t.status === '1').length} bàn đang sử dụng
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                  <button onClick={() => fetchOrdersData()} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
-                  <button onClick={() => setIsCreateOrderModalOpen(true)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px', backgroundColor: '#10b981', borderColor: '#10b981' }}>➕ Tạo Đơn Mới</button>
-                </div>
-              </div>
-
-              {/* Status Filter Tabs */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                {[null, 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map(s => (
-                  <button key={s ?? 'all'} onClick={() => fetchOrdersData(s)}
-                    className="btn" style={{
-                      padding: '6px 16px', fontSize: '13px', fontWeight: '600',
-                      backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)',
-                      color: 'var(--text-secondary)', borderRadius: '20px', cursor: 'pointer'
-                    }}>
-                    {s === null ? '🔍 Tất cả' : s === 'PENDING' ? '⏳ Chờ xác nhận' : s === 'CONFIRMED' ? '✅ Đã xác nhận' : s === 'COMPLETED' ? '🎉 Hoàn thành' : '❌ Đã hủy'}
+                  <button onClick={() => { fetchTablesData(); fetchOrdersData(); }} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <RefreshCw size={16} /> Làm mới
                   </button>
-                ))}
+                  <button onClick={() => setIsCreateOrderModalOpen(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', borderColor: '#10b981' }}>
+                    <Plus size={16} /> Mở bàn / Gọi món
+                  </button>
+                </div>
               </div>
 
-              {loadingConfig.orders ? (
-                <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Đang tải đơn hàng...</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Mã đơn</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Bàn</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Tổng tiền</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Người tạo</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Ngày tạo</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Trạng thái</th>
-                        <th style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontWeight: '600', fontSize: '13px' }}>Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {allOrders.map((order) => (
-                        <tr key={order.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-app)'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                          <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '13px', fontWeight: '700', color: 'var(--primary)' }}>
-                            ORD-{String(order.id).slice(0, 8).toUpperCase()}
-                          </td>
-                          <td style={{ padding: '14px 16px', fontWeight: '600' }}>
-                            {order.tableNumber || order.tableId || '—'}
-                          </td>
-                          <td style={{ padding: '14px 16px', fontWeight: '700', color: 'var(--status-ordering)' }}>
-                            {Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ
-                          </td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{order.createdBy || '—'}</td>
-                          <td style={{ padding: '14px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>{formatDate(order.createdAt)}</td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <span style={{
-                              padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
-                              backgroundColor: `${getStatusColor(order.status)}15`,
-                              color: getStatusColor(order.status)
+              {/* Main Content Layout: Grid and Detail */}
+              <div style={{ display: 'grid', gridTemplateColumns: selectedTableForOrders ? '1fr 380px' : '1fr', gap: '24px', transition: 'all 0.4s ease' }}>
+                
+                {/* Left: Table Grid */}
+                <div className="card" style={{ padding: '24px', backgroundColor: '#F8FAFC' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
+                    {loadingConfig.tables ? (
+                      <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px' }}>Loading...</div>
+                    ) : (
+                      tables.map((table) => {
+                        const status = String(table.status).toUpperCase();
+                        const isOccupied = status === 'OCCUPIED' || status === '1';
+                        const isSelected = selectedTableForOrders?.id === table.id;
+                        
+                        // Find current active orders for this table
+                        const tableOrders = allOrders.filter(o => String(o.tableId) === String(table.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
+                        const totalAmount = tableOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+                        return (
+                          <motion.div 
+                            key={table.id}
+                            whileHover={{ scale: 1.03, y: -2 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => setSelectedTableForOrders(isSelected ? null : table)}
+                            style={{ 
+                              aspectRatio: '1/1',
+                              cursor: 'pointer',
+                              borderRadius: '20px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              position: 'relative',
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              backgroundColor: isSelected ? '#11117F' : '#FFF',
+                              boxShadow: isSelected ? '0 10px 25px rgba(17, 17, 127, 0.3)' : '0 4px 12px rgba(0,0,0,0.05)',
+                              border: `2px solid ${isOccupied ? '#EF4444' : isSelected ? '#11117F' : 'transparent'}`
+                            }}
+                          >
+                            <div style={{ 
+                              width: '48px', height: '48px', borderRadius: '14px', 
+                              backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : isOccupied ? '#FEF2F2' : '#F0F9FF',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              marginBottom: '12px', color: isSelected ? '#FFF' : isOccupied ? '#EF4444' : '#11117F'
                             }}>
-                              {order.status === 'PENDING' ? 'Chờ xác nhận'
-                                : order.status === 'CONFIRMED' ? 'Đã xác nhận'
-                                  : order.status === 'COMPLETED' ? 'Hoàn thành'
-                                    : order.status === 'CANCELLED' ? 'Đã hủy'
-                                      : order.status}
-                            </span>
-                          </td>
-                          <td style={{ padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              {order.status === 'PENDING' && (
-                                <button onClick={() => handleUpdateOrderStatus(order.id, 'CONFIRMED')}
-                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--primary)', color: 'white' }}>
-                                  Xác nhận
-                                </button>
-                              )}
-                              {order.status === 'CONFIRMED' && (
-                                <button onClick={() => handleOpenCheckout(order)}
-                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--status-completed)', color: 'white' }}>
-                                  💳 Thanh toán
-                                </button>
-                              )}
-                              {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
-                                <button onClick={() => handleCancelOrder(order.id)}
-                                  style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '600', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: 'var(--status-cancelled)', color: 'white' }}>
-                                  Hủy
-                                </button>
-                              )}
+                              {isOccupied ? <Users size={24} /> : <Utensils size={24} />}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {allOrders.length === 0 && (
-                        <tr>
-                          <td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                            <ClipboardList size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                            <p>Chưa có đơn hàng nào.</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                            <span style={{ fontSize: '18px', fontWeight: '800', color: isSelected ? '#FFF' : '#0F172A' }}>
+                              Bàn {table.tableNumber}
+                            </span>
+                            <span style={{ fontSize: '11px', fontWeight: '600', color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)' }}>
+                              {table.capacity} chỗ
+                            </span>
+                            
+                            {isOccupied && (
+                              <div style={{ 
+                                marginTop: '8px', padding: '2px 8px', borderRadius: '10px', 
+                                backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#EF4444', 
+                                color: '#FFF', fontSize: '10px', fontWeight: '800'
+                              }}>
+                                {totalAmount.toLocaleString('vi-VN')}đ
+                              </div>
+                            )}
+
+                            {isOccupied && !isSelected && (
+                              <div style={{ position: 'absolute', top: '10px', right: '10px', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#EF4444', border: '2px solid white' }} />
+                            )}
+                          </motion.div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              )}
+
+                {/* Right: Bill Detail (Conditional) */}
+                <AnimatePresence>
+                  {selectedTableForOrders && (
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="card" 
+                      style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: '#FFF', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#11117F' }}>Bàn {selectedTableForOrders.tableNumber}</h4>
+                          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Hóa đơn tạm tính</p>
+                        </div>
+                        <button onClick={() => setSelectedTableForOrders(null)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
+                      </div>
+
+                      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {(() => {
+                          const tableOrders = allOrders.filter(o => String(o.tableId) === String(selectedTableForOrders.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
+                          if (tableOrders.length === 0) {
+                            return (
+                              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
+                                <Utensils size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                                <p>Bàn này chưa có món nào</p>
+                              </div>
+                            );
+                          }
+                          return tableOrders.map(order => (
+                            <div key={order.id} style={{ borderBottom: '1px dashed #E2E8F0', paddingBottom: '16px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)', fontFamily: 'monospace' }}>#{String(order.id).slice(0,6)}</span>
+                                <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', backgroundColor: `${getStatusColor(order.status)}15`, color: getStatusColor(order.status) }}>{order.status}</span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {(order.items || []).map((item, idx) => (
+                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                    <span style={{ color: '#475569' }}><strong style={{ color: '#0F172A' }}>{item.quantity}x</strong> {item.foodName}</span>
+                                    <span style={{ fontWeight: '600' }}>{(item.unitPrice * item.quantity).toLocaleString('vi-VN')}đ</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+
+                      {(() => {
+                        const tableOrders = allOrders.filter(o => String(o.tableId) === String(selectedTableForOrders.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
+                        const total = tableOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+                        if (tableOrders.length === 0) return null;
+                        
+                        return (
+                          <div style={{ borderTop: '2px solid #F1F5F9', paddingTop: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                              <span style={{ fontSize: '16px', fontWeight: '700', color: '#475569' }}>TỔNG CỘNG:</span>
+                              <span style={{ fontSize: '24px', fontWeight: '900', color: '#10B981' }}>{total.toLocaleString('vi-VN')}đ</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                              <button onClick={() => setIsCreateOrderModalOpen(true)} className="btn btn-outline" style={{ flex: 1, padding: '12px', fontSize: '14px' }}>Thêm món</button>
+                              <button 
+                                onClick={() => handleOpenCheckout(tableOrders[0])} // For now, checkout the first order (usually there's only one active)
+                                className="btn btn-primary" style={{ flex: 2, padding: '12px', fontSize: '14px', backgroundColor: '#11117F' }}
+                              >
+                                💳 Thanh toán
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
           )}
 

@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/catalog-service/categories")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
 public class CategoryAPI {
 
     private final CategoryService categoryService;
