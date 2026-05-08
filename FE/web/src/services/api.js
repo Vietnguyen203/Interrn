@@ -75,8 +75,12 @@ export const apiService = {
     auth: {
         login: (username, password) =>
             apiService.post('/users-service/login', { username, password }),
-        resetPassword: (id, password) =>
-            apiService.put(`/users-service/${id}/reset-password`, { password })
+        verifyOtp: (username, otp) =>
+            apiService.post('/users-service/login/verify-otp', { username, otp }),
+        forgotPassword: (email) =>
+            apiService.post('/users-service/forgot-password', { email }),
+        resetPassword: (email, otp, newPassword) =>
+            apiService.put('/users-service/reset-password', { email, otp, password: newPassword })
     },
 
     dashboard: {

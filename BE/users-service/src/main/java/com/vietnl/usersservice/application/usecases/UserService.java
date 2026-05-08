@@ -4,6 +4,9 @@ import com.vietnl.usersservice.infrastructure.persistence.repositories.UserRepos
 import com.vietnl.usersservice.application.requests.ResetPasswordRequest;
 import com.vietnl.usersservice.application.requests.UserRequest;
 import com.vietnl.usersservice.application.security.JwtService;
+import com.vietnl.usersservice.application.responses.LoginResponse;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.vietnl.usersservice.application.validators.UserValidator;
 import com.vietnl.usersservice.domain.entities.User;
@@ -11,11 +14,15 @@ import com.vietnl.usersservice.domain.enums.UserRole;
 import com.vietnl.usersservice.domain.enums.UserStatus;
 import com.vietnl.usersservice.domain.enums.ExceptionMessage;
 import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -25,8 +32,12 @@ public class UserService {
     private final UserValidator userValidator;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final JavaMailSender mailSender;
 
-    public String login(String username, String password) {
+    private static final Map<String, String> otpStorage = new ConcurrentHashMap<>();
+    private static final Map<String, LocalDateTime> otpExpiryStorage = new ConcurrentHashMap<>();
+
+    public LoginResponse login(String username, String password) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException(ExceptionMessage.USER_NOT_FOUND.getMessage()));
 
@@ -34,7 +45,63 @@ public class UserService {
             throw new RuntimeException(ExceptionMessage.INVALID_PASSWORD.getMessage());
         }
 
-        return jwtService.generateToken(username);
+        // Generate OTP
+        String otp = String.format("%06d", new Random().nextInt(999999));
+        otpStorage.put(username, otp);
+        otpExpiryStorage.put(username, LocalDateTime.now().plusMinutes(5));
+
+        // Send Email
+        sendOtpEmail(user.getEmail(), otp);
+
+        return LoginResponse.builder()
+                .status("REQUIRE_OTP")
+                .message("Mã OTP đã được gửi về email của bạn")
+                .build();
+    }
+
+    private void sendOtpEmail(String email, String otp) {
+        System.out.println(">>> [DEBUG OTP]: Mã OTP cho " + email + " là: " + otp);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            message.setSubject("Mã OTP đăng nhập của bạn");
+            message.setText("Mã OTP đăng nhập của bạn là: " + otp + ". Mã này có hiệu lực trong 5 phút.");
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println(">>> [ERROR]: Không thể gửi email OTP: " + e.getMessage());
+        }
+    }
+
+    public LoginResponse verifyLoginOtp(String username, String otp) {
+        String storedOtp = otpStorage.get(username);
+        LocalDateTime expiry = otpExpiryStorage.get(username);
+
+        if (storedOtp == null || expiry == null || !storedOtp.equals(otp)) {
+            throw new RuntimeException(ExceptionMessage.OTP_INVALID.getMessage());
+        }
+
+        if (LocalDateTime.now().isAfter(expiry)) {
+            otpStorage.remove(username);
+            otpExpiryStorage.remove(username);
+            throw new RuntimeException(ExceptionMessage.OTP_EXPIRED.getMessage());
+        }
+
+        // Success - clear OTP and return token
+        otpStorage.remove(username);
+        otpExpiryStorage.remove(username);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException(ExceptionMessage.USER_NOT_FOUND.getMessage()));
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", UserRole.values()[user.getRole()].name());
+        claims.put("fullName", user.getFullName());
+
+        return LoginResponse.builder()
+                .status("SUCCESS")
+                .message("Đăng nhập thành công")
+                .token(jwtService.generateToken(claims, username))
+                .build();
     }
 
     public User create(UserRequest request) {

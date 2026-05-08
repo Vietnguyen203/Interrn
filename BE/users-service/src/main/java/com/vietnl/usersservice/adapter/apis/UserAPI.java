@@ -3,6 +3,7 @@ package com.vietnl.usersservice.adapter.apis;
 import com.vietnl.usersservice.application.requests.LoginRequest;
 import com.vietnl.usersservice.application.requests.ResetPasswordRequest;
 import com.vietnl.usersservice.application.requests.UserRequest;
+import com.vietnl.usersservice.application.responses.LoginResponse;
 import com.vietnl.usersservice.application.responses.UserResponse;
 import com.vietnl.usersservice.application.usecases.UserService;
 import com.vietnl.usersservice.domain.entities.User;
@@ -27,15 +28,32 @@ public class UserAPI {
         @PostMapping("/login")
         public ResponseEntity<?> login(@RequestBody LoginRequest request) {
 
-                String token = userService.login(
+                LoginResponse response = userService.login(
                                 request.getUsername(),
                                 request.getPassword());
 
                 return ResponseEntity.ok(
                                 Map.of(
                                                 "code", "200",
-                                                "message", "Login success",
-                                                "token", token));
+                                                "status", response.getStatus(),
+                                                "message", response.getMessage(),
+                                                "token", response.getToken() != null ? response.getToken() : ""));
+        }
+
+        // ===== VERIFY OTP =====
+        @PostMapping("/login/verify-otp")
+        public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
+                String username = request.get("username");
+                String otp = request.get("otp");
+
+                LoginResponse response = userService.verifyLoginOtp(username, otp);
+
+                return ResponseEntity.ok(
+                                Map.of(
+                                                "code", "200",
+                                                "status", response.getStatus(),
+                                                "message", response.getMessage(),
+                                                "token", response.getToken()));
         }
 
         // ===== CREATE USER =====

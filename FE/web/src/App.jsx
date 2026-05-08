@@ -213,6 +213,8 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loginStep, setLoginStep] = useState(0); // 0: Credentials, 1: OTP
+  const [loginOtp, setLoginOtp] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -223,25 +225,55 @@ const LoginScreen = ({ onLoginSuccess }) => {
     try {
       // Gọi đúng signature mới: (username, password)
       const response = await apiService.auth.login(empId, password);
-      // BE trả về: { code, message, token }
+      // BE trả về: { code, status, message, token }
+      
+      if (response.status === 'REQUIRE_OTP') {
+        setLoginStep(1);
+        setSuccessMessage(response.message);
+        return;
+      }
+
       const token = response.token;
       if (!token) throw new Error('Không nhận được token từ server');
       
-      sessionStorage.setItem('token', token);
-      const userPayload = parseJwt(token);
-      const userData = {
-        fullName: userPayload.fullName || userPayload.sub,
-        role: userPayload.role || 'ADMIN'
-      };
-      
-      sessionStorage.setItem('user', JSON.stringify(userData));
-      
-      onLoginSuccess(userData);
+      handleSuccessfulLogin(token);
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyLoginOTP = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await apiService.auth.verifyOtp(empId, loginOtp);
+      // response: { code, status, message, token }
+      if (response.token) {
+        handleSuccessfulLogin(response.token);
+      } else {
+        throw new Error('Xác thực OTP thất bại');
+      }
+    } catch (err) {
+      setError(err.message || 'Xác thực OTP thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSuccessfulLogin = (token) => {
+    sessionStorage.setItem('token', token);
+    const userPayload = parseJwt(token);
+    const userData = {
+      fullName: userPayload.fullName || userPayload.sub,
+      role: userPayload.role, // Lấy trực tiếp từ Token
+      server: 'local'
+    };
+    
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    onLoginSuccess(userData);
   };
 
   const toggleForgotPassword = () => {
@@ -326,25 +358,50 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
           {!isForgotPassword ? (
             // --- LOGIN FORM ---
-            <form onSubmit={handleLogin}>
-              <div className="form-group">
-                <label className="form-label">Employee ID</label>
-                <input type="text" className="form-input" value={empId} onChange={e => setEmpId(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <input type="password" className="form-input" value={password} onChange={e => setPassword(e.target.value)} required />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  <input type="checkbox" style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }} /> Remember me
-                </label>
-                <button type="button" onClick={toggleForgotPassword} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--primary)', fontWeight: '500', padding: 0 }}>Forgot password?</button>
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px' }} disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
+            loginStep === 0 ? (
+              <form onSubmit={handleLogin}>
+                <div className="form-group">
+                  <label className="form-label">Employee ID</label>
+                  <input type="text" className="form-input" value={empId} onChange={e => setEmpId(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Password</label>
+                  <input type="password" className="form-input" value={password} onChange={e => setPassword(e.target.value)} required />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                    <input type="checkbox" style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }} /> Remember me
+                  </label>
+                  <button type="button" onClick={toggleForgotPassword} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--primary)', fontWeight: '500', padding: 0 }}>Forgot password?</button>
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px' }} disabled={loading}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+            ) : (
+              // --- LOGIN OTP STEP ---
+              <form onSubmit={handleVerifyLoginOTP}>
+                <div className="form-group">
+                  <label className="form-label">Nhập mã OTP (từ Email)</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="______"
+                    maxLength={6}
+                    value={loginOtp} 
+                    onChange={e => setLoginOtp(e.target.value)} 
+                    required 
+                    style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '8px', fontWeight: '800' }}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', marginBottom: '16px' }} disabled={loading}>
+                  {loading ? 'Verifying...' : 'Xác nhận OTP'}
+                </button>
+                <button type="button" onClick={() => setLoginStep(0)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
+                  Quay lại đăng nhập
+                </button>
+              </form>
+            )
           ) : forgotStep === 1 ? (
             // --- FORGOT PASSWORD STEP 1 ---
             <form onSubmit={handleSendOtp}>
@@ -410,9 +467,18 @@ const DashboardScreen = ({ user, onLogout }) => {
     if (ok) {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('activeTab');
       onLogout();
     }
   };
+
+  // Validate active tab on role change or mount
+  useEffect(() => {
+    const isTabAllowed = filteredNavItems.some(item => item.label === activeTab);
+    if (!isTabAllowed && filteredNavItems.length > 0) {
+      setActiveTab(filteredNavItems[0].label);
+    }
+  }, [user?.role, filteredNavItems, activeTab]);
   
   useEffect(() => {
     sessionStorage.setItem('activeTab', activeTab);
@@ -2510,7 +2576,7 @@ const App = () => {
       if (payload) {
         setCurrentUser({ 
           id: payload.sub || payload.uid, 
-          role: payload.role || 'ADMIN', 
+          role: payload.role || 'GUEST', 
           server: 'local',
           fullName: payload.fullName || payload.sub
         });
