@@ -19,6 +19,7 @@
             <column name="password_hash" type="VARCHAR(255)"/>
             <column name="email" type="VARCHAR(255)"/>
             <column name="citizen_pid" type="VARCHAR(255)"/>
+            <column name="trusted_device" type="UUID"/>
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
         </createTable>

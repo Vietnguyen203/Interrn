@@ -66,13 +66,15 @@ public class OrderService {
             }
         }
 
-        // Thông báo cho bếp có đơn hàng mới
+        // Tạm thời tắt thông báo Kafka do lỗi kết nối (localhost:9092)
+        /*
         sendNotification(
             "Đơn hàng mới",
             "Bàn " + saved.getTableNumber() + " vừa gọi món!",
             "info",
             "KITCHEN"
         );
+        */
 
         return OrderResponse.from(saved);
     }
@@ -218,10 +220,13 @@ public class OrderService {
     public void updateKitchenStatus(UUID itemId, String kitchenStatus) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
+        System.out.println(">>> [DEBUG SERVICE]: Tìm thấy món " + item.getFoodName() + ", đang đổi trạng thái " + item.getKitchenStatus() + " -> " + kitchenStatus);
         item.setKitchenStatus(kitchenStatus);
         orderItemRepository.save(item);
+        System.out.println(">>> [DEBUG SERVICE]: Đã lưu trạng thái mới thành công.");
 
-        // Thông báo cho bồi bàn khi món đã sẵn sàng
+        // Tạm thời tắt thông báo Kafka do lỗi kết nối (localhost:9092)
+        /*
         if ("READY".equals(kitchenStatus)) {
             sendNotification(
                 "Món ăn sẵn sàng",
@@ -230,6 +235,7 @@ public class OrderService {
                 "WAITER"
             );
         }
+        */
     }
 
     private void sendNotification(String title, String message, String type, String role) {

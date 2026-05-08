@@ -93,6 +93,7 @@ public class OrderAPI {
     public ResponseEntity<ApiResponse<Void>> updateKitchenStatus(
             @PathVariable UUID itemId,
             @RequestParam String status) {
+        System.out.println(">>> [DEBUG KITCHEN]: Cập nhật món " + itemId + " sang trạng thái: " + status);
         orderService.updateKitchenStatus(itemId, status);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái bếp thành công", null));
     }

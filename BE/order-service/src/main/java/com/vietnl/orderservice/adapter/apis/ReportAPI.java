@@ -21,10 +21,11 @@ public class ReportAPI {
     }
 
     @GetMapping
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<?> getReport(@RequestParam(defaultValue = "DAY") String type) {
         try {
-            // Sử dụng JPQL @Query + JOIN FETCH để lấy dữ liệu thực tế và tối ưu
-            List<Order> allOrders = orderRepository.findByStatusWithItems("COMPLETED");
+            // Lấy các đơn hàng đã hoàn thành (COMPLETED)
+            List<Order> allOrders = orderRepository.findByStatusIgnoreCase("COMPLETED");
             
             ReportStrategy strategy;
             
@@ -46,11 +47,11 @@ public class ReportAPI {
             }
 
             ReportEngine engine = new ReportEngine(strategy);
-            return ResponseEntity.ok(engine.generate(allOrders));
+            List<Map<String, Object>> reportResult = engine.generate(allOrders);
+            
+            return ResponseEntity.ok(com.vietnl.orderservice.application.responses.ApiResponse.ok(reportResult));
         } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("message", "Lỗi tạo báo cáo: " + e.getMessage());
-            return ResponseEntity.status(500).body(error);
+            return ResponseEntity.status(500).body(com.vietnl.orderservice.application.responses.ApiResponse.error("Lỗi tạo báo cáo: " + e.getMessage()));
         }
     }
 }

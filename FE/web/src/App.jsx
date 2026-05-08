@@ -215,6 +215,17 @@ const LoginScreen = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [loginStep, setLoginStep] = useState(0); // 0: Credentials, 1: OTP
   const [loginOtp, setLoginOtp] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  // Lấy hoặc tạo Device ID chuẩn UUID cho trình duyệt này
+  const getDeviceId = () => {
+    let id = localStorage.getItem('deviceId');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('deviceId', id);
+    }
+    return id;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -223,8 +234,8 @@ const LoginScreen = ({ onLoginSuccess }) => {
     setSuccessMessage('');
 
     try {
-      // Gọi đúng signature mới: (username, password)
-      const response = await apiService.auth.login(empId, password);
+      const deviceId = getDeviceId();
+      const response = await apiService.auth.login(empId, password, deviceId);
       // BE trả về: { code, status, message, token }
       
       if (response.status === 'REQUIRE_OTP') {
@@ -249,7 +260,8 @@ const LoginScreen = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const response = await apiService.auth.verifyOtp(empId, loginOtp);
+      const deviceId = getDeviceId();
+      const response = await apiService.auth.verifyOtp(empId, loginOtp, deviceId, rememberMe);
       // response: { code, status, message, token }
       if (response.token) {
         handleSuccessfulLogin(response.token);
@@ -264,7 +276,9 @@ const LoginScreen = ({ onLoginSuccess }) => {
   };
 
   const handleSuccessfulLogin = (token) => {
-    sessionStorage.setItem('token', token);
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('token', token);
+    
     const userPayload = parseJwt(token);
     const userData = {
       fullName: userPayload.fullName || userPayload.sub,
@@ -272,7 +286,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
       server: 'local'
     };
     
-    sessionStorage.setItem('user', JSON.stringify(userData));
+    storage.setItem('user', JSON.stringify(userData));
     onLoginSuccess(userData);
   };
 
@@ -369,9 +383,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
                   <input type="password" className="form-input" value={password} onChange={e => setPassword(e.target.value)} required />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }} /> Remember me
-                  </label>
+                  <div />
                   <button type="button" onClick={toggleForgotPassword} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', color: 'var(--primary)', fontWeight: '500', padding: 0 }}>Forgot password?</button>
                 </div>
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px' }} disabled={loading}>
@@ -394,6 +406,13 @@ const LoginScreen = ({ onLoginSuccess }) => {
                     style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '8px', fontWeight: '800' }}
                   />
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', cursor: 'pointer' }} onClick={() => setRememberMe(!rememberMe)}>
+                  <div style={{ width: '18px', height: '18px', border: '2px solid #11117F', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: rememberMe ? '#11117F' : 'transparent', transition: 'all 0.2s' }}>
+                    {rememberMe && <CheckCircle size={14} color="white" />}
+                  </div>
+                  <span style={{ fontSize: '14px', color: '#11117F', fontWeight: '600' }}>Ghi nhớ đăng nhập trong 30 ngày</span>
+                </div>
+
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', marginBottom: '16px' }} disabled={loading}>
                   {loading ? 'Verifying...' : 'Xác nhận OTP'}
                 </button>
@@ -455,7 +474,12 @@ const DashboardScreen = ({ user, onLogout }) => {
   const { toasts, toast, remove: removeToast } = useToast();
   const { confirm, ConfirmUI } = useConfirm();
   const [activeTab, setActiveTab] = useState(() => {
-    return sessionStorage.getItem('activeTab') || 'Overview';
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved) return saved;
+    // Mặc định dựa trên Role
+    if (user?.role === 'KITCHEN') return 'Kitchen';
+    if (user?.role === 'WAITER') return 'Orders';
+    return 'Overview';
   });
 
   const handleLogout = async () => {
@@ -468,17 +492,12 @@ const DashboardScreen = ({ user, onLogout }) => {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       sessionStorage.removeItem('activeTab');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       onLogout();
     }
   };
 
-  // Validate active tab on role change or mount
-  useEffect(() => {
-    const isTabAllowed = filteredNavItems.some(item => item.label === activeTab);
-    if (!isTabAllowed && filteredNavItems.length > 0) {
-      setActiveTab(filteredNavItems[0].label);
-    }
-  }, [user?.role, filteredNavItems, activeTab]);
   
   useEffect(() => {
     sessionStorage.setItem('activeTab', activeTab);
@@ -580,6 +599,12 @@ const DashboardScreen = ({ user, onLogout }) => {
             if (note.title?.includes('Đơn hàng') || note.title?.includes('Thanh toán')) {
               if (activeTab === 'Orders') fetchOrdersData();
               if (activeTab === 'Overview') fetchOverviewData();
+              if (activeTab === 'Kitchen' || user?.role === 'KITCHEN' || user?.role === 'ADMIN') {
+                fetchKitchenData();
+                if (note.title?.includes('Đơn hàng')) {
+                   toast.info('🔔 Có món mới cần chế biến!');
+                }
+              }
             }
           } catch (e) { console.error('Error parsing notification:', e); }
         });
@@ -591,7 +616,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   const navItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Overview', roles: ['ADMIN'] },
-    { icon: <ClipboardList size={20} />, label: 'Orders', roles: ['ADMIN'] },
+    { icon: <ClipboardList size={20} />, label: 'Orders', roles: ['ADMIN', 'WAITER'] },
     { icon: <LayoutDashboard size={20} />, label: 'Tables', roles: ['ADMIN', 'WAITER'] },
     { icon: <Utensils size={20} />, label: 'Kitchen', roles: ['ADMIN', 'KITCHEN'] },
     { icon: <Utensils size={20} />, label: 'Menu & Food', roles: ['ADMIN'] },
@@ -602,6 +627,14 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // Filter nav items based on user role
   const filteredNavItems = navItems.filter(item => item.roles.includes(user?.role || 'USER'));
+
+  // Validate active tab on role change or mount
+  useEffect(() => {
+    const isTabAllowed = filteredNavItems.some(item => item.label === activeTab);
+    if (!isTabAllowed && filteredNavItems.length > 0) {
+      setActiveTab(filteredNavItems[0].label);
+    }
+  }, [user?.role, filteredNavItems, activeTab]);
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -615,12 +648,13 @@ const DashboardScreen = ({ user, onLogout }) => {
   }, [activeTab]);
 
   const [reportData, setReportData] = useState([]);
-  const [reportType, setReportType] = useState('DATE');
+  const [reportType, setReportType] = useState('DAY');
 
   const fetchReportData = async (type = reportType) => {
     setLoadingConfig(prev => ({ ...prev, reports: true }));
     try {
       const res = await apiService.order.getReports(type);
+      console.log(`>>> [REPORT DEBUG] Type: ${type}, Body:`, res);
       setReportData(res.data || []);
       setReportType(type);
     } catch (error) {
@@ -805,15 +839,31 @@ const DashboardScreen = ({ user, onLogout }) => {
 
     try {
       const selectedTable = tables.find(t => String(t.id) === String(selectedTableId));
-      const payload = {
-        tableId: selectedTable.id,
-        tableNumber: selectedTable.tableNumber || selectedTable.id,
-        note: orderNote,
-        items: cartItems
-      };
+      
+      // Kiểm tra xem bàn này đã có đơn hàng nào đang hoạt động chưa (PENDING/CONFIRMED)
+      const existingOrder = allOrders.find(o => 
+        String(o.tableId) === String(selectedTableId) && 
+        (o.status === 'PENDING' || o.status === 'CONFIRMED')
+      );
 
-      await apiService.order.create(payload);
-      toast.success('🎉 Đã tạo đơn hàng thành công!');
+      if (existingOrder) {
+        // TRƯỜNG HỢP 1: THÊM MÓN VÀO ĐƠN HIỆN CÓ
+        toast.info('Đang thêm món vào đơn hiện có của bàn...');
+        for (const item of cartItems) {
+          await apiService.order.addItem(existingOrder.id, item);
+        }
+        toast.success('🎉 Đã thêm món vào đơn thành công!');
+      } else {
+        // TRƯỜNG HỢP 2: TẠO ĐƠN HÀNG MỚI (MỞ BÀN)
+        const payload = {
+          tableId: selectedTable.id,
+          tableNumber: selectedTable.tableNumber || selectedTable.id,
+          note: orderNote,
+          items: cartItems
+        };
+        await apiService.order.create(payload);
+        toast.success('🎉 Đã tạo đơn hàng thành công!');
+      }
       
       // Cleanup & Refresh
       setIsCreateOrderModalOpen(false);
@@ -827,8 +877,30 @@ const DashboardScreen = ({ user, onLogout }) => {
   };
 
   // ---- Logic Thanh Toán (Checkout) ----
-  const handleOpenCheckout = (order) => {
-    setCheckoutOrder(order);
+  // ---- Logic Thanh Toán (Checkout) ----
+  const handleOpenCheckout = (tableId) => {
+    // Lấy tất cả đơn hàng đang hoạt động của bàn này
+    const tableOrders = allOrders.filter(o => 
+      String(o.tableId) === String(tableId) && 
+      (o.status === 'PENDING' || o.status === 'CONFIRMED')
+    );
+    
+    if (tableOrders.length === 0) {
+      toast.error('Bàn này không có đơn hàng nào cần thanh toán!');
+      return;
+    }
+
+    const totalAmount = tableOrders.reduce((sum, o) => sum + (o.totalAmount || o.totalPrice || 0), 0);
+    
+    // Tạo một "đơn hàng ảo" để hiển thị trong modal thanh toán
+    setCheckoutOrder({
+      id: tableOrders[0].id, // Dùng ID đơn đầu làm đại diện
+      tableId: tableId,
+      tableNumber: tableOrders[0].tableNumber,
+      totalAmount: totalAmount,
+      orderIds: tableOrders.map(o => o.id) // Lưu danh sách ID để hoàn tất hàng loạt
+    });
+    
     setPaymentMethod('CASH');
     setCustomerCash('');
     setIsCheckoutModalOpen(true);
@@ -836,8 +908,8 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   const handleConfirmPayment = async () => {
     if (paymentMethod === 'CASH' && checkoutOrder) {
-      const total = Number(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0);
-      const cash = Number(customerCash.replace(/\D/g, '') || 0);
+      const total = Number(checkoutOrder.totalAmount || 0);
+      const cash = Number(customerCash.replace(/\D/g, '') || 0) * 1000;
       if (cash < total) {
         toast.error('Tiền khách đưa không đủ để thanh toán!');
         return;
@@ -845,21 +917,24 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
 
     try {
-      // 1. Lưu lịch sử thanh toán vào payment-service (Port 8085)
+      // 1. Lưu lịch sử thanh toán vào payment-service (Tổng số tiền của tất cả đơn)
       await apiService.payment.create({
         orderId: checkoutOrder.id,
-        amount: checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0,
+        amount: checkoutOrder.totalAmount,
         method: paymentMethod,
-        note: paymentMethod === 'CASH' ? `Khách đưa: ${customerCash}đ` : 'Thanh toán chuyển khoản VietQR'
+        note: paymentMethod === 'CASH' ? `Khách đưa: ${Number(customerCash) * 1000}đ (Thanh toán gộp bàn ${checkoutOrder.tableNumber})` : 'Thanh toán chuyển khoản VietQR'
       });
 
-      // 2. Cập nhật trạng thái đơn hàng sang COMPLETED (Port 8082)
-      await handleUpdateOrderStatus(checkoutOrder.id, 'COMPLETED');
+      // 2. Cập nhật tất cả các đơn hàng của bàn này sang COMPLETED
+      for (const orderId of checkoutOrder.orderIds) {
+        await handleUpdateOrderStatus(orderId, 'COMPLETED');
+      }
       
-      toast.success('🎉 Thanh toán thành công và đã đóng đơn hàng!');
+      toast.success(`🎉 Thanh toán thành công cho bàn ${checkoutOrder.tableNumber}!`);
       setIsCheckoutModalOpen(false);
       setCheckoutOrder(null);
       setCustomerCash('');
+      fetchOverviewData(); // Refresh overview numbers
     } catch (error) {
       toast.error('❌ Lỗi thanh toán: ' + error.message);
       console.error('Payment Error:', error);
@@ -958,7 +1033,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     { 
       title: 'Total Revenue', 
       value: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-        allOrders.filter(o => o.status === 'COMPLETED').reduce((acc, o) => acc + (o.totalPrice || 0), 0)
+        allOrders.filter(o => o.status === 'COMPLETED').reduce((acc, o) => acc + (o.totalAmount || o.totalPrice || 0), 0)
       ), 
       change: '+0%', 
       positive: true 
@@ -1293,57 +1368,100 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <p style={{ fontSize: '13px', marginTop: '4px' }}>Tất cả đơn đã được phục vụ hoặc chưa có đơn mới.</p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '20px' }}>
-                  {kitchenItems.map(item => {
-                    const ks = item.kitchenStatus;
-                    const borderColor = ks === 'PENDING' ? '#f59e0b' : ks === 'COOKING' ? '#ef4444' : ks === 'READY' ? '#10b981' : '#6b7280';
-                    return (
-                      <div key={item.id} className="card" style={{ padding: '20px', borderLeft: `4px solid ${borderColor}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                          <div>
-                            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                              🪑 {item.tableNumber}
-                            </span>
-                            <h4 style={{ fontSize: '17px', fontWeight: '700', margin: '4px 0 0' }}>{item.foodName}</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
+                  {Object.entries(
+                    kitchenItems.reduce((acc, item) => {
+                      const key = item.tableNumber || 'Mang về';
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(item);
+                      return acc;
+                    }, {})
+                  )
+                  .sort((a, b) => {
+                    // Sắp xếp các bàn: bàn nào có món gọi sớm nhất (createdAt nhỏ nhất) sẽ lên đầu
+                    const timeA = Math.min(...a[1].map(i => new Date(i.createdAt).getTime()));
+                    const timeB = Math.min(...b[1].map(i => new Date(i.createdAt).getTime()));
+                    return timeA - timeB;
+                  })
+                  .map(([tableName, items]) => (
+                    <div key={tableName} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column' }}>
+                      {/* Table Header */}
+                      <div style={{ padding: '16px 20px', backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#11117F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                            <Users size={18} />
                           </div>
-                          <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', backgroundColor: `${borderColor}20`, color: borderColor, whiteSpace: 'nowrap', marginLeft: '8px' }}>
-                            {ks === 'PENDING' ? '⏳ Chờ' : ks === 'COOKING' ? '🔥 Nấu' : ks === 'READY' ? '✅ Sẵn sàng' : ks}
-                          </span>
+                          <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#11117F', margin: 0 }}>{tableName}</h4>
                         </div>
-
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                          Số lượng: <strong style={{ fontSize: '16px', color: 'var(--text-primary)' }}>x{item.quantity}</strong>
-                        </p>
-
-                        {item.note && (
-                          <p style={{ fontSize: '13px', fontStyle: 'italic', backgroundColor: '#fffbeb', padding: '8px 10px', borderRadius: '6px', marginBottom: '12px', color: '#92400e', border: '1px solid #fde68a' }}>
-                            📝 {item.note}
-                          </p>
-                        )}
-
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                          {ks === 'PENDING' && (
-                            <button onClick={() => handleUpdateItemStatus(item.id, 'COOKING')}
-                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#ef4444', color: 'white' }}>
-                              🔥 Bắt đầu nấu
-                            </button>
-                          )}
-                          {ks === 'COOKING' && (
-                            <button onClick={() => handleUpdateItemStatus(item.id, 'READY')}
-                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10b981', color: 'white' }}>
-                              ✅ Hoàn thành
-                            </button>
-                          )}
-                          {ks === 'READY' && (
-                            <button onClick={() => handleUpdateItemStatus(item.id, 'SERVED')}
-                              style={{ flex: 1, padding: '8px', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#6366f1', color: 'white' }}>
-                              🛎️ Đã phục vụ
-                            </button>
-                          )}
-                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '20px' }}>
+                          {items.length} món
+                        </span>
                       </div>
-                    );
-                  })}
+
+                      {/* Items List */}
+                      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {[...items].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((item, idx) => {
+                          const ks = item.kitchenStatus;
+                          const statusColor = ks === 'PENDING' ? '#F59E0B' : ks === 'COOKING' ? '#EF4444' : ks === 'READY' ? '#10B981' : '#6B7280';
+                          
+                          return (
+                            <div key={item.id} style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FFF', border: `1px solid ${statusColor}30`, position: 'relative' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                <div style={{ flex: 1 }}>
+                                  <h5 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#1E293B' }}>{item.foodName}</h5>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748B' }}>x{item.quantity}</span>
+                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: statusColor, textTransform: 'uppercase' }}>
+                                      {ks === 'PENDING' ? '⏳ Chờ' : ks === 'COOKING' ? '🔥 Nấu' : ks === 'READY' ? '✅ Sẵn sàng' : ks}
+                                    </span>
+                                    {item.createdAt && (
+                                      <>
+                                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
+                                        <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748B' }}>
+                                          ⏱️ {(() => {
+                                            const waited = Math.floor((new Date() - new Date(item.createdAt)) / 60000);
+                                            return waited > 0 ? `${waited} phút` : 'Vừa xong';
+                                          })()}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {item.note && (
+                                <div style={{ fontSize: '12px', fontStyle: 'italic', color: '#92400E', backgroundColor: '#FFFBEB', padding: '6px 10px', borderRadius: '6px', marginBottom: '10px', borderLeft: '3px solid #F59E0B' }}>
+                                  📝 {item.note}
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                {ks === 'PENDING' && (
+                                  <button onClick={() => handleUpdateItemStatus(item.id, 'COOKING')}
+                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#EF4444', color: 'white' }}>
+                                    🔥 Nấu
+                                  </button>
+                                )}
+                                {ks === 'COOKING' && (
+                                  <button onClick={() => handleUpdateItemStatus(item.id, 'READY')}
+                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10B981', color: 'white' }}>
+                                    ✅ Xong
+                                  </button>
+                                )}
+                                {ks === 'READY' && (
+                                  <button onClick={() => handleUpdateItemStatus(item.id, 'SERVED')}
+                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#6366F1', color: 'white' }}>
+                                    🛎️ Trả món
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </motion.div>
@@ -1505,9 +1623,17 @@ const DashboardScreen = ({ user, onLogout }) => {
                               <span style={{ fontSize: '24px', fontWeight: '900', color: '#10B981' }}>{total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                              <button onClick={() => setIsCreateOrderModalOpen(true)} className="btn btn-outline" style={{ flex: 1, padding: '12px', fontSize: '14px' }}>Thêm món</button>
                               <button 
-                                onClick={() => handleOpenCheckout(tableOrders[0])} // For now, checkout the first order (usually there's only one active)
+                                onClick={() => {
+                                  setSelectedTableId(selectedTableForOrders.id);
+                                  setIsCreateOrderModalOpen(true);
+                                }} 
+                                className="btn btn-outline" style={{ flex: 1, padding: '12px', fontSize: '14px' }}
+                              >
+                                Thêm món
+                              </button>
+                              <button 
+                                onClick={() => handleOpenCheckout(selectedTableForOrders.id)} 
                                 className="btn btn-primary" style={{ flex: 2, padding: '12px', fontSize: '14px', backgroundColor: '#11117F' }}
                               >
                                 💳 Thanh toán
@@ -1750,9 +1876,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                         <td style={{ padding: '20px 24px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#11117F', fontWeight: '800', fontSize: '12px' }}>
-                              {order.tableNumber || '?'}
+                              {String(order.tableNumber || '').replace(/Bàn\s*/i, '') || '?'}
                             </div>
-                            <span style={{ fontWeight: '600', color: '#1E293B' }}>Bàn {order.tableNumber || order.tableId}</span>
+                            <span style={{ fontWeight: '600', color: '#1E293B' }}>
+                              {String(order.tableNumber || '').includes('Bàn') ? order.tableNumber : `Bàn ${order.tableNumber || order.tableId}`}
+                            </span>
                           </div>
                         </td>
                         <td style={{ padding: '20px 24px' }}>
@@ -1962,7 +2090,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <BarChartIcon size={24} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}>Hệ thống Báo cáo Thông minh</h3>
+                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}> Báo cáo </h3>
                       <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>Phân tích hiệu quả kinh doanh dựa trên dữ liệu thực tế</p>
                     </div>
                   </div>
@@ -1997,7 +2125,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      {reportType === 'DATE' ? (
+                      {reportType !== 'CATEGORY' ? (
                         <BarChart data={reportData}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
@@ -2218,9 +2346,14 @@ const DashboardScreen = ({ user, onLogout }) => {
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '15px', fontWeight: '600', color: '#0F172A' }}
                   >
                     <option value="">-- Bấm để chọn bàn --</option>
-                    {tables.filter(t => t.status === 'AVAILABLE' || t.status === '0').map(t => (
-                      <option key={t.id} value={t.id}>Bàn {t.tableNumber || t.id} (Sức chứa: {t.capacity})</option>
-                    ))}
+                    {tables.map(t => {
+                      const isOccupied = String(t.status).toUpperCase() === 'OCCUPIED' || String(t.status) === '1';
+                      return (
+                        <option key={t.id} value={t.id}>
+                          Bàn {t.tableNumber || t.id} {isOccupied ? '(Đang có khách - Gọi thêm)' : '(Trống)'}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 
@@ -2451,24 +2584,33 @@ const DashboardScreen = ({ user, onLogout }) => {
                 {paymentMethod === 'CASH' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
-                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>Tiền khách đưa (VNĐ)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Nhập số tiền..."
-                        value={customerCash}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
-                          setCustomerCash(val ? new Intl.NumberFormat('vi-VN').format(val) : '');
-                        }}
-                        style={{ width: '100%', padding: '16px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '20px', fontWeight: '700', outline: 'none' }}
-                      />
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>Tiền khách đưa (đơn vị nghìn VNĐ)</label>
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          type="text" 
+                          placeholder=""
+                          value={customerCash}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            // Store the raw input (thousands), but we can display the formatted full amount
+                            setCustomerCash(val);
+                          }}
+                          style={{ width: '100%', padding: '16px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '24px', fontWeight: '800', outline: 'none', color: '#11117F' }}
+                        />
+                        <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: '700', color: '#94A3B8' }}>
+                          .000 đ
+                        </div>
+                      </div>
+                      <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#64748B', fontStyle: 'italic' }}>
+                        💡 Hệ thống tự động nhân với 1.000 VNĐ
+                      </p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#F8FAFC', border: '1px dashed #94A3B8', borderRadius: '8px' }}>
                       <span style={{ fontSize: '15px', fontWeight: '600', color: '#475569' }}>Tiền thừa trả khách:</span>
                       <span style={{ fontSize: '20px', fontWeight: '800', color: '#EF4444' }}>
                         {(() => {
                           const total = Number(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0);
-                          const cash = Number(customerCash.replace(/\D/g, '') || 0);
+                          const cash = Number(customerCash.replace(/\D/g, '') || 0) * 1000;
                           if (cash < total || !cash) return '0 đ';
                           return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cash - total);
                         })()}
@@ -2568,12 +2710,20 @@ const DashboardScreen = ({ user, onLogout }) => {
 const App = () => {
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Auto-login if valid token in sessionStorage
+  // Auto-login if valid token in storage
   useEffect(() => {
-    const token = sessionStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {
       const payload = parseJwt(token);
       if (payload) {
+        // Kiểm tra hết hạn (nếu token có exp)
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) {
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+          return;
+        }
+
         setCurrentUser({ 
           id: payload.sub || payload.uid, 
           role: payload.role || 'GUEST', 

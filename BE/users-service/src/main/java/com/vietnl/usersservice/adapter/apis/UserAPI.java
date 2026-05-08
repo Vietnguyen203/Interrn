@@ -30,7 +30,8 @@ public class UserAPI {
 
                 LoginResponse response = userService.login(
                                 request.getUsername(),
-                                request.getPassword());
+                                request.getPassword(),
+                                request.getDeviceId());
 
                 return ResponseEntity.ok(
                                 Map.of(
@@ -45,8 +46,10 @@ public class UserAPI {
         public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
                 String username = request.get("username");
                 String otp = request.get("otp");
+                String deviceId = request.get("deviceId");
+                boolean rememberMe = Boolean.parseBoolean(String.valueOf(request.get("rememberMe")));
 
-                LoginResponse response = userService.verifyLoginOtp(username, otp);
+                LoginResponse response = userService.verifyLoginOtp(username, otp, deviceId, rememberMe);
 
                 return ResponseEntity.ok(
                                 Map.of(

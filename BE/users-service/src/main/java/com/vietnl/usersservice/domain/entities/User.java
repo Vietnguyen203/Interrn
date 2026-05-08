@@ -34,6 +34,9 @@ public class User {
     private LocalDateTime birthday;
 
     private String citizenPid;
+    
+    @Column(name = "trusted_device")
+    private UUID trustedDevice;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

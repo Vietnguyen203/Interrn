@@ -37,7 +37,7 @@ public class UserService {
     private static final Map<String, String> otpStorage = new ConcurrentHashMap<>();
     private static final Map<String, LocalDateTime> otpExpiryStorage = new ConcurrentHashMap<>();
 
-    public LoginResponse login(String username, String password) {
+    public LoginResponse login(String username, String password, String deviceId) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException(ExceptionMessage.USER_NOT_FOUND.getMessage()));
 
@@ -45,7 +45,41 @@ public class UserService {
             throw new RuntimeException(ExceptionMessage.INVALID_PASSWORD.getMessage());
         }
 
-        // Generate OTP
+        // Nếu là ADMIN (giá trị 1), không cần OTP, trả về Token luôn
+        if (user.getRole() == UserRole.ADMIN.getValue()) {
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("role", UserRole.ADMIN.name());
+            claims.put("fullName", user.getFullName());
+            
+            return LoginResponse.builder()
+                    .status("SUCCESS")
+                    .message("Đăng nhập Admin thành công")
+                    .token(jwtService.generateToken(claims, username))
+                    .build();
+        }
+
+        // Kiểm tra thiết bị tin cậy (Save Device)
+        if (deviceId != null && user.getTrustedDevice() != null) {
+            try {
+                UUID deviceUuid = UUID.fromString(deviceId);
+                if (user.getTrustedDevice().equals(deviceUuid)) {
+                    System.out.println(">>> [AUTH]: Thiết bị tin cậy [" + deviceId + "]. Bỏ qua OTP.");
+                    Map<String, Object> claims = new HashMap<>();
+                    claims.put("role", UserRole.values()[user.getRole()].name());
+                    claims.put("fullName", user.getFullName());
+                    
+                    return LoginResponse.builder()
+                            .status("SUCCESS")
+                            .message("Đăng nhập thiết bị tin cậy thành công")
+                            .token(jwtService.generateToken(claims, username))
+                            .build();
+                }
+            } catch (IllegalArgumentException e) {
+                System.out.println(">>> [AUTH]: Mã thiết bị không đúng định dạng UUID: " + deviceId);
+            }
+        }
+
+        // Generate OTP for other roles
         String otp = String.format("%06d", new Random().nextInt(999999));
         otpStorage.put(username, otp);
         otpExpiryStorage.put(username, LocalDateTime.now().plusMinutes(5));
@@ -72,7 +106,7 @@ public class UserService {
         }
     }
 
-    public LoginResponse verifyLoginOtp(String username, String otp) {
+    public LoginResponse verifyLoginOtp(String username, String otp, String deviceId, boolean rememberMe) {
         String storedOtp = otpStorage.get(username);
         LocalDateTime expiry = otpExpiryStorage.get(username);
 
@@ -96,6 +130,20 @@ public class UserService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", UserRole.values()[user.getRole()].name());
         claims.put("fullName", user.getFullName());
+
+        // Nếu người dùng chọn ghi nhớ thiết bị
+        if (rememberMe && deviceId != null) {
+            try {
+                UUID deviceUuid = UUID.fromString(deviceId);
+                if (user.getTrustedDevice() == null || !user.getTrustedDevice().equals(deviceUuid)) {
+                    user.setTrustedDevice(deviceUuid);
+                    userRepository.save(user);
+                    System.out.println(">>> [AUTH]: Đã cập nhật thiết bị tin cậy mới cho user: " + username);
+                }
+            } catch (IllegalArgumentException e) {
+                 System.out.println(">>> [AUTH]: Lỗi khi lưu thiết bị. Mã không đúng định dạng UUID: " + deviceId);
+            }
+        }
 
         return LoginResponse.builder()
                 .status("SUCCESS")

@@ -12,8 +12,10 @@ import java.util.UUID;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, UUID> {
 
-    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.status = :status")
-    List<Order> findByStatusWithItems(@Param("status") String status);
+    List<Order> findByStatusIgnoreCase(String status);
+    
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE UPPER(o.status) = UPPER(:status)")
+    List<Order> findByStatusIgnoreCaseWithItems(@Param("status") String status);
 
     List<Order> findByStatusOrderByCreatedAtDesc(String status);
 

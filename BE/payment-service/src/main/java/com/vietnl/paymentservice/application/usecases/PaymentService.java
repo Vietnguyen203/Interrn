@@ -23,7 +23,7 @@ public class PaymentService {
     @Transactional
     public Payment createPayment(CreatePaymentRequest request) {
         paymentValidator.validateCreate(request);
-        
+
         Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
         payment.setAmount(request.getAmount());
@@ -40,32 +40,32 @@ public class PaymentService {
     public Payment completePayment(UUID orderId, String transactionCode) {
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found for order: " + orderId));
-        
+
         payment.setStatus(PaymentStatus.COMPLETED);
         payment.setTransactionCode(transactionCode);
         payment.setPaidAt(LocalDateTime.now());
-        
+
         Payment saved = paymentRepository.save(payment);
 
         // Thông báo cho Admin/Cashier/Waiter về việc thanh toán thành công
         sendNotification(
-            "Thanh toán thành công",
-            "Đơn hàng " + orderId.toString().substring(0, 8) + " đã thanh toán: " + String.format("%,.0f", saved.getAmount().doubleValue()) + " VNĐ",
-            "success",
-            "ALL"
-        );
+                "Thanh toán thành công",
+                "Đơn hàng " + orderId.toString().substring(0, 8) + " đã thanh toán: "
+                        + String.format("%,.0f", saved.getAmount().doubleValue()) + " VNĐ",
+                "success",
+                "ALL");
 
         return saved;
     }
 
     private void sendNotification(String title, String message, String type, String role) {
         try {
-            java.util.Map<String, Object> payload = java.util.Map.of(
-                "title", title,
-                "message", message,
-                "type", type,
-                "recipientRole", role
-            );
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("title", title);
+            payload.put("message", message);
+            payload.put("type", type);
+            payload.put("recipientRole", role);
+
             kafkaTemplate.send("notifications-topic", payload);
         } catch (Exception e) {
             System.err.println("Lỗi gửi thông báo thanh toán qua Kafka: " + e.getMessage());

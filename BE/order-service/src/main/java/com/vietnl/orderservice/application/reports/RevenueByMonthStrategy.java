@@ -11,7 +11,6 @@ public class RevenueByMonthStrategy implements ReportStrategy {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/yyyy");
         
         Map<String, Double> aggregated = orders.stream()
-                .filter(o -> "COMPLETED".equals(o.getStatus()))
                 .collect(Collectors.groupingBy(
                         o -> (o.getCreatedAt() != null) ? o.getCreatedAt().format(formatter) : "Unknown",
                         TreeMap::new,

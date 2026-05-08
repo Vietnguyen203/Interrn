@@ -73,10 +73,10 @@ export const apiService = {
 
     // Specific API calls for cleaner components
     auth: {
-        login: (username, password) =>
-            apiService.post('/users-service/login', { username, password }),
-        verifyOtp: (username, otp) =>
-            apiService.post('/users-service/login/verify-otp', { username, otp }),
+        login: (username, password, deviceId) =>
+            apiService.post('/users-service/login', { username, password, deviceId }),
+        verifyOtp: (username, otp, deviceId, rememberMe) =>
+            apiService.post('/users-service/login/verify-otp', { username, otp, deviceId, rememberMe }),
         forgotPassword: (email) =>
             apiService.post('/users-service/forgot-password', { email }),
         resetPassword: (email, otp, newPassword) =>
