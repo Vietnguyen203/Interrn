@@ -1,8 +1,11 @@
 const API_BASE_URL = '/api';
 
+// Helper lấy token từ cả localStorage và sessionStorage
+const getToken = () => localStorage.getItem('token') || sessionStorage.getItem('token');
+
 // Helper to get auth headers
 const getAuthHeaders = () => {
-    const token = sessionStorage.getItem('token');
+    const token = getToken();
     return {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -74,13 +77,13 @@ export const apiService = {
     // Specific API calls for cleaner components
     auth: {
         login: (username, password, deviceId) =>
-            apiService.post('/users-service/request/login', { username, password, deviceId }),
+            apiService.post('/users-service/login', { username, password, deviceId }),
         verifyOtp: (username, otp, deviceId, rememberMe) =>
-            apiService.post('/users-service/request/login/verify-otp', { username, otp, deviceId, rememberMe }),
+            apiService.post('/users-service/login/verify-otp', { username, otp, deviceId, rememberMe }),
         forgotPassword: (email) =>
-            apiService.post('/users-service/request/forgot-password', { email }),
+            apiService.post('/users-service/forgot-password', { email }),
         resetPassword: (email, otp, newPassword) =>
-            apiService.put('/users-service/request/reset-password', { email, otp, password: newPassword })
+            apiService.put('/users-service/reset-password', { email, otp, password: newPassword })
     },
 
     dashboard: {
@@ -181,7 +184,7 @@ export const apiService = {
 
 // Helper riêng cho payment-service (proxy /payment → port 8085)
 async function paymentFetch(method, path, body) {
-    const token = sessionStorage.getItem('token');
+    const token = getToken();
     const headers = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -199,7 +202,7 @@ async function paymentFetch(method, path, body) {
 
 // Helper riêng cho catalog-service (proxy /catalog → port 8081)
 async function catalogFetch(method, path, body) {
-    const token = sessionStorage.getItem('token');
+    const token = getToken();
     const headers = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -217,7 +220,7 @@ async function catalogFetch(method, path, body) {
 
 // Helper riêng cho order-service (proxy /order → port 8082)
 async function orderFetch(method, path, body) {
-    const token = sessionStorage.getItem('token');
+    const token = getToken();
     const headers = {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})

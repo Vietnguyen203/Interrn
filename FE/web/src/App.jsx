@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, Users, Utensils, ClipboardList, Settings, LogOut, Menu, X, Plus, 
-  User as UserIcon, Calendar, BarChart as BarChartIcon, TrendingUp, PieChart as PieChartIcon, 
-  Search, Download, Trash2, Edit, Bell, Filter, CheckCircle, XCircle, Info, RefreshCw, AlertCircle, QrCode 
+import {
+  LayoutDashboard, Users, Utensils, ClipboardList, Settings, LogOut, Menu, X, Plus,
+  User as UserIcon, Calendar, BarChart as BarChartIcon, TrendingUp, PieChart as PieChartIcon,
+  Search, Download, Trash2, Edit, Bell, Filter, CheckCircle, XCircle, Info, RefreshCw, AlertCircle, QrCode
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, PieChart, Cell, Pie 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, PieChart, Cell, Pie
 } from 'recharts';
+import jsPDF from 'jspdf';
 import { apiService } from './services/api';
 import './index.css';
 import SockJS from 'sockjs-client';
@@ -216,7 +217,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
   const [loginStep, setLoginStep] = useState(0); // 0: Credentials, 1: OTP
   const [loginOtp, setLoginOtp] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  
+
   // Lấy hoặc tạo Device ID chuẩn UUID cho trình duyệt này
   const getDeviceId = () => {
     let id = localStorage.getItem('deviceId');
@@ -237,7 +238,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
       const deviceId = getDeviceId();
       const response = await apiService.auth.login(empId, password, deviceId);
       // BE trả về: { code, status, message, token }
-      
+
       if (response.status === 'REQUIRE_OTP') {
         setLoginStep(1);
         setSuccessMessage(response.message);
@@ -246,7 +247,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
       const token = response.token;
       if (!token) throw new Error('Không nhận được token từ server');
-      
+
       handleSuccessfulLogin(token);
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
@@ -278,14 +279,14 @@ const LoginScreen = ({ onLoginSuccess }) => {
   const handleSuccessfulLogin = (token) => {
     const storage = rememberMe ? localStorage : sessionStorage;
     storage.setItem('token', token);
-    
+
     const userPayload = parseJwt(token);
     const userData = {
       fullName: userPayload.fullName || userPayload.sub,
       role: userPayload.role, // Lấy trực tiếp từ Token
       server: 'local'
     };
-    
+
     storage.setItem('user', JSON.stringify(userData));
     onLoginSuccess(userData);
   };
@@ -395,14 +396,14 @@ const LoginScreen = ({ onLoginSuccess }) => {
               <form onSubmit={handleVerifyLoginOTP}>
                 <div className="form-group">
                   <label className="form-label">Nhập mã OTP (từ Email)</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
+                  <input
+                    type="text"
+                    className="form-input"
                     placeholder="______"
                     maxLength={6}
-                    value={loginOtp} 
-                    onChange={e => setLoginOtp(e.target.value)} 
-                    required 
+                    value={loginOtp}
+                    onChange={e => setLoginOtp(e.target.value)}
+                    required
                     style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '8px', fontWeight: '800' }}
                   />
                 </div>
@@ -484,8 +485,8 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   const handleLogout = async () => {
     const ok = await confirm(
-      'Đăng xuất', 
-      'Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?', 
+      'Đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?',
       { danger: true, confirmLabel: 'Đăng xuất' }
     );
     if (ok) {
@@ -498,11 +499,11 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   };
 
-  
+
   useEffect(() => {
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
-  
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Data States
@@ -599,7 +600,7 @@ const DashboardScreen = ({ user, onLogout }) => {
             const note = JSON.parse(message.body);
             // Hiển thị thông báo bằng hệ thống toast sẵn có
             toast[note.type || 'info'](note.message || note.title);
-            
+
             // Nếu là thông báo đơn hàng mới hoặc thanh toán, có thể refresh data
             if (note.title?.includes('Đơn hàng') || note.title?.includes('Thanh toán')) {
               if (activeTab === 'Orders') fetchOrdersData();
@@ -607,7 +608,7 @@ const DashboardScreen = ({ user, onLogout }) => {
               if (activeTab === 'Kitchen' || user?.role === 'KITCHEN' || user?.role === 'ADMIN') {
                 fetchKitchenData();
                 if (note.title?.includes('Đơn hàng')) {
-                   toast.info('🔔 Có món mới cần chế biến!');
+                  toast.info('🔔 Có món mới cần chế biến!');
                 }
               }
             }
@@ -688,7 +689,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       const flatItems = orders.flatMap(order => {
         const table = tables.find(t => String(t.id) === String(order.tableId));
         const tableName = table ? `Bàn ${table.tableNumber}` : (order.tableNumber || order.tableId || '—');
-        
+
         return (order.items || []).map(item => ({
           ...item,
           tableNumber: tableName,
@@ -727,10 +728,10 @@ const DashboardScreen = ({ user, onLogout }) => {
 
       if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
         const ordersArr = Array.isArray(ordersRes.value.data) ? ordersRes.value.data : (ordersRes.value.data.content || []);
-        
+
         // Làm giàu dữ liệu tên bàn
         const enrichedOrders = ordersArr.map(order => {
-          const table = (tablesRes.status === 'fulfilled' && tablesRes.value.data) 
+          const table = (tablesRes.status === 'fulfilled' && tablesRes.value.data)
             ? (Array.isArray(tablesRes.value.data) ? tablesRes.value.data : tablesRes.value.data.content).find(t => String(t.id) === String(order.tableId))
             : null;
           return {
@@ -762,7 +763,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const fetchOrdersData = async (statusFilter) => {
     // Đảm bảo statusFilter là chuỗi, nếu là Object (Event) thì coi như null
     const finalStatus = (statusFilter && typeof statusFilter === 'string') ? statusFilter : null;
-    
+
     setLoadingConfig(prev => ({ ...prev, orders: true }));
     try {
       const res = await apiService.order.getAll(finalStatus);
@@ -844,10 +845,10 @@ const DashboardScreen = ({ user, onLogout }) => {
 
     try {
       const selectedTable = tables.find(t => String(t.id) === String(selectedTableId));
-      
+
       // Kiểm tra xem bàn này đã có đơn hàng nào đang hoạt động chưa (PENDING/CONFIRMED)
-      const existingOrder = allOrders.find(o => 
-        String(o.tableId) === String(selectedTableId) && 
+      const existingOrder = allOrders.find(o =>
+        String(o.tableId) === String(selectedTableId) &&
         (o.status === 'PENDING' || o.status === 'CONFIRMED')
       );
 
@@ -869,7 +870,7 @@ const DashboardScreen = ({ user, onLogout }) => {
         await apiService.order.create(payload);
         toast.success('🎉 Đã tạo đơn hàng thành công!');
       }
-      
+
       // Cleanup & Refresh
       setIsCreateOrderModalOpen(false);
       setCartItems([]);
@@ -885,18 +886,18 @@ const DashboardScreen = ({ user, onLogout }) => {
   // ---- Logic Thanh Toán (Checkout) ----
   const handleOpenCheckout = (tableId) => {
     // Lấy tất cả đơn hàng đang hoạt động của bàn này
-    const tableOrders = allOrders.filter(o => 
-      String(o.tableId) === String(tableId) && 
+    const tableOrders = allOrders.filter(o =>
+      String(o.tableId) === String(tableId) &&
       (o.status === 'PENDING' || o.status === 'CONFIRMED')
     );
-    
+
     if (tableOrders.length === 0) {
       toast.error('Bàn này không có đơn hàng nào cần thanh toán!');
       return;
     }
 
     const totalAmount = tableOrders.reduce((sum, o) => sum + (o.totalAmount || o.totalPrice || 0), 0);
-    
+
     // Tạo một "đơn hàng ảo" để hiển thị trong modal thanh toán
     setCheckoutOrder({
       id: tableOrders[0].id, // Dùng ID đơn đầu làm đại diện
@@ -905,7 +906,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       totalAmount: totalAmount,
       orderIds: tableOrders.map(o => o.id) // Lưu danh sách ID để hoàn tất hàng loạt
     });
-    
+
     setPaymentMethod('CASH');
     setCustomerCash('');
     setIsCheckoutModalOpen(true);
@@ -934,7 +935,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       for (const orderId of checkoutOrder.orderIds) {
         await handleUpdateOrderStatus(orderId, 'COMPLETED');
       }
-      
+
       toast.success(`🎉 Thanh toán thành công cho bàn ${checkoutOrder.tableNumber}!`);
       setIsCheckoutModalOpen(false);
       setCheckoutOrder(null);
@@ -1034,24 +1035,37 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   };
 
-  const statCards = [
-    { 
-      title: 'Total Revenue', 
-      value: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-        allOrders.filter(o => o.status === 'COMPLETED').reduce((acc, o) => acc + (o.totalAmount || o.totalPrice || 0), 0)
-      ), 
-      change: '+0%', 
-      positive: true 
-    },
-    { title: 'Total Orders', value: allOrders.length || 0, change: 'All time', positive: true },
-    { title: 'Total Menu Items', value: foods.length || 0, change: 'Active', positive: true },
-    { 
-      title: 'Total Tables', 
-      value: tables.length || 0, 
-      change: `${tables.filter(t => String(t.status).toUpperCase() === 'OCCUPIED' || String(t.status) === '1').length} Occupied`, 
-      positive: true 
-    },
-  ];
+  const statCards = (() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const todayCompletedOrders = allOrders.filter(o => {
+      if (o.status !== 'COMPLETED') return false;
+      const createdAt = o.createdAt ? new Date(o.createdAt) : null;
+      return createdAt && createdAt >= todayStart && createdAt <= todayEnd;
+    });
+
+    const todayRevenue = todayCompletedOrders.reduce((acc, o) => acc + (o.totalAmount || o.totalPrice || 0), 0);
+    const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+    return [
+      {
+        title: 'Doanh Thu Hôm Nay',
+        value: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(todayRevenue),
+        change: todayStr,
+        positive: true
+      },
+      { title: 'Total Orders', value: allOrders.length || 0, change: 'All time', positive: true },
+      { title: 'Total Menu Items', value: foods.length || 0, change: 'Active', positive: true },
+      {
+        title: 'Total Tables',
+        value: tables.length || 0,
+        change: `${tables.filter(t => String(t.status).toUpperCase() === 'OCCUPIED' || String(t.status) === '1').length} Occupied`,
+        positive: true
+      },
+    ];
+  })();
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -1062,6 +1076,123 @@ const DashboardScreen = ({ user, onLogout }) => {
       case 'ORDERING': return 'var(--status-ordering)';
       default: return 'var(--text-secondary)';
     }
+  };
+
+  // ---- PDF Export ----
+  const handleDownloadInvoicePDF = () => {
+    if (!selectedInvoice) return;
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a5' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const fmt = (v) => new Intl.NumberFormat('vi-VN').format(v) + 'đ';
+    const orderId = 'ORD-' + String(selectedInvoice.id).slice(0, 8).toUpperCase();
+    const tableName = selectedInvoice.tableNumber || selectedInvoice.tableId || 'N/A';
+    const dateStr = new Date(selectedInvoice.updatedAt || selectedInvoice.createdAt).toLocaleString('vi-VN');
+    const total = selectedInvoice.totalPrice || selectedInvoice.totalAmount || 0;
+    const items = selectedInvoice.items || [];
+
+    // --- Header ---
+    doc.setFillColor(17, 17, 127);  // #11117F
+    doc.rect(0, 0, pageW, 28, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('FOOD ORDER', pageW / 2, 11, { align: 'center' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('He thong quan ly nha hang', pageW / 2, 17, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HOA DON CHI TIET', pageW / 2, 24, { align: 'center' });
+
+    // --- Order Info ---
+    doc.setTextColor(17, 17, 127);
+    doc.setFontSize(10);
+    doc.text(orderId, pageW / 2, 35, { align: 'center' });
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, 39, pageW - 10, 39);
+
+    doc.setTextColor(100, 116, 139);  // slate-500
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('VI TRI BAN', 12, 46);
+    doc.text('THOI GIAN', pageW - 12, 46, { align: 'right' });
+
+    doc.setTextColor(15, 23, 42);  // slate-900
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(tableName, 12, 53);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(dateStr, pageW - 12, 53, { align: 'right' });
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, 58, pageW - 10, 58);
+
+    // --- Items Table ---
+    let y = 65;
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Mon an', 12, y);
+    doc.text('SL', pageW / 2, y, { align: 'center' });
+    doc.text('Thanh tien', pageW - 12, y, { align: 'right' });
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, y + 3, pageW - 10, y + 3);
+    y += 9;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    items.forEach(item => {
+      const lineTotal = (item.unitPrice || 0) * (item.quantity || 1);
+      doc.setFontSize(9);
+      doc.text(item.foodName || '', 12, y, { maxWidth: pageW / 2 - 8 });
+      doc.text(String(item.quantity || 1), pageW / 2, y, { align: 'center' });
+      doc.text(fmt(lineTotal), pageW - 12, y, { align: 'right' });
+      y += 8;
+    });
+
+    // --- Totals ---
+    y += 2;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, y, pageW - 10, y);
+    y += 7;
+
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Tam tinh', 12, y);
+    doc.text(fmt(total), pageW - 12, y, { align: 'right' });
+    y += 7;
+    doc.text('Phi dich vu', 12, y);
+    doc.text('0d', pageW - 12, y, { align: 'right' });
+    y += 4;
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.line(10, y, pageW - 10, y);
+    doc.setLineDashPattern([], 0);
+    y += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text('TONG CONG', 12, y);
+    doc.setTextColor(17, 17, 127);
+    doc.text(fmt(total), pageW - 12, y, { align: 'right' });
+
+    // --- Footer ---
+    const footerY = doc.internal.pageSize.getHeight() - 14;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, footerY - 4, pageW - 10, footerY - 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Cam on quy khach! Hen gap lai.', pageW / 2, footerY, { align: 'center' });
+    doc.text('FoodOrder - He thong quan ly nha hang', pageW / 2, footerY + 5, { align: 'center' });
+
+    doc.save(`${orderId}_${tableName}.pdf`);
   };
 
   // ---- Handlers ----
@@ -1103,8 +1234,21 @@ const DashboardScreen = ({ user, onLogout }) => {
     } catch (err) { toast.error('Lỗi xóa món ăn: ' + err.message); }
   };
 
-  const handleOpenProposeFoodModal = () => {
-    setProposeFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '', recipe: '' });
+  const handleOpenProposeFoodModal = async () => {
+    // Nếu chưa có categories (đang ở tab Kitchen, chưa load Menu & Food), tải về trước
+    let cats = categories;
+    if (!cats || cats.length === 0) {
+      try {
+        const catsRes = await apiService.catalog.getCategories();
+        if (catsRes.data) {
+          setCategories(catsRes.data);
+          cats = catsRes.data;
+        }
+      } catch (err) {
+        toast.error('Không thể tải danh mục: ' + err.message);
+      }
+    }
+    setProposeFoodFormData({ code: '', foodName: '', price: '', categoryId: cats[0]?.id || '', imageUrl: '', recipe: '' });
     setIsProposeFoodModalOpen(true);
   };
 
@@ -1198,7 +1342,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     try {
       const roleStrToInt = { WAITER: 0, ADMIN: 1, CHEF: 2, KITCHEN: 3 };
       const payload = { ...staffFormData };
-      
+
       // Đảm bảo birthday khớp định dạng LocalDateTime (yyyy-MM-ddTHH:mm:ss)
       if (payload.birthday && payload.birthday.length === 10) {
         payload.birthday = `${payload.birthday}T00:00:00`;
@@ -1354,18 +1498,18 @@ const DashboardScreen = ({ user, onLogout }) => {
                       const isCleaning = status === 'CLEANING' || status === '3';
 
                       return (
-                        <div key={table.id} style={{ 
-                          padding: '16px', 
-                          borderRadius: 'var(--radius-md)', 
-                          textAlign: 'center', 
-                          border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`, 
+                        <div key={table.id} style={{
+                          padding: '16px',
+                          borderRadius: 'var(--radius-md)',
+                          textAlign: 'center',
+                          border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`,
                           backgroundColor: isOccupied ? 'rgba(9, 52, 219, 0.05)' : 'var(--bg-app)',
                           transition: 'all 0.3s ease'
                         }}>
                           <span style={{ display: 'block', fontSize: '15px', fontWeight: '700', marginBottom: '6px', color: '#11117F' }}>
                             Bàn {table.tableNumber}
                           </span>
-                          <span className={`badge ${isOccupied ? 'badge-occupied' : 'badge-empty'}`} style={{ 
+                          <span className={`badge ${isOccupied ? 'badge-occupied' : 'badge-empty'}`} style={{
                             padding: '4px 12px',
                             borderRadius: '12px',
                             fontSize: '12px',
@@ -1396,10 +1540,12 @@ const DashboardScreen = ({ user, onLogout }) => {
                     {kitchenItems.filter(i => i.kitchenStatus === 'READY').length} sẵn sàng
                   </p>
                 </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {user?.role === 'KITCHEN' && (
                     <button onClick={handleOpenProposeFoodModal} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }}>💡 Đề xuất món mới</button>
-                    <button onClick={fetchKitchenData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
-                  </div>
+                  )}
+                  <button onClick={fetchKitchenData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
+                </div>
               </div>
 
               {loadingConfig.kitchen ? (
@@ -1420,91 +1566,91 @@ const DashboardScreen = ({ user, onLogout }) => {
                       return acc;
                     }, {})
                   )
-                  .sort((a, b) => {
-                    // Sắp xếp các bàn: bàn nào có món gọi sớm nhất (createdAt nhỏ nhất) sẽ lên đầu
-                    const timeA = Math.min(...a[1].map(i => new Date(i.createdAt).getTime()));
-                    const timeB = Math.min(...b[1].map(i => new Date(i.createdAt).getTime()));
-                    return timeA - timeB;
-                  })
-                  .map(([tableName, items]) => (
-                    <div key={tableName} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column' }}>
-                      {/* Table Header */}
-                      <div style={{ padding: '16px 20px', backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#11117F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                            <Users size={18} />
+                    .sort((a, b) => {
+                      // Sắp xếp các bàn: bàn nào có món gọi sớm nhất (createdAt nhỏ nhất) sẽ lên đầu
+                      const timeA = Math.min(...a[1].map(i => new Date(i.createdAt).getTime()));
+                      const timeB = Math.min(...b[1].map(i => new Date(i.createdAt).getTime()));
+                      return timeA - timeB;
+                    })
+                    .map(([tableName, items]) => (
+                      <div key={tableName} className="card" style={{ padding: '0', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column' }}>
+                        {/* Table Header */}
+                        <div style={{ padding: '16px 20px', backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#11117F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                              <Users size={18} />
+                            </div>
+                            <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#11117F', margin: 0 }}>{tableName}</h4>
                           </div>
-                          <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#11117F', margin: 0 }}>{tableName}</h4>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '20px' }}>
+                            {items.length} món
+                          </span>
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '20px' }}>
-                          {items.length} món
-                        </span>
-                      </div>
 
-                      {/* Items List */}
-                      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {[...items].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((item, idx) => {
-                          const ks = item.kitchenStatus;
-                          const statusColor = ks === 'PENDING' ? '#F59E0B' : ks === 'COOKING' ? '#EF4444' : ks === 'READY' ? '#10B981' : '#6B7280';
-                          
-                          return (
-                            <div key={item.id} style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FFF', border: `1px solid ${statusColor}30`, position: 'relative' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                <div style={{ flex: 1 }}>
-                                  <h5 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#1E293B' }}>{item.foodName}</h5>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748B' }}>x{item.quantity}</span>
-                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: statusColor, textTransform: 'uppercase' }}>
-                                      {ks === 'PENDING' ? '⏳ Chờ' : ks === 'COOKING' ? '🔥 Nấu' : ks === 'READY' ? '✅ Sẵn sàng' : ks}
-                                    </span>
-                                    {item.createdAt && (
-                                      <>
-                                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
-                                        <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748B' }}>
-                                          ⏱️ {(() => {
-                                            const waited = Math.floor((new Date() - new Date(item.createdAt)) / 60000);
-                                            return waited > 0 ? `${waited} phút` : 'Vừa xong';
-                                          })()}
-                                        </span>
-                                      </>
-                                    )}
+                        {/* Items List */}
+                        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {[...items].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((item, idx) => {
+                            const ks = item.kitchenStatus;
+                            const statusColor = ks === 'PENDING' ? '#F59E0B' : ks === 'COOKING' ? '#EF4444' : ks === 'READY' ? '#10B981' : '#6B7280';
+
+                            return (
+                              <div key={item.id} style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FFF', border: `1px solid ${statusColor}30`, position: 'relative' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                  <div style={{ flex: 1 }}>
+                                    <h5 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: '#1E293B' }}>{item.foodName}</h5>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                      <span style={{ fontSize: '13px', fontWeight: '800', color: '#64748B' }}>x{item.quantity}</span>
+                                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
+                                      <span style={{ fontSize: '11px', fontWeight: '700', color: statusColor, textTransform: 'uppercase' }}>
+                                        {ks === 'PENDING' ? '⏳ Chờ' : ks === 'COOKING' ? '🔥 Nấu' : ks === 'READY' ? '✅ Sẵn sàng' : ks}
+                                      </span>
+                                      {item.createdAt && (
+                                        <>
+                                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
+                                          <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748B' }}>
+                                            ⏱️ {(() => {
+                                              const waited = Math.floor((new Date() - new Date(item.createdAt)) / 60000);
+                                              return waited > 0 ? `${waited} phút` : 'Vừa xong';
+                                            })()}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {item.note && (
-                                <div style={{ fontSize: '12px', fontStyle: 'italic', color: '#92400E', backgroundColor: '#FFFBEB', padding: '6px 10px', borderRadius: '6px', marginBottom: '10px', borderLeft: '3px solid #F59E0B' }}>
-                                  📝 {item.note}
+                                {item.note && (
+                                  <div style={{ fontSize: '12px', fontStyle: 'italic', color: '#92400E', backgroundColor: '#FFFBEB', padding: '6px 10px', borderRadius: '6px', marginBottom: '10px', borderLeft: '3px solid #F59E0B' }}>
+                                    📝 {item.note}
+                                  </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  {ks === 'PENDING' && (
+                                    <button onClick={() => handleUpdateItemStatus(item.id, 'COOKING')}
+                                      style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#EF4444', color: 'white' }}>
+                                      🔥 Nấu
+                                    </button>
+                                  )}
+                                  {ks === 'COOKING' && (
+                                    <button onClick={() => handleUpdateItemStatus(item.id, 'READY')}
+                                      style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10B981', color: 'white' }}>
+                                      ✅ Xong
+                                    </button>
+                                  )}
+                                  {ks === 'READY' && (
+                                    <button onClick={() => handleUpdateItemStatus(item.id, 'SERVED')}
+                                      style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#6366F1', color: 'white' }}>
+                                      🛎️ Trả món
+                                    </button>
+                                  )}
                                 </div>
-                              )}
-
-                              <div style={{ display: 'flex', gap: '8px' }}>
-                                {ks === 'PENDING' && (
-                                  <button onClick={() => handleUpdateItemStatus(item.id, 'COOKING')}
-                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#EF4444', color: 'white' }}>
-                                    🔥 Nấu
-                                  </button>
-                                )}
-                                {ks === 'COOKING' && (
-                                  <button onClick={() => handleUpdateItemStatus(item.id, 'READY')}
-                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10B981', color: 'white' }}>
-                                    ✅ Xong
-                                  </button>
-                                )}
-                                {ks === 'READY' && (
-                                  <button onClick={() => handleUpdateItemStatus(item.id, 'SERVED')}
-                                    style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#6366F1', color: 'white' }}>
-                                    🛎️ Trả món
-                                  </button>
-                                )}
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </motion.div>
@@ -1513,7 +1659,7 @@ const DashboardScreen = ({ user, onLogout }) => {
           {/* ORDERS TAB - New Real-time Table Grid View */}
           {activeTab === 'Orders' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
+
               {/* Header section */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -1534,7 +1680,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
               {/* Main Content Layout: Grid and Detail */}
               <div style={{ display: 'grid', gridTemplateColumns: selectedTableForOrders ? '1fr 380px' : '1fr', gap: '24px', transition: 'all 0.4s ease' }}>
-                
+
                 {/* Left: Table Grid */}
                 <div className="card" style={{ padding: '24px', backgroundColor: '#F8FAFC' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px' }}>
@@ -1543,20 +1689,22 @@ const DashboardScreen = ({ user, onLogout }) => {
                     ) : (
                       tables.map((table) => {
                         const status = String(table.status).toUpperCase();
-                        const isOccupied = status === 'OCCUPIED' || status === '1';
-                        const isSelected = selectedTableForOrders?.id === table.id;
-                        
-                        // Find current active orders for this table
+
+                        // Tính active orders trước để dùng trong isOccupied
                         const tableOrders = allOrders.filter(o => String(o.tableId) === String(table.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
                         const totalAmount = tableOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
+                        // Bàn "có khách" khi: backend đánh là OCCUPIED hoặc đang có đơn hàng active
+                        const isOccupied = status === 'OCCUPIED' || status === '1' || tableOrders.length > 0;
+                        const isSelected = selectedTableForOrders?.id === table.id;
+
                         return (
-                          <motion.div 
+                          <motion.div
                             key={table.id}
                             whileHover={{ scale: 1.03, y: -2 }}
                             whileTap={{ scale: 0.97 }}
                             onClick={() => setSelectedTableForOrders(isSelected ? null : table)}
-                            style={{ 
+                            style={{
                               aspectRatio: '1/1',
                               cursor: 'pointer',
                               borderRadius: '20px',
@@ -1571,8 +1719,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                               border: `2px solid ${isOccupied ? '#EF4444' : isSelected ? '#11117F' : 'transparent'}`
                             }}
                           >
-                            <div style={{ 
-                              width: '48px', height: '48px', borderRadius: '14px', 
+                            <div style={{
+                              width: '48px', height: '48px', borderRadius: '14px',
                               backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : isOccupied ? '#FEF2F2' : '#F0F9FF',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               marginBottom: '12px', color: isSelected ? '#FFF' : isOccupied ? '#EF4444' : '#11117F'
@@ -1585,11 +1733,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                             <span style={{ fontSize: '11px', fontWeight: '600', color: isSelected ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)' }}>
                               {table.capacity} chỗ
                             </span>
-                            
+
                             {isOccupied && (
-                              <div style={{ 
-                                marginTop: '8px', padding: '2px 8px', borderRadius: '10px', 
-                                backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#EF4444', 
+                              <div style={{
+                                marginTop: '8px', padding: '2px 8px', borderRadius: '10px',
+                                backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#EF4444',
                                 color: '#FFF', fontSize: '10px', fontWeight: '800'
                               }}>
                                 {totalAmount.toLocaleString('vi-VN')}đ
@@ -1609,11 +1757,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                 {/* Right: Bill Detail (Conditional) */}
                 <AnimatePresence>
                   {selectedTableForOrders && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
-                      className="card" 
+                      className="card"
                       style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', backgroundColor: '#FFF', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1638,7 +1786,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                           return tableOrders.map(order => (
                             <div key={order.id} style={{ borderBottom: '1px dashed #E2E8F0', paddingBottom: '16px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)', fontFamily: 'monospace' }}>#{String(order.id).slice(0,6)}</span>
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--primary)', fontFamily: 'monospace' }}>#{String(order.id).slice(0, 6)}</span>
                                 <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', backgroundColor: `${getStatusColor(order.status)}15`, color: getStatusColor(order.status) }}>{order.status}</span>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1658,7 +1806,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                         const tableOrders = allOrders.filter(o => String(o.tableId) === String(selectedTableForOrders.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
                         const total = tableOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
                         if (tableOrders.length === 0) return null;
-                        
+
                         return (
                           <div style={{ borderTop: '2px solid #F1F5F9', paddingTop: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -1666,17 +1814,17 @@ const DashboardScreen = ({ user, onLogout }) => {
                               <span style={{ fontSize: '24px', fontWeight: '900', color: '#10B981' }}>{total.toLocaleString('vi-VN')}đ</span>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                              <button 
+                              <button
                                 onClick={() => {
                                   setSelectedTableId(selectedTableForOrders.id);
                                   setIsCreateOrderModalOpen(true);
-                                }} 
+                                }}
                                 className="btn btn-outline" style={{ flex: 1, padding: '12px', fontSize: '14px' }}
                               >
                                 Thêm món
                               </button>
-                              <button 
-                                onClick={() => handleOpenCheckout(selectedTableForOrders.id)} 
+                              <button
+                                onClick={() => handleOpenCheckout(selectedTableForOrders.id)}
                                 className="btn btn-primary" style={{ flex: 2, padding: '12px', fontSize: '14px', backgroundColor: '#11117F' }}
                               >
                                 💳 Thanh toán
@@ -1721,7 +1869,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                               </div>
                             </div>
                             <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
-                              <strong>Công thức:</strong><br/>
+                              <strong>Công thức:</strong><br />
                               {item.recipe || 'Không có công thức'}
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -1812,10 +1960,26 @@ const DashboardScreen = ({ user, onLogout }) => {
                           <div key={food.id} className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             <div style={{ height: '150px', backgroundColor: 'var(--bg-app)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                               {food.imageUrl ? (
-                                <img src={food.imageUrl} alt={food.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => e.target.style.display = 'none'} />
-                              ) : (
-                                <Utensils size={40} color="var(--border-color)" />
-                              )}
+                                <img
+                                  src={food.imageUrl}
+                                  alt={food.foodName}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  onError={e => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div style={{
+                                display: food.imageUrl ? 'none' : 'flex',
+                                width: '100%', height: '100%',
+                                background: `linear-gradient(135deg, hsl(${(food.foodName?.charCodeAt(0) || 200) % 360}, 60%, 55%), hsl(${(food.foodName?.charCodeAt(0) || 200) % 360 + 40}, 70%, 45%))`,
+                                alignItems: 'center', justifyContent: 'center',
+                                fontSize: '36px', fontWeight: '800', color: 'white',
+                                letterSpacing: '-1px', userSelect: 'none'
+                              }}>
+                                {food.foodName?.charAt(0)?.toUpperCase() || '🍽'}
+                              </div>
                             </div>
                             <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{food.foodName}</h4>
@@ -1836,53 +2000,6 @@ const DashboardScreen = ({ user, onLogout }) => {
                     );
                   })()}
                 </>
-              )}
-
-              {/* Modal Thêm/Sửa Món ăn */}
-              {/* MODAL PROPOSE FOOD (KITCHEN) */}
-              {isProposeFoodModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsProposeFoodModalOpen(false)}>
-                  <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                    <div className="modal-header">
-                      <h3>💡 Đề xuất món ăn mới</h3>
-                      <button onClick={() => setIsProposeFoodModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
-                    </div>
-                    <form onSubmit={handleProposeFood}>
-                      <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Mã món (Code)</label>
-                          <input type="text" className="input-field" required value={proposeFoodFormData.code} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, code: e.target.value })} placeholder="VD: SUON-XAO" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Tên món ăn</label>
-                          <input type="text" className="input-field" required value={proposeFoodFormData.foodName} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, foodName: e.target.value })} placeholder="VD: Sườn xào chua ngọt" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Giá bán dự kiến (VNĐ)</label>
-                          <input type="number" className="input-field" required value={proposeFoodFormData.price} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, price: e.target.value })} placeholder="VD: 85000" />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Danh mục</label>
-                          <select className="input-field" value={proposeFoodFormData.categoryId} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, categoryId: e.target.value })} required>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Công thức chế biến</label>
-                          <textarea className="input-field" required value={proposeFoodFormData.recipe} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, recipe: e.target.value })} placeholder="Chi tiết nguyên liệu, định lượng, cách làm..." style={{ minHeight: '100px', resize: 'vertical' }}></textarea>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>URL Hình ảnh (Tùy chọn)</label>
-                          <input type="text" className="input-field" value={proposeFoodFormData.imageUrl} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, imageUrl: e.target.value })} placeholder="https://..." />
-                        </div>
-                      </div>
-                      <div className="modal-footer">
-                        <button type="button" onClick={() => setIsProposeFoodModalOpen(false)} className="btn btn-outline">Hủy</button>
-                        <button type="submit" className="btn btn-primary">Gửi Đề Xuất</button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
               )}
 
               {/* MODAL FOOD (ADMIN) */}
@@ -1913,8 +2030,38 @@ const DashboardScreen = ({ user, onLogout }) => {
                         </div>
                       </div>
                       <div className="input-group">
-                        <label>URL Hình ảnh (tuỳ chọn)</label>
-                        <input type="url" value={foodFormData.imageUrl || ''} onChange={e => setFoodFormData({ ...foodFormData, imageUrl: e.target.value })} className="input-field" placeholder="https://example.com/image.jpg" />
+                        <label>🖼️ URL Hình ảnh trực tiếp (tuỳ chọn)</label>
+                        <input
+                          type="text"
+                          value={foodFormData.imageUrl || ''}
+                          onChange={e => setFoodFormData({ ...foodFormData, imageUrl: e.target.value })}
+                          className="input-field"
+                          placeholder="https://example.com/food.jpg  ← phải là link trực tiếp đến file .jpg/.png/.webp"
+                        />
+                        {foodFormData.imageUrl && (
+                          <div style={{ marginTop: '10px', borderRadius: '10px', overflow: 'hidden', height: '140px', background: '#f1f5f9', position: 'relative' }}>
+                            <img
+                              src={foodFormData.imageUrl}
+                              alt="preview"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onLoad={e => { e.target.style.display = 'block'; e.target.nextSibling.style.display = 'none'; }}
+                              onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                            />
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              height: '100%', gap: '6px', color: '#ef4444', fontSize: '13px'
+                            }}>
+                              <span style={{ fontSize: '24px' }}>⚠️</span>
+                              <span style={{ fontWeight: '600' }}>URL không hợp lệ hoặc bị chặn</span>
+                              <span style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '0 16px' }}>
+                                Cần URL kết thúc bằng .jpg / .png / .webp và không bị chặn cross-origin
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <p style={{ fontSize: '11px', color: '#94a3b8', margin: '6px 0 0' }}>
+                          💡 Tip: Click chuột phải vào ảnh trên Google → "Sao chép địa chỉ hình ảnh" để lấy URL trực tiếp
+                        </p>
                       </div>
                       <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
                         <button type="button" onClick={() => setIsFoodModalOpen(false)} className="btn btn-outline" style={{ flex: 1 }}>Hủy</button>
@@ -2002,7 +2149,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                           </div>
                         </td>
                         <td style={{ padding: '20px 24px' }}>
-                          <div style={{ color: '#475569', fontSize: '13px', fontWeight: '500' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
+                          <div style={{ color: '#475569', fontSize: '13px', fontWeight: '500' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                           <div style={{ color: '#94A3B8', fontSize: '11px' }}>{new Date(order.updatedAt || order.createdAt).toLocaleDateString('vi-VN')}</div>
                         </td>
                         <td style={{ padding: '20px 24px' }}>
@@ -2016,8 +2163,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                           </span>
                         </td>
                         <td style={{ padding: '20px 24px', textAlign: 'center' }}>
-                          <button 
-                            className="btn-ghost" 
+                          <button
+                            className="btn-ghost"
                             style={{ color: '#6366F1', fontWeight: '700', fontSize: '13px', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', border: 'none', background: 'transparent' }}
                             onClick={() => {
                               setSelectedInvoice(order);
@@ -2075,7 +2222,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                     <tbody>
                       {staff.map((person) => {
                         const roleLabel = { 0: 'WAITER', 1: 'ADMIN', 2: 'CHEF', 3: 'KITCHEN' }[person.role] || String(person.role);
-                        const roleBg   = { 0: '#EFF6FF', 1: '#FEF3C7', 2: '#D1FAE5', 3: '#FFF7ED' }[person.role] || '#EFF6FF';
+                        const roleBg = { 0: '#EFF6FF', 1: '#FEF3C7', 2: '#D1FAE5', 3: '#FFF7ED' }[person.role] || '#EFF6FF';
                         const roleColor = { 0: '#1D4ED8', 1: '#92400E', 2: '#065F46', 3: '#C2410C' }[person.role] || '#1D4ED8';
                         return (
                           <tr key={person.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
@@ -2118,7 +2265,7 @@ const DashboardScreen = ({ user, onLogout }) => {
           {/* SETTINGS TAB - System Configuration */}
           {activeTab === 'Settings' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              
+
               {/* Table Management Section */}
               <div className="card" style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -2214,15 +2361,15 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                   <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
                     {['DAY', 'MONTH', 'YEAR', 'CATEGORY'].map(type => (
-                      <button 
+                      <button
                         key={type}
-                        onClick={() => fetchReportData(type)} 
-                        style={{ 
-                          padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', 
+                        onClick={() => fetchReportData(type)}
+                        style={{
+                          padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
                           fontWeight: '700', fontSize: '12px',
-                          backgroundColor: reportType === type ? '#FFF' : 'transparent', 
-                          color: reportType === type ? '#11117F' : '#64748B', 
-                          boxShadow: reportType === type ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none' 
+                          backgroundColor: reportType === type ? '#FFF' : 'transparent',
+                          color: reportType === type ? '#11117F' : '#64748B',
+                          boxShadow: reportType === type ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none'
                         }}
                       >
                         {type === 'DAY' ? '📅 Ngày' : type === 'MONTH' ? '🗓️ Tháng' : type === 'YEAR' ? '📆 Năm' : '🍔 Món Ăn'}
@@ -2248,7 +2395,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                             formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']}
                           />
@@ -2270,7 +2417,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                             ))}
                           </Pie>
                           <Tooltip formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']} />
-                          <Legend verticalAlign="bottom" height={36}/>
+                          <Legend verticalAlign="bottom" height={36} />
                         </PieChart>
                       )}
                     </ResponsiveContainer>
@@ -2278,22 +2425,63 @@ const DashboardScreen = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F' }}>
-                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>TỔNG DOANH THU</p>
-                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>
-                    {new Intl.NumberFormat('vi-VN').format(reportData.reduce((acc, curr) => acc + curr.value, 0))}đ
-                  </h4>
-                </div>
-                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981' }}>
-                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>SỐ LƯỢNG MỤC</p>
-                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>{reportData.length}</h4>
-                </div>
-                <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B' }}>
-                  <p style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>LOẠI BÁO CÁO</p>
-                  <h4 style={{ fontSize: '24px', fontWeight: '800', margin: '8px 0 0' }}>{reportType}</h4>
-                </div>
-              </div>
+              {(() => {
+                const now = new Date();
+                const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+                const thisMonthStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+                const thisYearStr = `${now.getFullYear()}`;
+
+                let currentPeriodRevenue = 0;
+                let currentPeriodLabel = '';
+
+                if (reportType === 'DAY') {
+                  const todayEntry = reportData.find(d => d.name === todayStr);
+                  currentPeriodRevenue = todayEntry ? todayEntry.value : 0;
+                  currentPeriodLabel = `Hôm nay (${todayStr})`;
+                } else if (reportType === 'MONTH') {
+                  const monthEntry = reportData.find(d => d.name === thisMonthStr);
+                  currentPeriodRevenue = monthEntry ? monthEntry.value : 0;
+                  currentPeriodLabel = `Tháng này (${thisMonthStr})`;
+                } else if (reportType === 'YEAR') {
+                  const yearEntry = reportData.find(d => d.name === thisYearStr);
+                  currentPeriodRevenue = yearEntry ? yearEntry.value : 0;
+                  currentPeriodLabel = `Năm nay (${thisYearStr})`;
+                } else {
+                  // CATEGORY: tổng tất cả
+                  currentPeriodRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
+                  currentPeriodLabel = 'Tổng tất cả danh mục';
+                }
+
+                const totalAllRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
+                const typeLabel = reportType === 'DAY' ? '📅 Theo Ngày' : reportType === 'MONTH' ? '🗓️ Theo Tháng' : reportType === 'YEAR' ? '📆 Theo Năm' : '🍔 Theo Món Ăn';
+
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                    {/* Card 1: Doanh thu kỳ hiện tại */}
+                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F' }}>
+                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DOANH THU KỲ NÀY</p>
+                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{currentPeriodLabel}</p>
+                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#11117F' }}>
+                        {new Intl.NumberFormat('vi-VN').format(currentPeriodRevenue)}đ
+                      </h4>
+                    </div>
+                    {/* Card 2: Tổng doanh thu tất cả kỳ */}
+                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981' }}>
+                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG CỘNG (TẤT CẢ KỲ)</p>
+                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{reportData.length} kỳ trong biểu đồ</p>
+                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#10B981' }}>
+                        {new Intl.NumberFormat('vi-VN').format(totalAllRevenue)}đ
+                      </h4>
+                    </div>
+                    {/* Card 3: Loại báo cáo */}
+                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B' }}>
+                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ĐANG XEM</p>
+                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>Loại báo cáo hiện tại</p>
+                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#F59E0B' }}>{typeLabel}</h4>
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           )}
 
@@ -2444,7 +2632,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       {isCreateOrderModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ background: '#F8FAFC', borderRadius: '16px', width: '100%', maxWidth: '1100px', height: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.3)' }}>
-            
+
             {/* Header */}
             <div style={{ padding: '20px 24px', backgroundColor: '#FFF', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>TẠO ĐƠN HÀNG MỚI (POS)</h3>
@@ -2453,13 +2641,13 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             {/* Split Content */}
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              
+
               {/* LEFT COLUMN: Menus & Tables */}
               <div style={{ flex: 6, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', overflow: 'hidden' }}>
                 <div style={{ padding: '20px', backgroundColor: '#FFF', borderBottom: '1px solid #E2E8F0' }}>
                   <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>CHỌN BÀN (Chỉ hiển thị bàn trống)</label>
-                  <select 
-                    value={selectedTableId} 
+                  <select
+                    value={selectedTableId}
                     onChange={(e) => setSelectedTableId(e.target.value)}
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '15px', fontWeight: '600', color: '#0F172A' }}
                   >
@@ -2474,7 +2662,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                     })}
                   </select>
                 </div>
-                
+
                 <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
                   <h4 style={{ margin: '0 0 16px', fontSize: '15px', color: '#475569' }}>DANH SÁCH MÓN ĂN</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
@@ -2482,10 +2670,26 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <div key={food.id} style={{ backgroundColor: '#FFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', cursor: 'pointer' }} onClick={() => handleAddToCart(food)}>
                         <div style={{ height: '120px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {food.imageUrl ? (
-                            <img src={food.imageUrl} alt={food.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <Utensils size={40} color="#94A3B8" />
-                          )}
+                            <img
+                              src={food.imageUrl}
+                              alt={food.foodName}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={e => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div style={{
+                            display: food.imageUrl ? 'none' : 'flex',
+                            width: '100%', height: '100%',
+                            background: `linear-gradient(135deg, hsl(${(food.foodName?.charCodeAt(0) || 200) % 360}, 60%, 55%), hsl(${(food.foodName?.charCodeAt(0) || 200) % 360 + 40}, 70%, 45%))`,
+                            alignItems: 'center', justifyContent: 'center',
+                            fontSize: '28px', fontWeight: '800', color: 'white',
+                            userSelect: 'none'
+                          }}>
+                            {food.foodName?.charAt(0)?.toUpperCase() || '🍽'}
+                          </div>
                         </div>
                         <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
                           <span style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A', lineHeight: 1.3 }}>{food.foodName}</span>
@@ -2531,9 +2735,9 @@ const DashboardScreen = ({ user, onLogout }) => {
                             </div>
                           </div>
                           {/* Note input for each item */}
-                          <input 
-                            type="text" 
-                            placeholder="Ghi chú món (ví dụ: ít cay...)" 
+                          <input
+                            type="text"
+                            placeholder="Ghi chú món (ví dụ: ít cay...)"
                             value={item.note || ''}
                             onChange={(e) => handleUpdateCartItem(item.menuItemId, 0, e.target.value)}
                             style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', outline: 'none' }}
@@ -2545,8 +2749,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                 </div>
 
                 <div style={{ padding: '20px', borderTop: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-                  <textarea 
-                    placeholder="Ghi chú chung cho đơn hàng..." 
+                  <textarea
+                    placeholder="Ghi chú chung cho đơn hàng..."
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', marginBottom: '16px', resize: 'none', outline: 'none' }}
@@ -2558,7 +2762,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(cartItems.reduce((acc, i) => acc + (i.unitPrice * i.quantity), 0))}
                     </span>
                   </div>
-                  <button 
+                  <button
                     onClick={handleSubmitOrder}
                     disabled={cartItems.length === 0 || !selectedTableId}
                     style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: (cartItems.length === 0 || !selectedTableId) ? '#94A3B8' : '#10B981', color: '#FFF', fontSize: '16px', fontWeight: '800', cursor: (cartItems.length === 0 || !selectedTableId) ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
@@ -2569,7 +2773,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
               </div>
             </div>
-            
+
           </motion.div>
         </div>
       )}
@@ -2578,12 +2782,12 @@ const DashboardScreen = ({ user, onLogout }) => {
       {isInvoiceModalOpen && selectedInvoice && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '16px', width: '100%', maxWidth: '450px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
-            
+
             {/* Header */}
             <div style={{ padding: '24px', backgroundColor: '#F8FAFC', borderBottom: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>HÓA ĐƠN CHI TIẾT</h3>
-                <p style={{ margin: '4px 0 0', color: 'var(--primary)', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>ORD-{String(selectedInvoice.id).slice(0,8).toUpperCase()}</p>
+                <p style={{ margin: '4px 0 0', color: 'var(--primary)', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>ORD-{String(selectedInvoice.id).slice(0, 8).toUpperCase()}</p>
               </div>
               <button onClick={() => setIsInvoiceModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={24} /></button>
             </div>
@@ -2644,14 +2848,16 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             {/* Footer */}
             <div style={{ padding: '24px', backgroundColor: '#F8FAFC', display: 'flex', gap: '12px' }}>
-              <button className="btn btn-outline" style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <button
+                onClick={handleDownloadInvoicePDF}
+                className="btn btn-outline" style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 <Download size={18} /> Tải PDF
               </button>
               <button onClick={() => setIsInvoiceModalOpen(false)} className="btn btn-primary" style={{ flex: 1, padding: '12px' }}>
                 Đóng Hóa Đơn
               </button>
             </div>
-            
+
           </motion.div>
         </div>
       )}
@@ -2660,7 +2866,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       {isCheckoutModalOpen && checkoutOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '16px', width: '100%', maxWidth: '600px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.3)' }}>
-            
+
             {/* Header */}
             <div style={{ padding: '20px 24px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>THANH TOÁN ĐƠN HÀNG</h3>
@@ -2669,11 +2875,11 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             {/* Content */}
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
+
               {/* Order Summary Summary */}
               <div style={{ backgroundColor: '#F1F5F9', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>Đơn hàng: #{String(checkoutOrder.id).slice(0,8).toUpperCase()}</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>Đơn hàng: #{String(checkoutOrder.id).slice(0, 8).toUpperCase()}</p>
                   <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#0F172A', fontWeight: '700' }}>{checkoutOrder.tableNumber || checkoutOrder.tableId}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -2704,8 +2910,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                     <div>
                       <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>Tiền khách đưa (đơn vị nghìn VNĐ)</label>
                       <div style={{ position: 'relative' }}>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder=""
                           value={customerCash}
                           onChange={(e) => {
@@ -2741,7 +2947,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <QrCode size={32} />
                     </div>
                     <p style={{ margin: 0, fontSize: '16px', color: '#0369A1', fontWeight: '700' }}>Phương thức: Chuyển khoản</p>
-                    <button 
+                    <button
                       onClick={() => setIsQRModalOpen(true)}
                       style={{ marginTop: '12px', padding: '8px 16px', background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                     >
@@ -2757,15 +2963,15 @@ const DashboardScreen = ({ user, onLogout }) => {
               <button onClick={() => setIsCheckoutModalOpen(false)} className="btn btn-outline" style={{ flex: 1, padding: '14px' }}>
                 Hủy
               </button>
-              <button 
-                onClick={handleConfirmPayment} 
-                className="btn btn-primary" 
+              <button
+                onClick={handleConfirmPayment}
+                className="btn btn-primary"
                 style={{ flex: 2, padding: '14px', backgroundColor: '#3B82F6', borderColor: '#3B82F6', fontSize: '16px' }}
               >
                 XÁC NHẬN ĐÃ THU TIỀN
               </button>
             </div>
-            
+
           </motion.div>
         </div>
       )}
@@ -2774,7 +2980,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       {isQRModalOpen && checkoutOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ background: '#FFF', borderRadius: '24px', width: '100%', maxWidth: '420px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
-            
+
             {/* Header with Bank Color */}
             <div style={{ padding: '20px', background: '#E01020', color: '#FFF', textAlign: 'center', position: 'relative' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>TECHCOMBANK</h3>
@@ -2792,9 +2998,9 @@ const DashboardScreen = ({ user, onLogout }) => {
 
               {/* QR Image */}
               <div style={{ padding: '16px', backgroundColor: '#FFF', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #F1F5F9' }}>
-                <img 
-                  src={`https://img.vietqr.io/image/970407-19037974181012-print.jpg?amount=${checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0}&addInfo=Thanh toan don ${String(checkoutOrder.id).slice(0,8)}&accountName=NGUYEN LAN VIET`} 
-                  alt="QR Code" 
+                <img
+                  src={`https://img.vietqr.io/image/970407-19037974181012-print.jpg?amount=${checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0}&addInfo=Thanh toan don ${String(checkoutOrder.id).slice(0, 8)}&accountName=NGUYEN LAN VIET`}
+                  alt="QR Code"
                   style={{ width: '280px', height: '280px', objectFit: 'contain' }}
                 />
               </div>
@@ -2806,7 +3012,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                 </p>
               </div>
 
-              <button 
+              <button
                 onClick={() => setIsQRModalOpen(false)}
                 style={{ width: '100%', padding: '16px', borderRadius: '12px', background: '#0F172A', color: '#FFF', border: 'none', fontSize: '16px', fontWeight: '700', cursor: 'pointer', transition: 'opacity 0.2s' }}
                 onMouseEnter={(e) => e.target.style.opacity = '0.9'}
@@ -2816,6 +3022,53 @@ const DashboardScreen = ({ user, onLogout }) => {
               </button>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* GLOBAL MODAL: PROPOSE FOOD (có thể mở từ bất kỳ tab nào) */}
+      {isProposeFoodModalOpen && (
+        <div onClick={() => setIsProposeFoodModalOpen(false)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 60px rgba(0,0,0,0.35)' }}>
+            <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>💡 Đề xuất món ăn mới</h3>
+              <button onClick={() => setIsProposeFoodModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
+            </div>
+            <form onSubmit={handleProposeFood}>
+              <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Mã món (Code) *</label>
+                  <input type="text" className="input-field" required value={proposeFoodFormData.code} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, code: e.target.value })} placeholder="VD: SUON-XAO" style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Tên món ăn *</label>
+                  <input type="text" className="input-field" required value={proposeFoodFormData.foodName} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, foodName: e.target.value })} placeholder="VD: Sườn xào chua ngọt" style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Giá bán dự kiến (VNĐ) *</label>
+                  <input type="number" className="input-field" required value={proposeFoodFormData.price} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, price: e.target.value })} placeholder="VD: 85000" style={{ width: '100%' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Danh mục *</label>
+                  <select className="input-field" value={proposeFoodFormData.categoryId} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, categoryId: e.target.value })} required style={{ width: '100%' }}>
+                    <option value="">-- Chọn danh mục --</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Công thức chế biến *</label>
+                  <textarea className="input-field" required value={proposeFoodFormData.recipe} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, recipe: e.target.value })} placeholder="Chi tiết nguyên liệu, định lượng, cách làm..." style={{ width: '100%', minHeight: '110px', resize: 'vertical' }}></textarea>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>URL Hình ảnh (Tùy chọn)</label>
+                  <input type="text" className="input-field" value={proposeFoodFormData.imageUrl} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, imageUrl: e.target.value })} placeholder="https://..." style={{ width: '100%' }} />
+                </div>
+              </div>
+              <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" onClick={() => setIsProposeFoodModalOpen(false)} className="btn btn-outline">Hủy</button>
+                <button type="submit" className="btn btn-primary">📨 Gửi Đề Xuất</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -2842,9 +3095,9 @@ const App = () => {
           return;
         }
 
-        setCurrentUser({ 
-          id: payload.sub || payload.uid, 
-          role: payload.role || 'GUEST', 
+        setCurrentUser({
+          id: payload.sub || payload.uid,
+          role: payload.role || 'GUEST',
           server: 'local',
           fullName: payload.fullName || payload.sub
         });

@@ -23,10 +23,19 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Ai có token cũng xem được menu
-                        .requestMatchers(HttpMethod.GET, "/catalog-service/categories/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/catalog-service/items/**").authenticated()
-                        // Chỉ ADMIN mới được sửa/xóa/thêm
+                        // GET categories & items: công khai (menu nhà hàng không cần đăng nhập để xem)
+                        .requestMatchers(HttpMethod.GET, "/catalog-service/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/catalog-service/items/**").permitAll()
+
+                        // Bếp được phép đề xuất món mới
+                        .requestMatchers(HttpMethod.POST, "/catalog-service/items/propose").authenticated()
+
+                        // Chỉ ADMIN mới được duyệt/từ chối/tạo/sửa/xóa
+                        .requestMatchers(HttpMethod.POST, "/catalog-service/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/catalog-service/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/catalog-service/**").hasRole("ADMIN")
+
+                        // Còn lại yêu cầu đăng nhập
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
