@@ -56,7 +56,7 @@ public class OrderService {
         // Báo cho table-service để gán đơn vào bàn (đổi màu thành OCCUPIED)
         if (request.getTableId() != null) {
             try {
-                restTemplate.patchForObject(
+                restTemplate.postForObject(
                         "http://localhost:8083/tables/" + request.getTableId() + "/assign-order",
                         Map.of("orderId", saved.getId().toString()),
                         String.class
@@ -176,7 +176,7 @@ public class OrderService {
         if ("COMPLETED".equals(status) || "CANCELLED".equals(status)) {
             if (order.getTableId() != null) {
                 try {
-                    restTemplate.patchForObject(
+                    restTemplate.postForObject(
                             "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
                             Map.of("orderId", ""),
                             String.class
@@ -204,7 +204,7 @@ public class OrderService {
         // Giải phóng bàn
         if (order.getTableId() != null) {
             try {
-                restTemplate.patchForObject(
+                restTemplate.postForObject(
                         "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
                         Map.of("orderId", ""),
                         String.class

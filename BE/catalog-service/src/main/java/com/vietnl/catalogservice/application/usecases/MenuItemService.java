@@ -58,6 +58,7 @@ public class MenuItemService {
         item.setFoodName(request.getFoodName());
         item.setPrice(request.getPrice());
         item.setImageUrl(request.getImageUrl());
+        item.setRecipe(request.getRecipe());
         item.setStatus(ItemStatus.ACTIVE.getValue());
         item.setCreatedAt(LocalDateTime.now());
         item.setUpdatedAt(LocalDateTime.now());
@@ -81,6 +82,7 @@ public class MenuItemService {
         if (StringUtils.hasText(request.getFoodName())) item.setFoodName(request.getFoodName());
         if (request.getPrice() != null && request.getPrice().compareTo(BigDecimal.ZERO) > 0) item.setPrice(request.getPrice());
         if (StringUtils.hasText(request.getImageUrl())) item.setImageUrl(request.getImageUrl());
+        if (StringUtils.hasText(request.getRecipe())) item.setRecipe(request.getRecipe());
         item.setUpdatedAt(LocalDateTime.now());
 
         return menuItemRepository.save(item);
@@ -89,5 +91,58 @@ public class MenuItemService {
     public void delete(String id) {
         getById(id);
         menuItemRepository.deleteById(UUID.fromString(id));
+    }
+
+    // ===== PROPOSAL WORKFLOW =====
+
+    public MenuItem propose(MenuItemRequest request) {
+        if (!StringUtils.hasText(request.getCode()))
+            throw new RuntimeException(String.format(ExceptionMessage.MISSING_REQUIRED_FIELD.getMessage(), "code"));
+        if (!StringUtils.hasText(request.getFoodName()))
+            throw new RuntimeException(String.format(ExceptionMessage.MISSING_REQUIRED_FIELD.getMessage(), "foodName"));
+        if (request.getCategoryId() == null)
+            throw new RuntimeException(String.format(ExceptionMessage.MISSING_REQUIRED_FIELD.getMessage(), "categoryId"));
+        if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0)
+            throw new RuntimeException(ExceptionMessage.INVALID_PRICE.getMessage());
+
+        categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new RuntimeException(ExceptionMessage.CATEGORY_NOT_FOUND.getMessage()));
+
+        if (menuItemRepository.findByCode(request.getCode()).isPresent())
+            throw new RuntimeException(ExceptionMessage.ITEM_CODE_DUPLICATE.getMessage());
+
+        MenuItem item = new MenuItem();
+        item.setCategoryId(request.getCategoryId());
+        item.setCode(request.getCode());
+        item.setFoodName(request.getFoodName());
+        item.setPrice(request.getPrice());
+        item.setImageUrl(request.getImageUrl());
+        item.setRecipe(request.getRecipe());
+        // Set status to PENDING
+        item.setStatus(ItemStatus.PENDING.getValue());
+        item.setCreatedAt(LocalDateTime.now());
+        item.setUpdatedAt(LocalDateTime.now());
+
+        return menuItemRepository.save(item);
+    }
+
+    public MenuItem approve(String id) {
+        MenuItem item = getById(id);
+        if (item.getStatus() != ItemStatus.PENDING.getValue()) {
+            throw new RuntimeException("Chỉ có thể duyệt món đang ở trạng thái chờ (PENDING)");
+        }
+        item.setStatus(ItemStatus.ACTIVE.getValue());
+        item.setUpdatedAt(LocalDateTime.now());
+        return menuItemRepository.save(item);
+    }
+
+    public MenuItem reject(String id) {
+        MenuItem item = getById(id);
+        if (item.getStatus() != ItemStatus.PENDING.getValue()) {
+            throw new RuntimeException("Chỉ có thể từ chối món đang ở trạng thái chờ (PENDING)");
+        }
+        item.setStatus(ItemStatus.REJECTED.getValue());
+        item.setUpdatedAt(LocalDateTime.now());
+        return menuItemRepository.save(item);
     }
 }

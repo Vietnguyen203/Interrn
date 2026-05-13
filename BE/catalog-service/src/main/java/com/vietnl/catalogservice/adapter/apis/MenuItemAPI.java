@@ -59,4 +59,26 @@ public class MenuItemAPI {
         menuItemService.delete(id);
         return ResponseEntity.ok(Map.of("code", "200", "message", "Xóa món ăn thành công"));
     }
+
+    // POST propose new item (Kitchen)
+    @PostMapping("/propose")
+    public ResponseEntity<?> propose(@RequestBody MenuItemRequest request) {
+        MenuItem proposed = menuItemService.propose(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of("code", "201", "message", "Gửi đề xuất món ăn thành công", "data", proposed));
+    }
+
+    // PUT approve item (Admin)
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<?> approve(@PathVariable String id) {
+        MenuItem approved = menuItemService.approve(id);
+        return ResponseEntity.ok(Map.of("code", "200", "message", "Duyệt món ăn thành công", "data", approved));
+    }
+
+    // PUT reject item (Admin)
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<?> reject(@PathVariable String id) {
+        MenuItem rejected = menuItemService.reject(id);
+        return ResponseEntity.ok(Map.of("code", "200", "message", "Từ chối món ăn thành công", "data", rejected));
+    }
 }

@@ -74,13 +74,13 @@ export const apiService = {
     // Specific API calls for cleaner components
     auth: {
         login: (username, password, deviceId) =>
-            apiService.post('/users-service/login', { username, password, deviceId }),
+            apiService.post('/users-service/request/login', { username, password, deviceId }),
         verifyOtp: (username, otp, deviceId, rememberMe) =>
-            apiService.post('/users-service/login/verify-otp', { username, otp, deviceId, rememberMe }),
+            apiService.post('/users-service/request/login/verify-otp', { username, otp, deviceId, rememberMe }),
         forgotPassword: (email) =>
-            apiService.post('/users-service/forgot-password', { email }),
+            apiService.post('/users-service/request/forgot-password', { email }),
         resetPassword: (email, otp, newPassword) =>
-            apiService.put('/users-service/reset-password', { email, otp, password: newPassword })
+            apiService.put('/users-service/request/reset-password', { email, otp, password: newPassword })
     },
 
     dashboard: {
@@ -89,7 +89,7 @@ export const apiService = {
         createTable: (data) => apiService.post('/tables', data),
         updateTable: (id, data) => apiService.put(`/tables/${id}`, data),
         updateTableStatus: (id, status) => apiService.patch(`/tables/${id}/status`, { status }),
-        assignTableOrder: (id, orderId) => apiService.patch(`/tables/${id}/assign-order`, { orderId }),
+        assignTableOrder: (id, orderId) => apiService.post(`/tables/${id}/assign-order`, { orderId }),
         deleteTable: (id) => apiService.delete(`/tables/${id}`),
 
         getRecentOrders: () => apiService.get('/orders?page=0&size=5'),
@@ -134,6 +134,9 @@ export const apiService = {
         createItem: (data) => catalogFetch('POST', '/catalog-service/items', data),
         updateItem: (id, data) => catalogFetch('PUT', `/catalog-service/items/${id}`, data),
         deleteItem: (id) => catalogFetch('DELETE', `/catalog-service/items/${id}`),
+        proposeItem: (data) => catalogFetch('POST', '/catalog-service/items/propose', data),
+        approveItem: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/approve`),
+        rejectItem: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/reject`),
     },
 
     // ===== ORDER SERVICE (port 8082 via /order proxy) =====

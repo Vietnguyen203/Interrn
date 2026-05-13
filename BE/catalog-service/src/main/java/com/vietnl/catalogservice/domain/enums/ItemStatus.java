@@ -2,7 +2,9 @@ package com.vietnl.catalogservice.domain.enums;
 
 public enum ItemStatus {
     INACTIVE(0),
-    ACTIVE(1);
+    ACTIVE(1),
+    PENDING(2),
+    REJECTED(-1);
 
     private final Integer value;
 

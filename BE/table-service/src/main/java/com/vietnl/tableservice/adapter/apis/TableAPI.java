@@ -62,7 +62,7 @@ public class TableAPI {
         }
     }
 
-    @PatchMapping("/{id}/assign-order")
+    @PostMapping("/{id}/assign-order")
     public ResponseEntity<?> assignOrder(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         String orderId = body.get("orderId");
         RestaurantTable table = tableService.assignOrder(id, orderId);

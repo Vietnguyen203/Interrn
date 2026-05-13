@@ -12,4 +12,5 @@ public class MenuItemRequest {
     private String foodName;
     private BigDecimal price;
     private String imageUrl;
+    private String recipe;
 }

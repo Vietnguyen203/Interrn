@@ -522,6 +522,11 @@ const DashboardScreen = ({ user, onLogout }) => {
     code: '', foodName: '', price: '', categoryId: '', imageUrl: ''
   });
 
+  const [isProposeFoodModalOpen, setIsProposeFoodModalOpen] = useState(false);
+  const [proposeFoodFormData, setProposeFoodFormData] = useState({
+    code: '', foodName: '', price: '', categoryId: '', imageUrl: '', recipe: ''
+  });
+
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryFormData, setCategoryFormData] = useState({
@@ -1098,6 +1103,41 @@ const DashboardScreen = ({ user, onLogout }) => {
     } catch (err) { toast.error('Lỗi xóa món ăn: ' + err.message); }
   };
 
+  const handleOpenProposeFoodModal = () => {
+    setProposeFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '', recipe: '' });
+    setIsProposeFoodModalOpen(true);
+  };
+
+  const handleProposeFood = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { ...proposeFoodFormData, price: parseFloat(proposeFoodFormData.price) };
+      await apiService.catalog.proposeItem(payload);
+      toast.success('Gửi đề xuất món ăn thành công chờ Admin duyệt');
+      setIsProposeFoodModalOpen(false);
+    } catch (err) { toast.error('Lỗi gửi đề xuất: ' + err.message); }
+  };
+
+  const handleApproveProposal = async (id) => {
+    const ok = await confirm('Duyệt món', 'Đồng ý duyệt món ăn này lên Menu?', { confirmLabel: 'Duyệt' });
+    if (!ok) return;
+    try {
+      await apiService.catalog.approveItem(id);
+      toast.success('Duyệt món ăn thành công');
+      fetchFoodsData();
+    } catch (err) { toast.error('Lỗi duyệt món ăn: ' + err.message); }
+  };
+
+  const handleRejectProposal = async (id) => {
+    const ok = await confirm('Từ chối món', 'Bạn có chắc muốn từ chối đề xuất này?', { danger: true, confirmLabel: 'Từ chối' });
+    if (!ok) return;
+    try {
+      await apiService.catalog.rejectItem(id);
+      toast.success('Từ chối món ăn thành công');
+      fetchFoodsData();
+    } catch (err) { toast.error('Lỗi từ chối món ăn: ' + err.message); }
+  };
+
   const handleOpenCategoryModal = (cat = null) => {
     if (cat) {
       setEditingCategory(cat);
@@ -1356,7 +1396,10 @@ const DashboardScreen = ({ user, onLogout }) => {
                     {kitchenItems.filter(i => i.kitchenStatus === 'READY').length} sẵn sàng
                   </p>
                 </div>
-                <button onClick={fetchKitchenData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={handleOpenProposeFoodModal} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }}>💡 Đề xuất món mới</button>
+                    <button onClick={fetchKitchenData} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '14px' }}>🔄 Làm mới</button>
+                  </div>
               </div>
 
               {loadingConfig.kitchen ? (
@@ -1660,8 +1703,36 @@ const DashboardScreen = ({ user, onLogout }) => {
                 <p style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu...</p>
               ) : selectedCategory === null ? (
 
-                /* ===== MÀN HÌNH 1: LƯỚI DANH MỤC ===== */
+                /* ===== MÀN HÌNH 1: LƯỚI DANH MỤC & ĐỀ XUẤT ===== */
                 <>
+                  <div style={{ marginBottom: '40px' }}>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 16px', color: '#B45309' }}>⏳ Đề xuất chờ duyệt</h3>
+                    {foods.filter(f => f.status === 2).length === 0 ? (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Không có đề xuất nào đang chờ duyệt.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                        {foods.filter(f => f.status === 2).map(item => (
+                          <div key={item.id} className="card" style={{ padding: '16px', borderLeft: '4px solid #F59E0B' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <h4 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '700' }}>{item.foodName}</h4>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 8px' }}>Mã: {item.code} | Danh mục: {categories.find(c => c.id === item.categoryId)?.name}</p>
+                                <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--status-completed)', margin: '0 0 12px' }}>{item.price?.toLocaleString()} đ</p>
+                              </div>
+                            </div>
+                            <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
+                              <strong>Công thức:</strong><br/>
+                              {item.recipe || 'Không có công thức'}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={() => handleApproveProposal(item.id)} className="btn btn-primary" style={{ flex: 1, padding: '6px', fontSize: '13px', backgroundColor: '#10B981', borderColor: '#10B981' }}>✓ Duyệt</button>
+                              <button onClick={() => handleRejectProposal(item.id)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '13px', color: '#EF4444', borderColor: '#EF4444' }}>✕ Từ chối</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <div>
                       <h3 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>📂 Danh mục thực đơn</h3>
@@ -1768,6 +1839,53 @@ const DashboardScreen = ({ user, onLogout }) => {
               )}
 
               {/* Modal Thêm/Sửa Món ăn */}
+              {/* MODAL PROPOSE FOOD (KITCHEN) */}
+              {isProposeFoodModalOpen && (
+                <div className="modal-overlay" onClick={() => setIsProposeFoodModalOpen(false)}>
+                  <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                    <div className="modal-header">
+                      <h3>💡 Đề xuất món ăn mới</h3>
+                      <button onClick={() => setIsProposeFoodModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                    </div>
+                    <form onSubmit={handleProposeFood}>
+                      <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Mã món (Code)</label>
+                          <input type="text" className="input-field" required value={proposeFoodFormData.code} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, code: e.target.value })} placeholder="VD: SUON-XAO" />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Tên món ăn</label>
+                          <input type="text" className="input-field" required value={proposeFoodFormData.foodName} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, foodName: e.target.value })} placeholder="VD: Sườn xào chua ngọt" />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Giá bán dự kiến (VNĐ)</label>
+                          <input type="number" className="input-field" required value={proposeFoodFormData.price} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, price: e.target.value })} placeholder="VD: 85000" />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Danh mục</label>
+                          <select className="input-field" value={proposeFoodFormData.categoryId} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, categoryId: e.target.value })} required>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>Công thức chế biến</label>
+                          <textarea className="input-field" required value={proposeFoodFormData.recipe} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, recipe: e.target.value })} placeholder="Chi tiết nguyên liệu, định lượng, cách làm..." style={{ minHeight: '100px', resize: 'vertical' }}></textarea>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600' }}>URL Hình ảnh (Tùy chọn)</label>
+                          <input type="text" className="input-field" value={proposeFoodFormData.imageUrl} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, imageUrl: e.target.value })} placeholder="https://..." />
+                        </div>
+                      </div>
+                      <div className="modal-footer">
+                        <button type="button" onClick={() => setIsProposeFoodModalOpen(false)} className="btn btn-outline">Hủy</button>
+                        <button type="submit" className="btn btn-primary">Gửi Đề Xuất</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL FOOD (ADMIN) */}
               {isFoodModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '480px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>

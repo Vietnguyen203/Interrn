@@ -31,6 +31,9 @@ public class MenuItem {
     @Column(name = "image_url", length = 255)
     private String imageUrl;
 
+    @Column(name = "recipe", length = 4000)
+    private String recipe;
+
     @Column(name = "status")
     private Integer status;
 

@@ -104,8 +104,13 @@ public class TableService {
         RestaurantTable table = getById(id);
         tableValidator.validateAssign(table, orderId);
 
-        table.setCurrentOrderId(UUID.fromString(orderId));
-        table.setStatus(TableStatus.OCCUPIED);
+        if (orderId != null && !orderId.isEmpty()) {
+            table.setCurrentOrderId(UUID.fromString(orderId));
+            table.setStatus(TableStatus.OCCUPIED);
+        } else {
+            table.setCurrentOrderId(null);
+            table.setStatus(TableStatus.AVAILABLE);
+        }
 
         RestaurantTable savedTable = tableRepository.save(table);
         notifyTableChange();
