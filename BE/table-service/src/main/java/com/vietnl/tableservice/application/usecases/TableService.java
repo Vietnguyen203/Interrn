@@ -35,9 +35,8 @@ public class TableService {
             });
             tableRepository.saveAllAndFlush(tables); // Dùng Flush để đẩy dữ liệu xuống DB ngay lập tức
             System.out.println(">>> [TableService] RESET THÀNH CÔNG. Danh sách bàn hiện tại:");
-            tableRepository.findAll().forEach(t -> 
-                System.out.println("  - Bàn " + t.getTableNumber() + ": " + t.getStatus())
-            );
+            tableRepository.findAll()
+                    .forEach(t -> System.out.println("  - Bàn " + t.getTableNumber() + ": " + t.getStatus()));
         } catch (Exception e) {
             System.err.println(">>> [TableService] LỖI RESET: " + e.getMessage());
         }
@@ -77,9 +76,12 @@ public class TableService {
         tableValidator.validateUpdate(request);
         RestaurantTable table = getById(id);
 
-        if (request.getCapacity() != null) table.setCapacity(request.getCapacity());
-        if (request.getLocation() != null) table.setLocation(request.getLocation());
-        if (request.getAreaRefId() != null) table.setAreaRefId(request.getAreaRefId());
+        if (request.getCapacity() != null)
+            table.setCapacity(request.getCapacity());
+        if (request.getLocation() != null)
+            table.setLocation(request.getLocation());
+        if (request.getAreaRefId() != null)
+            table.setAreaRefId(request.getAreaRefId());
 
         RestaurantTable savedTable = tableRepository.save(table);
         notifyTableChange();

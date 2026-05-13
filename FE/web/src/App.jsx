@@ -506,6 +506,151 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // ===== NICE-TO-HAVE FEATURES =====
+  // 1) Dark Mode
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  // 2) Multi-language
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi');
+  const t = {
+    vi: {
+      // Nav
+      overview: 'Tổng quan', orders: 'Đơn hàng', tables: 'Sơ đồ bàn',
+      kitchen: 'Bếp', menu: 'Thực đơn', staff: 'Nhân viên',
+      reports: 'Báo cáo', settings: 'Cài đặt',
+      // Settings toggles
+      logout: 'Đăng xuất', darkMode: 'Giao diện tối', soundNotif: 'Âm thanh TB', language: 'Ngôn ngữ',
+      // Common buttons
+      add: 'Thêm', edit: 'Sửa', delete: 'Xóa', save: 'Lưu', cancel: 'Hủy',
+      close: 'Đóng', refresh: 'Làm mới', search: 'Tìm kiếm', filter: 'Lọc',
+      confirm: 'Xác nhận', loading: 'Đang tải...', export: 'Xuất',
+      // Overview
+      recentOrders: 'Đơn hàng gần đây', todayRevenue: 'Doanh thu hôm nay',
+      totalOrders: 'Tổng đơn hôm nay', pendingOrders: 'Đang chờ',
+      completedOrders: 'Hoàn thành', totalTables: 'Tổng số bàn',
+      occupiedTables: 'Bàn đang dùng', availableTables: 'Bàn trống',
+      // Table headers - Orders
+      orderId: 'Mã đơn', tableCol: 'Bàn', amount: 'Thành tiền', status: 'Trạng thái',
+      time: 'Thời gian', items: 'Món', actions: 'Thao tác', note: 'Ghi chú',
+      // Table headers - Staff
+      fullName: 'Họ tên', role: 'Vai trò', email: 'Email',
+      phone: 'Điện thoại', birthday: 'Ngày sinh', server: 'Chi nhánh',
+      // Table headers - Food
+      foodName: 'Tên món', price: 'Giá', category: 'Danh mục', image: 'Hình ảnh',
+      // Statuses
+      pending: 'Chờ xử lý', confirmed: 'Đã xác nhận', preparing: 'Đang nấu',
+      ready: 'Sẵn sàng', completed: 'Hoàn thành', cancelled: 'Đã hủy',
+      paid: 'Đã thanh toán', available: 'Trống', occupied: 'Có khách', cleaning: 'Dọn dẹp',
+      // Section titles
+      tableManagement: 'Quản lý sơ đồ bàn', addTable: 'Thêm Bàn', editTable: 'Sửa Bàn',
+      foodManagement: 'Quản lý món ăn', addFood: 'Thêm Món', editFood: 'Sửa Món',
+      categoryManagement: 'Quản lý danh mục', addCategory: 'Thêm Danh Mục',
+      staffManagement: 'Quản lý nhân viên', addStaff: 'Thêm Nhân Viên', editStaff: 'Sửa Nhân Viên',
+      createOrder: 'Tạo Đơn Hàng', orderDetail: 'Chi Tiết Đơn',
+      invoiceDetail: 'Hóa Đơn Chi Tiết', downloadPdf: 'Tải PDF', closeInvoice: 'Đóng Hóa Đơn',
+      checkout: 'Thanh Toán', payment: 'Phương thức thanh toán',
+      cash: 'Tiền mặt', transfer: 'Chuyển khoản',
+      reportTitle: 'Báo cáo', reportSubtitle: 'Phân tích hiệu quả kinh doanh dựa trên dữ liệu thực tế',
+      appPreferences: 'Tùy chỉnh ứng dụng', appPreferencesDesc: 'Cá nhân hóa giao diện và trải nghiệm sử dụng',
+      darkModeOn: 'Đang bật — giao diện tối', darkModeOff: 'Đang tắt — giao diện sáng',
+      soundOn: 'Phát âm thanh khi có đơn hàng mới vào bếp', soundOff: 'Tắt âm thanh thông báo',
+      langDesc: 'Tiếng Việt — nhấn để đổi sang English',
+      // Kitchen
+      kitchenTitle: 'Màn hình bếp', newOrder: 'Đơn mới', inProgress: 'Đang nấu',
+      markDone: 'Hoàn thành', startCooking: 'Bắt đầu nấu',
+      // Orders tab
+      createNewOrder: 'Tạo Đơn Mới', allOrders: 'Tất cả đơn hàng',
+      noOrders: 'Chưa có đơn hàng', selectTable: 'Chọn bàn',
+      addToCart: 'Thêm vào giỏ', placeOrder: 'Đặt Đơn',
+      // No data
+      noData: 'Chưa có dữ liệu', noFoods: 'Chưa có món ăn', noStaff: 'Chưa có nhân viên',
+    },
+    en: {
+      // Nav
+      overview: 'Overview', orders: 'Orders', tables: 'Tables',
+      kitchen: 'Kitchen', menu: 'Menu & Food', staff: 'Staff',
+      reports: 'Reports', settings: 'Settings',
+      // Settings toggles
+      logout: 'Logout', darkMode: 'Dark Mode', soundNotif: 'Sound Alert', language: 'Language',
+      // Common buttons
+      add: 'Add', edit: 'Edit', delete: 'Delete', save: 'Save', cancel: 'Cancel',
+      close: 'Close', refresh: 'Refresh', search: 'Search', filter: 'Filter',
+      confirm: 'Confirm', loading: 'Loading...', export: 'Export',
+      // Overview
+      recentOrders: 'Recent Orders', todayRevenue: "Today's Revenue",
+      totalOrders: 'Total Orders Today', pendingOrders: 'Pending',
+      completedOrders: 'Completed', totalTables: 'Total Tables',
+      occupiedTables: 'Occupied Tables', availableTables: 'Available Tables',
+      // Table headers - Orders
+      orderId: 'Order ID', tableCol: 'Table', amount: 'Amount', status: 'Status',
+      time: 'Time', items: 'Items', actions: 'Actions', note: 'Note',
+      // Table headers - Staff
+      fullName: 'Full Name', role: 'Role', email: 'Email',
+      phone: 'Phone', birthday: 'Birthday', server: 'Branch',
+      // Table headers - Food
+      foodName: 'Food Name', price: 'Price', category: 'Category', image: 'Image',
+      // Statuses
+      pending: 'Pending', confirmed: 'Confirmed', preparing: 'Preparing',
+      ready: 'Ready', completed: 'Completed', cancelled: 'Cancelled',
+      paid: 'Paid', available: 'Available', occupied: 'Occupied', cleaning: 'Cleaning',
+      // Section titles
+      tableManagement: 'Table Layout Management', addTable: 'Add Table', editTable: 'Edit Table',
+      foodManagement: 'Food Management', addFood: 'Add Food', editFood: 'Edit Food',
+      categoryManagement: 'Category Management', addCategory: 'Add Category',
+      staffManagement: 'Staff Management', addStaff: 'Add Staff', editStaff: 'Edit Staff',
+      createOrder: 'Create Order', orderDetail: 'Order Detail',
+      invoiceDetail: 'Invoice Detail', downloadPdf: 'Download PDF', closeInvoice: 'Close Invoice',
+      checkout: 'Checkout', payment: 'Payment Method',
+      cash: 'Cash', transfer: 'Bank Transfer',
+      reportTitle: 'Reports', reportSubtitle: 'Business analytics based on real-time data',
+      appPreferences: 'App Preferences', appPreferencesDesc: 'Personalize the interface and your experience',
+      darkModeOn: 'Enabled — dark interface', darkModeOff: 'Disabled — light interface',
+      soundOn: 'Play sound when new kitchen orders arrive', soundOff: 'Sound notifications disabled',
+      langDesc: 'English — click to switch to Vietnamese',
+      // Kitchen
+      kitchenTitle: 'Kitchen Display', newOrder: 'New Order', inProgress: 'In Progress',
+      markDone: 'Mark Done', startCooking: 'Start Cooking',
+      // Orders tab
+      createNewOrder: 'Create New Order', allOrders: 'All Orders',
+      noOrders: 'No orders yet', selectTable: 'Select Table',
+      addToCart: 'Add to Cart', placeOrder: 'Place Order',
+      // No data
+      noData: 'No data available', noFoods: 'No foods found', noStaff: 'No staff found',
+    },
+  }[lang];
+  const toggleLang = () => {
+    const next = lang === 'vi' ? 'en' : 'vi';
+    setLang(next);
+    localStorage.setItem('lang', next);
+  };
+
+  // 3) Sound Notification
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('soundEnabled') !== 'false');
+  const playNotifSound = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const playBeep = (freq, start, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'sine';
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.4, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+        osc.start(start); osc.stop(start + dur);
+      };
+      playBeep(880, ctx.currentTime, 0.15);
+      playBeep(1100, ctx.currentTime + 0.18, 0.15);
+      playBeep(1320, ctx.currentTime + 0.36, 0.2);
+    } catch (e) { /* AudioContext not supported */ }
+  }, [soundEnabled]);
+
+
   // Data States
   const [tables, setTables] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -609,6 +754,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                 fetchKitchenData();
                 if (note.title?.includes('Đơn hàng')) {
                   toast.info('🔔 Có món mới cần chế biến!');
+                  playNotifSound(); // 🔊 Âm thanh thông báo
                 }
               }
             }
@@ -620,15 +766,25 @@ const DashboardScreen = ({ user, onLogout }) => {
     return () => { if (stompClient.active) stompClient.deactivate(); };
   }, [activeTab]);
 
+  // 4) Auto-refresh mỗi 30s — dữ liệu luôn cập nhật mà không cần F5
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeTab === 'Overview') fetchOverviewData();
+      else if (activeTab === 'Orders') fetchOrdersData();
+      else if (activeTab === 'Kitchen') fetchKitchenData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   const navItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Overview', roles: ['ADMIN'] },
-    { icon: <ClipboardList size={20} />, label: 'Orders', roles: ['ADMIN', 'WAITER'] },
-    { icon: <LayoutDashboard size={20} />, label: 'Tables', roles: ['ADMIN', 'WAITER'] },
-    { icon: <Utensils size={20} />, label: 'Kitchen', roles: ['ADMIN', 'KITCHEN'] },
-    { icon: <Utensils size={20} />, label: 'Menu & Food', roles: ['ADMIN'] },
-    { icon: <Users size={20} />, label: 'Staff', roles: ['ADMIN'] },
-    { icon: <PieChart size={20} />, label: 'Reports', roles: ['ADMIN'] },
-    { icon: <Settings size={20} />, label: 'Settings', roles: ['ADMIN'] },
+    { icon: <LayoutDashboard size={20} />, label: 'Overview',   display: t.overview,  roles: ['ADMIN'] },
+    { icon: <ClipboardList size={20} />,  label: 'Orders',     display: t.orders,    roles: ['ADMIN', 'WAITER'] },
+    { icon: <LayoutDashboard size={20} />,label: 'Tables',     display: t.tables,    roles: ['ADMIN', 'WAITER'] },
+    { icon: <Utensils size={20} />,       label: 'Kitchen',    display: t.kitchen,   roles: ['ADMIN', 'KITCHEN'] },
+    { icon: <Utensils size={20} />,       label: 'Menu & Food',display: t.menu,      roles: ['ADMIN'] },
+    { icon: <Users size={20} />,          label: 'Staff',      display: t.staff,     roles: ['ADMIN'] },
+    { icon: <PieChartIcon size={20} />,   label: 'Reports',    display: t.reports,   roles: ['ADMIN'] },
+    { icon: <Settings size={20} />,       label: 'Settings',   display: t.settings,  roles: ['ADMIN', 'WAITER', 'KITCHEN'] },
   ];
 
   // Filter nav items based on user role
@@ -1391,10 +1547,11 @@ const DashboardScreen = ({ user, onLogout }) => {
           <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingLeft: '8px' }}>Menu</div>
           {filteredNavItems.map((item, idx) => (
             <button key={idx} onClick={() => setActiveTab(item.label)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: 'var(--radius-md)', backgroundColor: activeTab === item.label ? 'var(--primary-light)' : 'transparent', color: activeTab === item.label ? 'var(--primary)' : 'var(--text-secondary)', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', fontWeight: activeTab === item.label ? '600' : '400', transition: 'var(--transition)' }}>
-              {item.icon} <span style={{ fontSize: '15px' }}>{item.label}</span>
+              {item.icon} <span style={{ fontSize: '15px' }}>{item.display || item.label}</span>
             </button>
           ))}
         </nav>
+
 
         {/* User Card from JWT info */}
         <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)' }}>
@@ -1409,11 +1566,12 @@ const DashboardScreen = ({ user, onLogout }) => {
               </p>
               <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sys: {user?.server} • {user?.role}</p>
             </div>
-            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }} title="Logout">
+            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }} title={t.logout}>
               <LogOut size={20} />
             </button>
           </div>
         </div>
+
       </motion.aside>
 
       {/* Main Content */}
@@ -1445,24 +1603,24 @@ const DashboardScreen = ({ user, onLogout }) => {
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                 <div className="card" style={{ padding: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Recent Orders</h3>
-                    <button onClick={fetchOverviewData} className="btn-ghost" style={{ padding: '4px 8px', fontSize: '14px', border: 'none' }}>Refresh</button>
+                    <h3 style={{ fontSize: '18px', fontWeight: '600' }}>{t.recentOrders}</h3>
+                    <button onClick={fetchOverviewData} className="btn-ghost" style={{ padding: '4px 8px', fontSize: '14px', border: 'none' }}>{t.refresh}</button>
                   </div>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Mã đơn</th>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Table</th>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Amount</th>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Status</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.orderId}</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.tableCol}</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.amount}</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.status}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {loadingConfig.overview ? (
-                          <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</td></tr>
+                          <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>{t.loading}</td></tr>
                         ) : recentOrders.length === 0 ? (
-                          <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No orders found.</td></tr>
+                          <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>{t.noOrders}</td></tr>
                         ) : (
                           recentOrders.map((order, idx) => (
                             <tr key={idx} style={{ borderBottom: '1px solid var(--bg-app)' }}>
@@ -2266,20 +2424,21 @@ const DashboardScreen = ({ user, onLogout }) => {
           {activeTab === 'Settings' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-              {/* Table Management Section */}
+              {/* Table Management Section — ADMIN only */}
+              {user?.role === 'ADMIN' && (
               <div className="card" style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <div>
-                    <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, color: 'var(--primary)' }}>🪑 Quản lý sơ đồ bàn</h3>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Thêm, sửa, xóa các bàn trong nhà hàng</p>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, color: 'var(--primary)' }}>🪑 {t.tableManagement}</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{lang === 'vi' ? 'Thêm, sửa, xóa các bàn trong nhà hàng' : 'Add, edit, remove tables in the restaurant'}</p>
                   </div>
                   <button onClick={() => handleOpenTableModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Plus size={16} /> Thêm Bàn
+                    <Plus size={16} /> {t.addTable}
                   </button>
                 </div>
 
                 {loadingConfig.tables ? (
-                  <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Đang tải dữ liệu bàn...</p>
+                  <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>{t.loading}</p>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                     {tables.map(table => {
@@ -2300,18 +2459,75 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                 )}
               </div>
+              )} {/* end ADMIN-only Table Management */}
 
-              {/* Other Settings Placeholder */}
+              {/* App Preferences Section */}
               <div className="card" style={{ padding: '24px' }}>
-                <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '16px' }}>⚙️ Cấu hình hệ thống khác</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                    <p style={{ fontWeight: '600', marginBottom: '4px' }}>Thông tin nhà hàng</p>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tên, địa chỉ, số điện thoại, logo...</p>
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0, color: 'var(--primary)' }}>🎨 {t.appPreferences}</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{t.appPreferencesDesc}</p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {/* Dark Mode */}
+                  <div
+                    onClick={() => setIsDarkMode(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderRadius: '14px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: isDarkMode ? 'rgba(99,102,241,0.15)' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>🌙</div>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{t.darkMode}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>{isDarkMode ? t.darkModeOn : t.darkModeOff}</p>
+                      </div>
+                    </div>
+                    <div style={{ width: '52px', height: '28px', borderRadius: '14px', backgroundColor: isDarkMode ? '#6366F1' : '#CBD5E1', position: 'relative', transition: 'background 0.3s', flexShrink: 0 }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#FFF', position: 'absolute', top: '3px', left: isDarkMode ? '27px' : '3px', transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} />
+                    </div>
                   </div>
-                  <div style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                    <p style={{ fontWeight: '600', marginBottom: '4px' }}>Phân quyền nâng cao</p>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Quản lý chi tiết quyền truy cập các nhóm...</p>
+
+                  {/* Sound Notification */}
+                  <div
+                    onClick={() => setSoundEnabled(v => { const n = !v; localStorage.setItem('soundEnabled', String(n)); return n; })}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderRadius: '14px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: soundEnabled ? 'rgba(16,185,129,0.15)' : '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>{soundEnabled ? '🔔' : '🔕'}</div>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{t.soundNotif}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>{soundEnabled ? t.soundOn : t.soundOff}</p>
+                      </div>
+                    </div>
+                    <div style={{ width: '52px', height: '28px', borderRadius: '14px', backgroundColor: soundEnabled ? '#10B981' : '#CBD5E1', position: 'relative', transition: 'background 0.3s', flexShrink: 0 }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#FFF', position: 'absolute', top: '3px', left: soundEnabled ? '27px' : '3px', transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }} />
+                    </div>
+                  </div>
+
+                  {/* Language */}
+                  <div
+                    onClick={toggleLang}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderRadius: '14px', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)', cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '12px', backgroundColor: 'rgba(17,17,127,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>🌐</div>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{t.language}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>{t.langDesc}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {['vi', 'en'].map(l => (
+                        <span key={l} style={{ padding: '6px 14px', borderRadius: '10px', fontWeight: '700', fontSize: '13px', backgroundColor: lang === l ? 'var(--primary)' : 'var(--bg-surface)', color: lang === l ? '#FFF' : 'var(--text-secondary)', border: `1px solid ${lang === l ? 'var(--primary)' : 'var(--border-color)'}`, transition: 'all 0.2s' }}>
+                          {l.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2355,8 +2571,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <BarChartIcon size={24} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}> Báo cáo </h3>
-                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>Phân tích hiệu quả kinh doanh dựa trên dữ liệu thực tế</p>
+                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}> {t.reportTitle} </h3>
+                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{t.reportSubtitle}</p>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
@@ -2378,7 +2594,13 @@ const DashboardScreen = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                <div style={{ height: '450px', width: '100%', marginTop: '20px' }}>
+                <motion.div
+                  key={reportType}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                  style={{ height: '450px', width: '100%', marginTop: '20px' }}
+                >
                   {loadingConfig.reports ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                       <RefreshCw className="animate-spin" size={32} color="var(--primary)" />
@@ -2391,38 +2613,142 @@ const DashboardScreen = ({ user, onLogout }) => {
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
                       {reportType !== 'CATEGORY' ? (
-                        <BarChart data={reportData}>
+                        <BarChart data={reportData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#4F46E5" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#11117F" stopOpacity={0.85} />
+                            </linearGradient>
+                            <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#818CF8" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#4F46E5" stopOpacity={0.9} />
+                            </linearGradient>
+                            <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#11117F" floodOpacity="0.25" />
+                            </filter>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} dy={10} />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} />
-                          <Tooltip
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                            formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']}
+                          <XAxis
+                            dataKey="name"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 12, fill: '#64748B', fontWeight: 600 }}
+                            dy={10}
                           />
-                          <Bar dataKey="value" fill="#11117F" radius={[6, 6, 0, 0]} barSize={40} />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 12, fill: '#94A3B8' }}
+                            tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
+                          />
+                          <Tooltip
+                            cursor={{ fill: 'rgba(79,70,229,0.06)', radius: 8 }}
+                            contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', padding: '12px 16px' }}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null;
+                              const val = payload[0].value;
+                              return (
+                                <div style={{ background: '#FFF', borderRadius: '14px', padding: '12px 16px', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', minWidth: '170px' }}>
+                                  <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(135deg,#4F46E5,#11117F)', display: 'inline-block' }} />
+                                    <div>
+                                      <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#11117F' }}>{new Intl.NumberFormat('vi-VN').format(val)}đ</p>
+                                      <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>Doanh thu</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar
+                            dataKey="value"
+                            fill="url(#barGradient)"
+                            radius={[8, 8, 0, 0]}
+                            barSize={42}
+                            isAnimationActive={true}
+                            animationDuration={1000}
+                            animationEasing="ease-out"
+                            activeBar={{ fill: 'url(#barGradientHover)', filter: 'url(#barShadow)' }}
+                          />
                         </BarChart>
                       ) : (
                         <PieChart>
+                          <defs>
+                            {reportData.map((entry, index) => {
+                              const hue = Math.round((index * 137.508) % 360);
+                              return (
+                                <filter key={`glow-${index}`} id={`glow-${index}`} x="-30%" y="-30%" width="160%" height="160%">
+                                  <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={`hsl(${hue},65%,52%)`} floodOpacity="0.6" />
+                                </filter>
+                              );
+                            })}
+                          </defs>
                           <Pie
                             data={reportData}
                             cx="50%"
                             cy="50%"
                             innerRadius={80}
-                            outerRadius={140}
-                            paddingAngle={5}
+                            outerRadius={130}
+                            paddingAngle={4}
                             dataKey="value"
+                            isAnimationActive={true}
+                            animationBegin={0}
+                            animationDuration={1100}
+                            animationEasing="ease-out"
+                            activeShape={(props) => {
+                              const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
+                              const total = reportData.reduce((s, d) => s + (d.value || 0), 0);
+                              const pct = total > 0 ? ((payload.value / total) * 100).toFixed(1) : '0';
+                              const RADIAN = Math.PI / 180;
+                              // Sector path tính toán thủ công để điều chỉnh outerRadius
+                              const expandedOuter = outerRadius + 16;
+                              const sin = Math.sin(-RADIAN * ((startAngle + endAngle) / 2));
+                              const cos = Math.cos(-RADIAN * ((startAngle + endAngle) / 2));
+                              const hue = Math.round((index * 137.508) % 360);
+                              // Vẽ sector nổi lên
+                              const x1o = cx + expandedOuter * cos; const y1o = cy + expandedOuter * sin;
+                              return (
+                                <g>
+                                  {/* Sector nổi lên (Recharts Sector component dùng lại) */}
+                                  <path
+                                    d={`M ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)}
+                                       L ${cx + expandedOuter * Math.cos(-RADIAN * startAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * startAngle)}
+                                       A ${expandedOuter} ${expandedOuter} 0 ${endAngle - startAngle > 180 ? 1 : 0} 0
+                                         ${cx + expandedOuter * Math.cos(-RADIAN * endAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * endAngle)}
+                                       L ${cx + innerRadius * Math.cos(-RADIAN * endAngle)} ${cy + innerRadius * Math.sin(-RADIAN * endAngle)}
+                                       A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1
+                                         ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} Z`}
+                                    fill={fill}
+                                    filter={`url(#glow-${index})`}
+                                    style={{ transition: 'all 0.2s ease' }}
+                                  />
+                                  {/* % + tên món ở giữa donut */}
+                                  <text x={cx} y={cy - 14} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '28px', fontWeight: '900', fill: `hsl(${hue},65%,42%)`, fontFamily: 'sans-serif' }}>
+                                    {pct}%
+                                  </text>
+                                  <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '12px', fontWeight: '700', fill: '#475569', fontFamily: 'sans-serif' }}>
+                                    {payload.name.length > 14 ? payload.name.slice(0, 13) + '…' : payload.name}
+                                  </text>
+                                  <text x={cx} y={cy + 34} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '11px', fill: '#94a3b8', fontFamily: 'sans-serif' }}>
+                                    {new Intl.NumberFormat('vi-VN').format(payload.value)}đ
+                                  </text>
+                                </g>
+                              );
+                            }}
                           >
-                            {reportData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#11117F', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 5]} />
-                            ))}
+                            {reportData.map((entry, index) => {
+                              const hue = (index * 137.508) % 360;
+                              const color = `hsl(${Math.round(hue)}, 65%, 52%)`;
+                              return <Cell key={`cell-${index}`} fill={color} />;
+                            })}
                           </Pie>
-                          <Tooltip formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + 'đ', 'Doanh thu']} />
                           <Legend verticalAlign="bottom" height={36} />
                         </PieChart>
                       )}
                     </ResponsiveContainer>
                   )}
-                </div>
+                </motion.div>
               </div>
 
               {(() => {

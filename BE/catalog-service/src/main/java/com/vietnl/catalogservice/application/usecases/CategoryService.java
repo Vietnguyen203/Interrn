@@ -53,8 +53,10 @@ public class CategoryService {
                 throw new RuntimeException(ExceptionMessage.CATEGORY_CODE_DUPLICATE.getMessage());
             category.setCode(request.getCode());
         }
-        if (StringUtils.hasText(request.getName())) category.setName(request.getName());
-        if (StringUtils.hasText(request.getDescription())) category.setDescription(request.getDescription());
+        if (StringUtils.hasText(request.getName()))
+            category.setName(request.getName());
+        if (StringUtils.hasText(request.getDescription()))
+            category.setDescription(request.getDescription());
 
         return categoryRepository.save(category);
     }
