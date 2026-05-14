@@ -4,6 +4,7 @@ import com.vietnl.orderservice.application.requests.CreateOrderRequest;
 import com.vietnl.orderservice.application.requests.OrderItemRequest;
 import com.vietnl.orderservice.application.requests.UpdateOrderItemRequest;
 import com.vietnl.orderservice.application.responses.ApiResponse;
+import com.vietnl.orderservice.application.responses.EmployeeOrderResponse;
 import com.vietnl.orderservice.application.responses.OrderResponse;
 import com.vietnl.orderservice.application.usecases.OrderService;
 import jakarta.validation.Valid;
@@ -22,13 +23,21 @@ public class OrderAPI {
 
     private final OrderService orderService;
 
+    // GET /orders/tables/{tableId}/creator - Lấy người tạo đơn hàng hiện tại của bàn
+    @GetMapping("/tables/{tableId}/creator")
+    public ResponseEntity<ApiResponse<EmployeeOrderResponse>> getCreatorByTable(@PathVariable String tableId) {
+        String creator = orderService.getCreatorByTable(tableId);
+        return ResponseEntity.ok(ApiResponse.ok(new EmployeeOrderResponse(creator)));
+    }
+
     // POST /orders - Tạo đơn hàng mới
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody CreateOrderRequest request,
+            @RequestHeader("Authorization") String token,
             Authentication auth) {
         String username = auth != null ? auth.getName() : "unknown";
-        OrderResponse response = orderService.createOrder(request, username);
+        OrderResponse response = orderService.createOrder(request, username, token);
         return ResponseEntity.ok(ApiResponse.ok("Tạo đơn hàng thành công", response));
     }
 
@@ -77,14 +86,17 @@ public class OrderAPI {
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable UUID id,
-            @RequestParam String status) {
-        return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái thành công", orderService.updateOrderStatus(id, status)));
+            @RequestParam String status,
+            @RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái thành công", orderService.updateOrderStatus(id, status, token)));
     }
 
     // DELETE /orders/{id} - Hủy đơn hàng
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> cancelOrder(@PathVariable UUID id) {
-        orderService.cancelOrder(id);
+    public ResponseEntity<ApiResponse<Void>> cancelOrder(
+            @PathVariable UUID id,
+            @RequestHeader("Authorization") String token) {
+        orderService.cancelOrder(id, token);
         return ResponseEntity.ok(ApiResponse.ok("Hủy đơn thành công", null));
     }
 

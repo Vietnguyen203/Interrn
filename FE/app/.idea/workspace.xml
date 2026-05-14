@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="b5c710d4-55b4-4b28-8c88-f64d44c602ac" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../BE/migration-service/.gradle/9.3.0/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../../BE/migration-service/.gradle/9.3.0/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/.name" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/AndroidProjectSystem.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/appInsightsSettings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/compiler.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/deploymentTargetSelector.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/gradle.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/kotlinc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/markdown.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/migrations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/runConfigurations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/libs/AnyChart-Android-1.1.5.aar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/proguard-rules.pro" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/androidTest/java/com/food/order/ExampleInstrumentedTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/FoodOrderApp.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/MainActivity.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/UrlUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/FoodAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/OrderFoodAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/OrderHistoryAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/OrderStatisticAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/StaffAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/TableAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/adapter/TableDashboardAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/common/Toasts.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/core/view/AppNavExtensions.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/core/view/BaseFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/ApiError.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/ApiService.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/AppConstants.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/CatalogApiService.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/CatalogRetrofitClient.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/RetrofitClient.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/Role.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/RoleGuard.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/SessionManager.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/TokenInterceptor.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/TokenManager.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/TokenStore.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/mapper/CatalogMapper.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/mapper/FoodMapper.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/mapper/TableMapper.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/ApiResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/BillPreview.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/FoodDto.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/FoodModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/Order.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/OrderItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/Receipt.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/TableDto.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/TableModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/model/UserModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/remote/order_history_models.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/CatalogRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/FileRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/FoodRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/OrderRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/StatisticsRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/TableRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/repository/UserRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/AddOrderItemRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/CatalogRequests.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/CheckoutRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/CopyItemsRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/FoodRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/LoginRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/OrderRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/RegisterRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/TableRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/UpdateOrderItemRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/request/UpdateStaffRequest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/BillPreviewResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/CategoryResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/EmployeeOrderResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/FileUploadResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/FoodResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/FoodStatisticsResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/ListFoodResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/ListOrderResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/ListTableResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/ListUserResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/MenuItemResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/MostFavoriteFoodResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/OrderItemResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/OrderResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/ReceiptResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/RevenueByWeekResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/SimpleLongResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/SimpleResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/TableInfoResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/TableResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/TokenResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/TokenResponseDeserializer.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/data/response/UserResponse.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/net/AuthInterceptor.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/auth/ForgotPasswordDialogFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/auth/LogoutDialogFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/auth/RegisterDialogFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/dashboard/DashboardFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/dashboard/DashboardViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/dashboard/MenuAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/dashboard/MenuItemModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/food/CreateFoodFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/food/FoodFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/food/FoodViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/food/UpdateFoodFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/home/HomeFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/home/HomeViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/kitchen/KitchenAdapter.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/kitchen/KitchenFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/kitchen/KitchenViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/login/LoginFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/login/LoginViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/menu/SystemMenuDialog.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/notifications/MenuFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/notifications/NotificationsFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/notifications/NotificationsViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/CheckoutDialogFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/OrderFoodFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/OrderStatisticFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/OrderTableFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/OrderTableViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/history/OrderHistoryFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/order/history/OrderHistoryViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/report/ReportFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/report/ReportViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/settings/ServerAddressDialogFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/splash/SplashFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/staff/CreateStaffFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/staff/StaffFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/staff/StaffViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/staff/UpdateStaffFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/table/CreateTableFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/table/TableFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/table/TableViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ui/table/UpdateTableFragment.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ultis/ImageResolver.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/ultis/SlugUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/utils/DateUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/utils/widget/FoodOrderLoadingView.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/food/order/utils/widget/SystemMenuView.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/americano.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/baseline_add_24.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/baseline_arrow_back_ios_new_24.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/baseline_menu_24.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/beef_bourguignon.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/bg_dialog_rounded.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/bg_empty_table_view.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/bg_input_common_border_10.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/bg_occupied_table_view.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/bruchetta.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/caesar_salad.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/cappuccino.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/cheeseplatter.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/chicken_cordon_bleu.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/chocolatelava.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/coldbrew_coffee.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/creme_brulee.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/duckconfit.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/easy_garlic_escargot.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/food_demo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/fresh_orange_juice.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_birthday.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_dashboard_black_24dp.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_empty_box.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_home_black_24dp.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_launcher_background.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_launcher_foreground.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_notifications_black_24dp.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ic_prev_month.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/iced_lemon_tea.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_analysis.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_dashboard.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_food_menu.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_food_menu_v2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_order_manager.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_settings.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_splash_v2.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_staff.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_staff_default.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/icon_tables.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/latte.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/lime_mojito_mocktail.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/panacotta.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/pastacabonara.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/placeholder.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/red_wine_glass.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/ribeyesteakherbbutter.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/smokedsalmontartare.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/sparking_water.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/tiramisu.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/drawable/white_wine.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_black.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_bold.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_extra_bold.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_extra_light.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_light.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_medium.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/font/kanit_regular.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/activity_main.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/dialog_checkout.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/dialog_register.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/dialog_server_address.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/dialog_system_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_create_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_create_staff.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_create_table.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_dashboard.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_forgot_password.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_home.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_kitchen.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_login.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_notifications.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_order_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_order_history.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_order_statistic.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_order_table.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_register.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_report.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_splash.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_staff.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_table.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_update_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_update_staff.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/fragment_update_table.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_dashboard_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_kitchen_order.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_occupied_table_view.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_order_food.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_order_history.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_order_statistic.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_staff.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_table.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/item_table_view.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/view_food_order_loading.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/layout/view_system_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/menu/bottom_nav_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/menu/main_menu.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/menu/menu_dashboard.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-hdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-hdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-mdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-mdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/navigation/mobile_navigation.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/raw/loading.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/raw/loading_v2.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values-night/themes.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/6.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/arrays.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/attrs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/dimens.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/register_strings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/strings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/values/themes.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/xml/backup_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/xml/data_extraction_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/xml/file_paths.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/res/xml/network_security_config.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/release/res/values/network_security_config.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/food/order/ExampleUnitTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradle.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradle/libs.versions.toml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../settings.gradle.kts" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Vietnguyen203"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Vietnguyen203/Interrn.git",
+    "accountId": "8baaf797-56ab-44be-b554-c4e1a9730fc4"
+  }
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 6
+}]]></component>
+  <component name="ProjectId" id="3DhhiYeprzj0UPAqin5CCdsmWJE" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "android.gradle.sync.needed": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Users/Admin/Desktop/Food/FE/app"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="b5c710d4-55b4-4b28-8c88-f64d44c602ac" name="Changes" comment="" />
+      <created>1778740336606</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1778740336606</updated>
+    </task>
+    <servers />
+  </component>
+</project>

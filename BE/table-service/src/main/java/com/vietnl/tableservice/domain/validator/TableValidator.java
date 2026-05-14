@@ -36,12 +36,14 @@ public class TableValidator {
     }
 
     public void validateAssign(RestaurantTable table, String orderId) {
-        if (orderId == null || orderId.isBlank()) {
-            throw new RuntimeException("Mã đơn hàng (orderId) không được để trống");
+        // Nếu có orderId -> Đây là hành động gán đơn hàng (Mở bàn)
+        if (orderId != null && !orderId.isBlank()) {
+            if (table.getStatus() != TableStatus.AVAILABLE) {
+                throw new RuntimeException("Bàn " + table.getTableNumber() + " hiện đang không ở trạng thái TRỐNG (Status: " + table.getStatus() + ")");
+            }
         }
-        if (table.getStatus() != TableStatus.AVAILABLE) {
-            throw new RuntimeException("Bàn " + table.getTableNumber() + " hiện đang không ở trạng thái TRỐNG (Status: " + table.getStatus() + ")");
-        }
+        // Nếu orderId trống -> Đây là hành động giải phóng bàn (Thanh toán xong), 
+        // không cần validate trạng thái AVAILABLE vì bàn chắc chắn đang OCCUPIED.
     }
 
     public void validateStatusChange(RestaurantTable table, TableStatus newStatus) {

@@ -519,7 +519,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const t = {
     vi: {
       // Nav
-      overview: 'Tổng quan', orders: 'Đơn hàng', tables: 'Sơ đồ bàn',
+      overview: 'Tổng quan', orders: 'Đơn hàng', tables: 'Lịch Sử',
       kitchen: 'Bếp', menu: 'Thực đơn', staff: 'Nhân viên',
       reports: 'Báo cáo', settings: 'Cài đặt',
       // Settings toggles
@@ -568,6 +568,24 @@ const DashboardScreen = ({ user, onLogout }) => {
       addToCart: 'Thêm vào giỏ', placeOrder: 'Đặt Đơn',
       // No data
       noData: 'Chưa có dữ liệu', noFoods: 'Chưa có món ăn', noStaff: 'Chưa có nhân viên',
+      // Cart & Order
+      cart: 'GIỎ HÀNG', cartEmpty: 'Chưa có món nào được chọn', total: 'TỔNG CỘNG',
+      confirmOrder: 'XÁC NHẬN GỌI MÓN', noteHint: 'Ghi chú cho đơn hàng...',
+      qtyLabel: 'món',
+      // Invoice modal
+      invoiceTitle: 'HÓA ĐƠN CHI TIẾT', tablePosition: 'Vị trí bàn',
+      subtotal: 'Tạm tính', serviceFee: 'Phí dịch vụ',
+      downloadPdfBtn: 'Tải PDF', closeInvoiceBtn: 'Đóng Hóa Đơn',
+      // Checkout modal
+      checkoutTitle: 'THANH TOÁN ĐƠN HÀNG', orderLabel: 'Đơn hàng',
+      totalPayment: 'TỔNG THANH TOÁN', paymentMethodLabel: 'Phương thức thanh toán',
+      cashBtn: '💵 Tiền mặt', transferBtn: '🏦 Chuyển khoản (QR)',
+      cashInputLabel: 'Tiền khách đưa (đơn vị nghìn VNĐ)',
+      cashHint: '💡 Hệ thống tự động nhân với 1.000 VNĐ',
+      changeLabel: 'Tiền thừa trả khách:', transferMode: 'Phương thức: Chuyển khoản',
+      viewQR: 'Xem lại mã QR', cancelBtn: 'Hủy', confirmPayment: 'XÁC NHẬN ĐÃ THU TIỀN',
+      // QR modal
+      accountName: 'Chủ tài khoản', amountLabel: 'SỐ TIỀN CẦN CHUYỂN', doneQR: 'ĐÃ QUÉT XONG',
     },
     en: {
       // Nav
@@ -620,6 +638,24 @@ const DashboardScreen = ({ user, onLogout }) => {
       addToCart: 'Add to Cart', placeOrder: 'Place Order',
       // No data
       noData: 'No data available', noFoods: 'No foods found', noStaff: 'No staff found',
+      // Cart & Order
+      cart: 'CART', cartEmpty: 'No items selected yet', total: 'TOTAL',
+      confirmOrder: 'CONFIRM ORDER', noteHint: 'Order note...',
+      qtyLabel: 'items',
+      // Invoice modal
+      invoiceTitle: 'INVOICE DETAIL', tablePosition: 'Table',
+      subtotal: 'Subtotal', serviceFee: 'Service Fee',
+      downloadPdfBtn: 'Download PDF', closeInvoiceBtn: 'Close Invoice',
+      // Checkout modal
+      checkoutTitle: 'PAYMENT', orderLabel: 'Order',
+      totalPayment: 'TOTAL DUE', paymentMethodLabel: 'Payment Method',
+      cashBtn: '💵 Cash', transferBtn: '🏦 Bank Transfer (QR)',
+      cashInputLabel: 'Customer cash (in thousands VND)',
+      cashHint: '💡 System auto-multiplies by 1,000 VND',
+      changeLabel: 'Change to return:', transferMode: 'Method: Bank Transfer',
+      viewQR: 'View QR Code', cancelBtn: 'Cancel', confirmPayment: 'CONFIRM PAYMENT RECEIVED',
+      // QR modal
+      accountName: 'Account Name', amountLabel: 'AMOUNT TO TRANSFER', doneQR: 'SCAN COMPLETE',
     },
   }[lang];
   const toggleLang = () => {
@@ -724,6 +760,7 @@ const DashboardScreen = ({ user, onLogout }) => {
           if (message.body === 'REFRESH_TABLES') {
             fetchTablesData();
             if (activeTab === 'Overview') fetchOverviewData();
+            if (activeTab === 'Orders') fetchOrdersData();
           }
         });
       },
@@ -1351,6 +1388,49 @@ const DashboardScreen = ({ user, onLogout }) => {
     doc.save(`${orderId}_${tableName}.pdf`);
   };
 
+  const handleExportReport = () => {
+    const completedOrders = allOrders.filter(o => o.status === 'COMPLETED');
+    if (completedOrders.length === 0) {
+      toast.info('Không có dữ liệu hóa đơn hoàn thành để xuất báo cáo');
+      return;
+    }
+
+    // CSV Headers
+    const headers = ['Ma don', 'Vi tri ban', 'Ngay thanh toan', 'Gio thanh toan', 'Tong thanh toan (VND)', 'Trang thai'];
+    
+    // CSV Rows
+    const rows = completedOrders.map(order => {
+      const date = new Date(order.updatedAt || order.createdAt);
+      return [
+        `ORD-${String(order.id).slice(0, 8).toUpperCase()}`,
+        String(order.tableNumber || '').includes('Bàn') ? order.tableNumber : `Ban ${order.tableNumber || order.tableId}`,
+        date.toLocaleDateString('vi-VN'),
+        date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        Math.floor(order.totalAmount || order.totalPrice || 0),
+        'Thanh cong'
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create and download Blob
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const dateStr = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-');
+    link.setAttribute('download', `Bao-cao-hoa-don-${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Đã xuất báo cáo thành công!');
+  };
+
   // ---- Handlers ----
 
   const handleOpenFoodModal = (food = null) => {
@@ -1610,7 +1690,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.orderId}</th>
+                          <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>Ngày thanh toán</th>
                           <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.tableCol}</th>
                           <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.amount}</th>
                           <th style={{ padding: '12px', color: 'var(--text-secondary)', fontWeight: '500', fontSize: '14px' }}>{t.status}</th>
@@ -1624,9 +1704,14 @@ const DashboardScreen = ({ user, onLogout }) => {
                         ) : (
                           recentOrders.map((order, idx) => (
                             <tr key={idx} style={{ borderBottom: '1px solid var(--bg-app)' }}>
-                              <td style={{ padding: '16px 12px', fontWeight: '700', color: 'var(--primary)', fontFamily: 'monospace' }}>ORD-{String(order.id).slice(0, 8).toUpperCase()}</td>
+                              <td style={{ padding: '16px 12px' }}>
+                                <div style={{ color: '#475569', fontSize: '13px', fontWeight: '700' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                                <div style={{ color: '#94A3B8', fontSize: '11px' }}>{new Date(order.updatedAt || order.createdAt).toLocaleDateString('vi-VN')}</div>
+                              </td>
                               <td style={{ padding: '16px 12px', color: 'var(--text-secondary)', fontWeight: '600' }}>{order.tableNumber || order.tableId}</td>
-                              <td style={{ padding: '16px 12px', fontWeight: '600' }}>{order.totalAmount}</td>
+                              <td style={{ padding: '16px 12px', fontWeight: '700', color: '#0F172A' }}>
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount || 0)}
+                              </td>
                               <td style={{ padding: '16px 12px' }}>
                                 <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', backgroundColor: `${getStatusColor(order.status)}20`, color: getStatusColor(order.status) }}>
                                   {order.status}
@@ -2272,7 +2357,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <button onClick={fetchOrdersData} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}>
                     <RefreshCw size={16} /> Làm mới
                   </button>
-                  <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', boxShadow: '0 4px 12px rgba(9, 52, 219, 0.2)' }}>
+                  <button 
+                    onClick={handleExportReport}
+                    className="btn btn-primary" 
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', boxShadow: '0 4px 12px rgba(9, 52, 219, 0.2)' }}
+                  >
                     <Download size={16} /> Xuất báo cáo
                   </button>
                 </div>
@@ -2282,9 +2371,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #EEF2F6' }}>
-                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Mã đơn</th>
+                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Ngày thanh toán</th>
                       <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Vị trí bàn</th>
-                      <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Thời gian</th>
                       <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Tổng thanh toán</th>
                       <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Trạng thái</th>
                       <th style={{ padding: '20px 24px', color: '#64748B', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Thao tác</th>
@@ -2294,7 +2382,8 @@ const DashboardScreen = ({ user, onLogout }) => {
                     {allOrders.filter(o => o.status === 'COMPLETED').map(order => (
                       <tr key={order.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'all 0.2s' }} className="table-row-hover">
                         <td style={{ padding: '20px 24px' }}>
-                          <span style={{ fontWeight: '700', color: 'var(--primary)', fontFamily: 'monospace', fontSize: '14px' }}>ORD-{String(order.id).slice(0, 8).toUpperCase()}</span>
+                          <div style={{ color: '#475569', fontSize: '13px', fontWeight: '700' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+                          <div style={{ color: '#94A3B8', fontSize: '11px' }}>{new Date(order.updatedAt || order.createdAt).toLocaleDateString('vi-VN')}</div>
                         </td>
                         <td style={{ padding: '20px 24px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2305,10 +2394,6 @@ const DashboardScreen = ({ user, onLogout }) => {
                               {String(order.tableNumber || '').includes('Bàn') ? order.tableNumber : `Bàn ${order.tableNumber || order.tableId}`}
                             </span>
                           </div>
-                        </td>
-                        <td style={{ padding: '20px 24px' }}>
-                          <div style={{ color: '#475569', fontSize: '13px', fontWeight: '500' }}>{new Date(order.updatedAt || order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
-                          <div style={{ color: '#94A3B8', fontSize: '11px' }}>{new Date(order.updatedAt || order.createdAt).toLocaleDateString('vi-VN')}</div>
                         </td>
                         <td style={{ padding: '20px 24px' }}>
                           <div style={{ fontWeight: '800', color: '#0F172A', fontSize: '16px' }}>
@@ -3031,8 +3116,8 @@ const DashboardScreen = ({ user, onLogout }) => {
               <div style={{ flex: 4, display: 'flex', flexDirection: 'column', backgroundColor: '#FFF' }}>
                 <div style={{ padding: '20px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#F1F5F9' }}>
                   <h4 style={{ margin: 0, fontSize: '15px', color: '#0F172A', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>GIỎ HÀNG</span>
-                    <span style={{ backgroundColor: '#10B981', color: '#FFF', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} món</span>
+                    <span>{t.cart}</span>
+                    <span style={{ backgroundColor: '#10B981', color: '#FFF', padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>{cartItems.reduce((acc, i) => acc + i.quantity, 0)} {t.qtyLabel}</span>
                   </h4>
                 </div>
 
@@ -3040,7 +3125,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                   {cartItems.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, gap: '12px' }}>
                       <ClipboardList size={48} />
-                      <p>Chưa có món nào được chọn</p>
+                      <p>{t.cartEmpty}</p>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -3093,7 +3178,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                     disabled={cartItems.length === 0 || !selectedTableId}
                     style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', backgroundColor: (cartItems.length === 0 || !selectedTableId) ? '#94A3B8' : '#10B981', color: '#FFF', fontSize: '16px', fontWeight: '800', cursor: (cartItems.length === 0 || !selectedTableId) ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}
                   >
-                    XÁC NHẬN GỌI MÓN
+                    {t.confirmOrder}
                   </button>
                 </div>
 
@@ -3112,7 +3197,7 @@ const DashboardScreen = ({ user, onLogout }) => {
             {/* Header */}
             <div style={{ padding: '24px', backgroundColor: '#F8FAFC', borderBottom: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>HÓA ĐƠN CHI TIẾT</h3>
+                <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>{t.invoiceTitle}</h3>
                 <p style={{ margin: '4px 0 0', color: 'var(--primary)', fontSize: '14px', fontWeight: '800', fontFamily: 'monospace' }}>ORD-{String(selectedInvoice.id).slice(0, 8).toUpperCase()}</p>
               </div>
               <button onClick={() => setIsInvoiceModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={24} /></button>
@@ -3122,11 +3207,11 @@ const DashboardScreen = ({ user, onLogout }) => {
             <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>Vị trí bàn</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>{t.tablePosition}</p>
                   <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#0F172A', fontWeight: '700' }}>{selectedInvoice.tableNumber || selectedInvoice.tableId}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>Thời gian</p>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748B', textTransform: 'uppercase', fontWeight: '700' }}>{t.time}</p>
                   <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#0F172A', fontWeight: '600' }}>
                     {new Date(selectedInvoice.updatedAt || selectedInvoice.createdAt).toLocaleString('vi-VN')}
                   </p>
@@ -3137,9 +3222,9 @@ const DashboardScreen = ({ user, onLogout }) => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                   <thead>
                     <tr style={{ color: '#64748B' }}>
-                      <th style={{ textAlign: 'left', paddingBottom: '12px', fontWeight: '600' }}>Món ăn</th>
+                      <th style={{ textAlign: 'left', paddingBottom: '12px', fontWeight: '600' }}>{t.foodName}</th>
                       <th style={{ textAlign: 'center', paddingBottom: '12px', fontWeight: '600' }}>SL</th>
-                      <th style={{ textAlign: 'right', paddingBottom: '12px', fontWeight: '600' }}>Thành tiền</th>
+                      <th style={{ textAlign: 'right', paddingBottom: '12px', fontWeight: '600' }}>{t.amount}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3158,15 +3243,15 @@ const DashboardScreen = ({ user, onLogout }) => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '14px' }}>
-                  <span>Tạm tính</span>
+                  <span>{t.subtotal}</span>
                   <span>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedInvoice.totalPrice || selectedInvoice.totalAmount || 0)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '14px' }}>
-                  <span>Phí dịch vụ</span>
+                  <span>{t.serviceFee}</span>
                   <span>đ 0</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '16px', borderTop: '1px dashed #CBD5E1', fontSize: '18px', fontWeight: '800', color: '#0F172A' }}>
-                  <span>TỔNG CỘNG</span>
+                  <span>{t.total}</span>
                   <span style={{ color: 'var(--primary)' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedInvoice.totalPrice || selectedInvoice.totalAmount || 0)}</span>
                 </div>
               </div>
@@ -3177,7 +3262,7 @@ const DashboardScreen = ({ user, onLogout }) => {
               <button
                 onClick={handleDownloadInvoicePDF}
                 className="btn btn-outline" style={{ flex: 1, padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <Download size={18} /> Tải PDF
+                <Download size={18} /> {t.downloadPdfBtn}
               </button>
               <button onClick={() => setIsInvoiceModalOpen(false)} className="btn btn-primary" style={{ flex: 1, padding: '12px' }}>
                 Đóng Hóa Đơn
@@ -3195,7 +3280,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             {/* Header */}
             <div style={{ padding: '20px 24px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>THANH TOÁN ĐƠN HÀNG</h3>
+              <h3 style={{ margin: 0, color: '#0F172A', fontSize: '20px', fontWeight: '800' }}>{t.checkoutTitle}</h3>
               <button onClick={() => setIsCheckoutModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={24} /></button>
             </div>
 
@@ -3209,7 +3294,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#0F172A', fontWeight: '700' }}>{checkoutOrder.tableNumber || checkoutOrder.tableId}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>TỔNG THANH TOÁN</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#64748B', fontWeight: '600' }}>{t.totalPayment}</p>
                   <p style={{ margin: '4px 0 0', fontSize: '24px', color: '#10B981', fontWeight: '800' }}>
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0)}
                   </p>
@@ -3218,13 +3303,13 @@ const DashboardScreen = ({ user, onLogout }) => {
 
               {/* Payment Methods */}
               <div>
-                <label style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A', marginBottom: '12px', display: 'block' }}>Phương thức thanh toán</label>
+                <label style={{ fontSize: '14px', fontWeight: '700', color: '#0F172A', marginBottom: '12px', display: 'block' }}>{t.paymentMethodLabel}</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button onClick={() => setPaymentMethod('CASH')} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: paymentMethod === 'CASH' ? '2px solid #3B82F6' : '1px solid #CBD5E1', backgroundColor: paymentMethod === 'CASH' ? '#EFF6FF' : '#FFF', color: paymentMethod === 'CASH' ? '#1D4ED8' : '#475569', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
-                    💵 Tiền mặt
+                    {t.cashBtn}
                   </button>
                   <button onClick={() => { setPaymentMethod('TRANSFER'); setIsQRModalOpen(true); }} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: paymentMethod === 'TRANSFER' ? '2px solid #3B82F6' : '1px solid #CBD5E1', backgroundColor: paymentMethod === 'TRANSFER' ? '#EFF6FF' : '#FFF', color: paymentMethod === 'TRANSFER' ? '#1D4ED8' : '#475569', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}>
-                    🏦 Chuyển khoản (QR)
+                    {t.transferBtn}
                   </button>
                 </div>
               </div>
@@ -3234,7 +3319,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                 {paymentMethod === 'CASH' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
-                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>Tiền khách đưa (đơn vị nghìn VNĐ)</label>
+                      <label style={{ fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '6px', display: 'block' }}>{t.cashInputLabel}</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           type="text"
@@ -3252,11 +3337,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                         </div>
                       </div>
                       <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#64748B', fontStyle: 'italic' }}>
-                        💡 Hệ thống tự động nhân với 1.000 VNĐ
+                        {t.cashHint}
                       </p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#F8FAFC', border: '1px dashed #94A3B8', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '600', color: '#475569' }}>Tiền thừa trả khách:</span>
+                      <span style={{ fontSize: '15px', fontWeight: '600', color: '#475569' }}>{t.changeLabel}</span>
                       <span style={{ fontSize: '20px', fontWeight: '800', color: '#EF4444' }}>
                         {(() => {
                           const total = Number(checkoutOrder.totalAmount || checkoutOrder.totalPrice || 0);
@@ -3277,7 +3362,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                       onClick={() => setIsQRModalOpen(true)}
                       style={{ marginTop: '12px', padding: '8px 16px', background: '#3B82F6', color: '#FFF', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                     >
-                      Xem lại mã QR
+                      {t.viewQR}
                     </button>
                   </div>
                 )}
@@ -3287,7 +3372,7 @@ const DashboardScreen = ({ user, onLogout }) => {
             {/* Footer */}
             <div style={{ padding: '20px 24px', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
               <button onClick={() => setIsCheckoutModalOpen(false)} className="btn btn-outline" style={{ flex: 1, padding: '14px' }}>
-                Hủy
+                {t.cancelBtn}
               </button>
               <button
                 onClick={handleConfirmPayment}
@@ -3317,7 +3402,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
             <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: '14px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>Chủ tài khoản</p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }}>{t.accountName}</p>
                 <p style={{ margin: '4px 0 0', fontSize: '20px', color: '#0F172A', fontWeight: '800' }}>NGUYEN LAN VIET</p>
                 <p style={{ margin: '8px 0 0', fontSize: '18px', color: '#11117F', fontWeight: '700', letterSpacing: '1px' }}>1903 7974 1810 12</p>
               </div>

@@ -14,12 +14,20 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     List<Order> findByStatusIgnoreCase(String status);
     
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"items"})
+    java.util.Optional<Order> findById(UUID id);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"items"})
+    List<Order> findByTableIdAndStatusIn(String tableId, List<String> statuses);
+
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE UPPER(o.status) = UPPER(:status)")
     List<Order> findByStatusIgnoreCaseWithItems(@Param("status") String status);
 
     List<Order> findByStatusOrderByCreatedAtDesc(String status);
 
     List<Order> findByTableIdOrderByCreatedAtDesc(String tableId);
+    
+    long countByTableIdAndStatusIn(String tableId, List<String> statuses);
 
     List<Order> findAllByOrderByCreatedAtDesc();
 }

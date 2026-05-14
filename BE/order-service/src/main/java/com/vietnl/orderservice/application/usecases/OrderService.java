@@ -27,9 +27,12 @@ public class OrderService {
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final RestTemplate restTemplate = new RestTemplate();
 
+    @org.springframework.beans.factory.annotation.Value("${table.service.url}")
+    private String tableServiceUrl;
+
     // ===== TẠO ĐƠN HÀNG =====
     @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request, String username) {
+    public OrderResponse createOrder(CreateOrderRequest request, String username, String token) {
         Order order = new Order();
         order.setTableId(request.getTableId());
         order.setTableNumber(request.getTableNumber());
@@ -37,44 +40,48 @@ public class OrderService {
         order.setCreatedBy(username);
         order.setStatus("PENDING");
 
-        // Thêm các món
-        for (OrderItemRequest itemReq : request.getItems()) {
-            OrderItem item = new OrderItem();
-            item.setOrder(order);
-            item.setMenuItemId(itemReq.getMenuItemId());
-            item.setFoodName(itemReq.getFoodName());
-            item.setUnitPrice(itemReq.getUnitPrice());
-            item.setQuantity(itemReq.getQuantity());
-            item.setNote(itemReq.getNote());
-            item.setKitchenStatus("PENDING");
-            order.getItems().add(item);
+        // Thêm các món (null-safe: mobile book bàn có thể không kèm items)
+        if (request.getItems() != null) {
+            for (OrderItemRequest itemReq : request.getItems()) {
+                OrderItem item = new OrderItem();
+                item.setOrder(order);
+                item.setMenuItemId(itemReq.getMenuItemId());
+                item.setFoodName(itemReq.getFoodName());
+                item.setUnitPrice(itemReq.getUnitPrice());
+                item.setQuantity(itemReq.getQuantity());
+                item.setNote(itemReq.getNote());
+                item.setKitchenStatus("PENDING");
+                order.getItems().add(item);
+            }
         }
 
         order.recalculateTotal();
         Order saved = orderRepository.save(order);
 
         // Báo cho table-service để gán đơn vào bàn (đổi màu thành OCCUPIED)
-        if (request.getTableId() != null) {
+        if (request.getTableId() != null && token != null) {
             try {
+                String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.set("Authorization", authToken);
+                headers.set("X-Server", "server-1"); 
+                
+                org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
+                        Map.of("orderId", saved.getId().toString()), headers
+                );
+                
+                System.out.println(">>> [SYNC]: Gọi table-service gán đơn cho bàn " + request.getTableId());
                 restTemplate.postForObject(
-                        "http://localhost:8083/tables/" + request.getTableId() + "/assign-order",
-                        Map.of("orderId", saved.getId().toString()),
+                        tableServiceUrl + "/tables/" + request.getTableId() + "/assign-order",
+                        entity,
                         String.class
                 );
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                System.err.println("Lỗi 4xx khi đồng bộ trạng thái bàn: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
             } catch (Exception e) {
                 System.err.println("Lỗi khi đồng bộ trạng thái bàn: " + e.getMessage());
             }
         }
-
-        // Tạm thời tắt thông báo Kafka do lỗi kết nối (localhost:9092)
-        /*
-        sendNotification(
-            "Đơn hàng mới",
-            "Bàn " + saved.getTableNumber() + " vừa gọi món!",
-            "info",
-            "KITCHEN"
-        );
-        */
 
         return OrderResponse.from(saved);
     }
@@ -112,7 +119,6 @@ public class OrderService {
             throw new RuntimeException("Không thể thêm món vào đơn hàng đã kết thúc");
         }
 
-        // Nếu món đã tồn tại → tăng số lượng
         order.getItems().stream()
                 .filter(i -> i.getMenuItemId().equals(request.getMenuItemId()))
                 .findFirst()
@@ -166,23 +172,37 @@ public class OrderService {
 
     // ===== CẬP NHẬT TRẠNG THÁI ĐƠN =====
     @Transactional
-    public OrderResponse updateOrderStatus(UUID orderId, String status) {
+    public OrderResponse updateOrderStatus(UUID orderId, String status, String token) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
         order.setStatus(status);
         Order saved = orderRepository.save(order);
 
-        // Nếu đơn hoàn thành hoặc hủy, báo cho table-service để giải phóng bàn (về AVAILABLE)
-        if ("COMPLETED".equals(status) || "CANCELLED".equals(status)) {
+        if (("COMPLETED".equals(status) || "CANCELLED".equals(status)) && token != null) {
             if (order.getTableId() != null) {
-                try {
-                    restTemplate.postForObject(
-                            "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
-                            Map.of("orderId", ""),
-                            String.class
-                    );
-                } catch (Exception e) {
-                    System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+                long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
+                if (activeOrdersCount == 0) {
+                    try {
+                        String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                        headers.set("Authorization", authToken);
+                        headers.set("X-Server", "server-1");
+                        
+                        org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
+                                Map.of("orderId", ""), headers
+                        );
+                        
+                        System.out.println(">>> [SYNC]: Gọi table-service giải phóng bàn " + order.getTableId());
+                        restTemplate.postForObject(
+                                tableServiceUrl + "/tables/" + order.getTableId() + "/assign-order",
+                                entity,
+                                String.class
+                        );
+                    } catch (org.springframework.web.client.HttpClientErrorException e) {
+                        System.err.println("Lỗi 4xx khi giải phóng bàn: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+                    } catch (Exception e) {
+                        System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+                    }
                 }
             }
         }
@@ -190,9 +210,17 @@ public class OrderService {
         return OrderResponse.from(saved);
     }
 
+    public String getCreatorByTable(String tableId) {
+        return orderRepository.findByTableIdAndStatusIn(tableId, List.of("PENDING", "CONFIRMED"))
+                .stream()
+                .findFirst()
+                .map(Order::getCreatedBy)
+                .orElse("N/A");
+    }
+
     // ===== XÓA ĐƠN HÀNG =====
     @Transactional
-    public void cancelOrder(UUID orderId) {
+    public void cancelOrder(UUID orderId, String token) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
         if ("COMPLETED".equals(order.getStatus())) {
@@ -201,16 +229,30 @@ public class OrderService {
         order.setStatus("CANCELLED");
         orderRepository.save(order);
 
-        // Giải phóng bàn
-        if (order.getTableId() != null) {
-            try {
-                restTemplate.postForObject(
-                        "http://localhost:8083/tables/" + order.getTableId() + "/assign-order",
-                        Map.of("orderId", ""),
-                        String.class
-                );
-            } catch (Exception e) {
-                System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+        if (order.getTableId() != null && token != null) {
+            long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
+            if (activeOrdersCount == 0) {
+                try {
+                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                    org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                    headers.set("Authorization", authToken);
+                    headers.set("X-Server", "server-1");
+                    
+                    org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
+                            Map.of("orderId", ""), headers
+                    );
+                    
+                    System.out.println(">>> [SYNC]: Gọi table-service giải phóng bàn (hủy đơn) " + order.getTableId());
+                    restTemplate.postForObject(
+                            tableServiceUrl + "/tables/" + order.getTableId() + "/assign-order",
+                            entity,
+                            String.class
+                    );
+                } catch (org.springframework.web.client.HttpClientErrorException e) {
+                    System.err.println("Lỗi 4xx khi giải phóng bàn (hủy đơn): " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+                } catch (Exception e) {
+                    System.err.println("Lỗi khi giải phóng bàn (hủy đơn): " + e.getMessage());
+                }
             }
         }
     }
@@ -220,22 +262,8 @@ public class OrderService {
     public void updateKitchenStatus(UUID itemId, String kitchenStatus) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
-        System.out.println(">>> [DEBUG SERVICE]: Tìm thấy món " + item.getFoodName() + ", đang đổi trạng thái " + item.getKitchenStatus() + " -> " + kitchenStatus);
         item.setKitchenStatus(kitchenStatus);
         orderItemRepository.save(item);
-        System.out.println(">>> [DEBUG SERVICE]: Đã lưu trạng thái mới thành công.");
-
-        // Tạm thời tắt thông báo Kafka do lỗi kết nối (localhost:9092)
-        /*
-        if ("READY".equals(kitchenStatus)) {
-            sendNotification(
-                "Món ăn sẵn sàng",
-                "Món [" + item.getFoodName() + "] của " + item.getOrder().getTableNumber() + " đã xong!",
-                "info",
-                "WAITER"
-            );
-        }
-        */
     }
 
     private void sendNotification(String title, String message, String type, String role) {
