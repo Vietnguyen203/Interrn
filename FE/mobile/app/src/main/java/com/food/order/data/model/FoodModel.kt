@@ -13,4 +13,5 @@ data class FoodModel(
     val createdAt: String,
     val server: String,
     val description: String?,
+    val options: String?
 ) : Serializable

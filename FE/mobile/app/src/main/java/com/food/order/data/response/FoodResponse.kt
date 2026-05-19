@@ -12,5 +12,6 @@ data class FoodResponse(
     @SerializedName("created_by")  val createdBy: String,
     @SerializedName("created_at")  val createdAt: String,
     @SerializedName("server")      val server: String,
-    @SerializedName("description") val description: String?
+    @SerializedName("description") val description: String?,
+    @SerializedName("options")     val options: String?
 )

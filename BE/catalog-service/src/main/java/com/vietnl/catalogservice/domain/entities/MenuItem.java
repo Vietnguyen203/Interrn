@@ -42,4 +42,7 @@ public class MenuItem {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "options", length = 500)
+    private String options;
 }

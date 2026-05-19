@@ -701,12 +701,12 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [foodFormData, setFoodFormData] = useState({
-    code: '', foodName: '', price: '', categoryId: '', imageUrl: ''
+    code: '', foodName: '', price: '', categoryId: '', imageUrl: '', options: ''
   });
 
   const [isProposeFoodModalOpen, setIsProposeFoodModalOpen] = useState(false);
   const [proposeFoodFormData, setProposeFoodFormData] = useState({
-    code: '', foodName: '', price: '', categoryId: '', imageUrl: '', recipe: ''
+    code: '', foodName: '', price: '', categoryId: '', imageUrl: '', recipe: '', options: ''
   });
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -736,6 +736,12 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [selectedTableId, setSelectedTableId] = useState('');
   const [orderNote, setOrderNote] = useState('');
   const [selectedTableForOrders, setSelectedTableForOrders] = useState(null);
+
+  // Order Options Popup States
+  const [selectedFoodForOrder, setSelectedFoodForOrder] = useState(null);
+  const [orderOptions, setOrderOptions] = useState({ ketchup: false, chili: false, mayo: false, spicy: false });
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [orderManualNote, setOrderManualNote] = useState('');
 
   // Checkout (Payment) States
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -1002,14 +1008,47 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   }, [isCreateOrderModalOpen]);
 
-  const handleAddToCart = (food) => {
+  const openOrderOptionsModal = (food) => {
+    setSelectedFoodForOrder(food);
+    const dynamicOptions = {};
+    if (food.options) {
+      food.options.split(',').forEach(opt => {
+        const trimmed = opt.trim();
+        if (trimmed) dynamicOptions[trimmed] = false;
+      });
+    }
+    setOrderOptions(dynamicOptions);
+    setOrderQuantity(1);
+    setOrderManualNote('');
+  };
+
+  const confirmAddToCart = () => {
+    if (!selectedFoodForOrder) return;
+    
+    const options = Object.keys(orderOptions).filter(key => orderOptions[key]);
+    
+    const manualNote = orderManualNote.trim();
+    let finalNote = '';
+    if (options.length > 0) finalNote += "Tuỳ chọn: " + options.join(", ");
+    if (manualNote) finalNote += (finalNote ? " | " : "") + "Ghi chú: " + manualNote;
+
     setCartItems(prev => {
-      const existing = prev.find(item => item.menuItemId === food.id);
+      const existing = prev.find(item => item.menuItemId === selectedFoodForOrder.id);
       if (existing) {
-        return prev.map(item => item.menuItemId === food.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => item.menuItemId === selectedFoodForOrder.id 
+          ? { ...item, quantity: item.quantity + orderQuantity, note: finalNote || item.note } 
+          : item);
       }
-      return [...prev, { menuItemId: food.id, foodName: food.foodName, unitPrice: food.price, quantity: 1, note: '' }];
+      return [...prev, { 
+        menuItemId: selectedFoodForOrder.id, 
+        foodName: selectedFoodForOrder.foodName, 
+        unitPrice: selectedFoodForOrder.price, 
+        quantity: orderQuantity, 
+        note: finalNote 
+      }];
     });
+    
+    setSelectedFoodForOrder(null);
   };
 
   const handleUpdateCartItem = (menuItemId, delta, note = undefined) => {
@@ -1436,10 +1475,10 @@ const DashboardScreen = ({ user, onLogout }) => {
   const handleOpenFoodModal = (food = null) => {
     if (food) {
       setEditingFood(food);
-      setFoodFormData({ code: food.code || '', foodName: food.foodName || '', price: food.price || '', categoryId: food.categoryId || '', imageUrl: food.imageUrl || '' });
+      setFoodFormData({ code: food.code || '', foodName: food.foodName || '', price: food.price || '', categoryId: food.categoryId || '', imageUrl: food.imageUrl || '', options: food.options || '' });
     } else {
       setEditingFood(null);
-      setFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '' });
+      setFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '', options: '' });
     }
     setIsFoodModalOpen(true);
   };
@@ -2273,6 +2312,16 @@ const DashboardScreen = ({ user, onLogout }) => {
                         </div>
                       </div>
                       <div className="input-group">
+                        <label>Các tuỳ chọn thêm (ngăn cách bởi dấu phẩy)</label>
+                        <input
+                          type="text"
+                          value={foodFormData.options || ''}
+                          onChange={e => setFoodFormData({ ...foodFormData, options: e.target.value })}
+                          className="input-field"
+                          placeholder="Ví dụ: Tương cà, Tương ớt, Thêm cay"
+                        />
+                      </div>
+                      <div className="input-group">
                         <label>🖼️ URL Hình ảnh trực tiếp (tuỳ chọn)</label>
                         <input
                           type="text"
@@ -3078,7 +3127,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <h4 style={{ margin: '0 0 16px', fontSize: '15px', color: '#475569' }}>DANH SÁCH MÓN ĂN</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
                     {foods.map(food => (
-                      <div key={food.id} style={{ backgroundColor: '#FFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', cursor: 'pointer' }} onClick={() => handleAddToCart(food)}>
+                      <div key={food.id} style={{ backgroundColor: '#FFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', cursor: 'pointer' }} onClick={() => openOrderOptionsModal(food)}>
                         <div style={{ height: '120px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {food.imageUrl ? (
                             <img
@@ -3480,6 +3529,66 @@ const DashboardScreen = ({ user, onLogout }) => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Order Options Popup */}
+      {selectedFoodForOrder && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ backgroundColor: '#FFF', borderRadius: '16px', width: '400px', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 28px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1E293B' }}>{selectedFoodForOrder.foodName}</h3>
+              <button type="button" onClick={() => setSelectedFoodForOrder(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={24} /></button>
+            </div>
+            
+            <div style={{ padding: '24px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <span style={{ fontSize: '16px', fontWeight: '600', color: '#475569' }}>Giá:</span>
+                <span style={{ fontSize: '18px', fontWeight: '800', color: '#10B981' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedFoodForOrder.price)}</span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #E2E8F0' }}>
+                <span style={{ fontSize: '16px', fontWeight: '600', color: '#475569' }}>Số lượng:</span>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #CBD5E1', borderRadius: '8px', overflow: 'hidden' }}>
+                  <button type="button" onClick={() => setOrderQuantity(Math.max(1, orderQuantity - 1))} style={{ width: '40px', height: '40px', border: 'none', background: '#F1F5F9', cursor: 'pointer', fontSize: '18px', fontWeight: '600' }}>-</button>
+                  <span style={{ width: '50px', textAlign: 'center', fontSize: '16px', fontWeight: '700' }}>{orderQuantity}</span>
+                  <button type="button" onClick={() => setOrderQuantity(orderQuantity + 1)} style={{ width: '40px', height: '40px', border: 'none', background: '#F1F5F9', cursor: 'pointer', fontSize: '18px', fontWeight: '600' }}>+</button>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <span style={{ display: 'block', fontSize: '16px', fontWeight: '600', color: '#475569', marginBottom: '12px' }}>Tuỳ chọn thêm:</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  {Object.keys(orderOptions).map(opt => (
+                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={orderOptions[opt]} 
+                        onChange={e => setOrderOptions({...orderOptions, [opt]: e.target.checked})} 
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
+                      /> {opt}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <span style={{ display: 'block', fontSize: '16px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>Ghi chú tự do:</span>
+                <textarea 
+                  value={orderManualNote}
+                  onChange={e => setOrderManualNote(e.target.value)}
+                  placeholder="Ví dụ: ít đá, không hành..."
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', resize: 'none' }}
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <div style={{ padding: '16px 28px', borderTop: '1px solid #E2E8F0', display: 'flex', gap: '12px' }}>
+              <button type="button" onClick={() => setSelectedFoodForOrder(null)} className="btn btn-outline" style={{ flex: 1, padding: '12px' }}>Hủy</button>
+              <button type="button" onClick={confirmAddToCart} className="btn btn-primary" style={{ flex: 1, padding: '12px' }}>Thêm vào đơn</button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

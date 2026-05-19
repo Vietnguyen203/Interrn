@@ -17,6 +17,12 @@ import com.food.order.databinding.FragmentOrderFoodBinding
 import com.food.order.ui.food.FoodViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import android.app.Dialog
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.Window
+import com.food.order.data.model.FoodModel
+import com.food.order.databinding.DialogOrderOptionsBinding
 import java.util.Collections
 
 class OrderFoodFragment : Fragment() {
@@ -29,7 +35,7 @@ class OrderFoodFragment : Fragment() {
     }
     private val adapter: FoodAdapter by lazy {
         FoodAdapter(Collections.emptyList(), { item ->
-            viewModel.addOrderItem(userToken, requireArguments().getString("orderId") ?: "", item)
+            showOrderOptionsDialog(item)
         }, true)
     }
 
@@ -73,6 +79,89 @@ class OrderFoodFragment : Fragment() {
         }
 
         viewModel.getFoodsFromServer(requireContext(), userToken)
+    }
+
+    private fun showOrderOptionsDialog(item: FoodModel) {
+        val dialog = Dialog(requireContext())
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val dialogBinding = DialogOrderOptionsBinding.inflate(layoutInflater)
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
+        dialogBinding.tvFoodName.text = item.foodName
+        dialogBinding.tvFoodPrice.text = "${item.price} VND"
+
+        var quantity = 1
+
+        dialogBinding.btnMinus.setOnClickListener {
+            if (quantity > 1) {
+                quantity--
+                dialogBinding.tvQuantity.text = quantity.toString()
+            }
+        }
+
+        dialogBinding.btnPlus.setOnClickListener {
+            quantity++
+            dialogBinding.tvQuantity.text = quantity.toString()
+        }
+
+        val checkBoxes = mutableListOf<android.widget.CheckBox>()
+        item.options?.let { optStr ->
+            val optionsList = optStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            if (optionsList.isEmpty()) {
+                dialogBinding.tvOptionsLabel.visibility = View.GONE
+                dialogBinding.llOptionsContainer.visibility = View.GONE
+            } else {
+                for (opt in optionsList) {
+                    val cb = android.widget.CheckBox(requireContext()).apply {
+                        text = opt
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                    }
+                    checkBoxes.add(cb)
+                    dialogBinding.llOptionsContainer.addView(cb)
+                }
+            }
+        } ?: run {
+            dialogBinding.tvOptionsLabel.visibility = View.GONE
+            dialogBinding.llOptionsContainer.visibility = View.GONE
+        }
+
+        dialogBinding.btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialogBinding.btnAdd.setOnClickListener {
+            val options = mutableListOf<String>()
+            for (cb in checkBoxes) {
+                if (cb.isChecked) options.add(cb.text.toString())
+            }
+
+            val manualNote = dialogBinding.etNote.text.toString().trim()
+
+            val finalNoteBuilder = java.lang.StringBuilder()
+            if (options.isNotEmpty()) {
+                finalNoteBuilder.append("Tuỳ chọn: ").append(options.joinToString(", "))
+            }
+            if (manualNote.isNotEmpty()) {
+                if (finalNoteBuilder.isNotEmpty()) finalNoteBuilder.append(" | ")
+                finalNoteBuilder.append("Ghi chú: ").append(manualNote)
+            }
+
+            viewModel.addOrderItem(
+                userToken, 
+                requireArguments().getString("orderId") ?: "", 
+                item, 
+                quantity, 
+                finalNoteBuilder.toString()
+            )
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onDestroyView() {

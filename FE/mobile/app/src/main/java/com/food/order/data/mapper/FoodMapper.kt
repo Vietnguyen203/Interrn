@@ -14,6 +14,7 @@ fun FoodResponse.toFoodModel(): FoodModel {
         createdBy = createdBy,
         createdAt = createdAt,
         server = server,
-        description = description
+        description = description,
+        options = options
     )
 }

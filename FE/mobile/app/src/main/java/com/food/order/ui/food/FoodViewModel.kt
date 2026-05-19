@@ -209,7 +209,7 @@ class FoodViewModel : ViewModel() {
         }
     }
 
-    fun addOrderItem(token: String, orderId: String, food: FoodModel) {
+    fun addOrderItem(token: String, orderId: String, food: FoodModel, quantity: Int, note: String) {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
@@ -221,8 +221,8 @@ class FoodViewModel : ViewModel() {
                         foodName = food.foodName,
                         unit = food.unit,
                         price = food.price,
-                        quantity = 1,
-                        note = ""
+                        quantity = quantity,
+                        note = note
                     )
                 )
                 if (response.isSuccess) _addOrderItemFlow.emit(true) else _errorFlow.emit(response.message ?: "Add failed")

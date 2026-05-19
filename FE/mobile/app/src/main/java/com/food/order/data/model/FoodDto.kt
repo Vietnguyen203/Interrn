@@ -12,5 +12,6 @@ data class FoodDto(
     @SerializedName("description") val description: String? = null,
     @SerializedName("created_by")  val createdBy: String? = null,
     @SerializedName("created_at")  val createdAt: String? = null,
-    @SerializedName("server")      val server: String? = null
+    @SerializedName("server")      val server: String? = null,
+    @SerializedName("options")     val options: String? = null
 )

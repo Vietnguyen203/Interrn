@@ -59,6 +59,7 @@ public class MenuItemService {
         item.setPrice(request.getPrice());
         item.setImageUrl(request.getImageUrl());
         item.setRecipe(request.getRecipe());
+        item.setOptions(request.getOptions());
         item.setStatus(ItemStatus.ACTIVE.getValue());
         item.setCreatedAt(LocalDateTime.now());
         item.setUpdatedAt(LocalDateTime.now());
@@ -83,6 +84,7 @@ public class MenuItemService {
         if (request.getPrice() != null && request.getPrice().compareTo(BigDecimal.ZERO) > 0) item.setPrice(request.getPrice());
         if (StringUtils.hasText(request.getImageUrl())) item.setImageUrl(request.getImageUrl());
         if (StringUtils.hasText(request.getRecipe())) item.setRecipe(request.getRecipe());
+        if (request.getOptions() != null) item.setOptions(request.getOptions());
         item.setUpdatedAt(LocalDateTime.now());
 
         return menuItemRepository.save(item);
@@ -118,6 +120,7 @@ public class MenuItemService {
         item.setPrice(request.getPrice());
         item.setImageUrl(request.getImageUrl());
         item.setRecipe(request.getRecipe());
+        item.setOptions(request.getOptions());
         // Set status to PENDING
         item.setStatus(ItemStatus.PENDING.getValue());
         item.setCreatedAt(LocalDateTime.now());
