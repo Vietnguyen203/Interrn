@@ -8,10 +8,10 @@ import com.vietnl.orderservice.domain.models.entities.Order;
 import com.vietnl.orderservice.domain.models.entities.OrderItem;
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderItemRepository;
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderRepository;
+import com.vietnl.orderservice.infrastructure.communication.TableFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -25,10 +25,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    @org.springframework.beans.factory.annotation.Value("${table.service.url}")
-    private String tableServiceUrl;
+    private final TableFeignClient tableFeignClient;
 
     // ===== TẠO ĐƠN HÀNG =====
     @Transactional
@@ -66,20 +63,15 @@ public class OrderService {
                 headers.set("Authorization", authToken);
                 headers.set("X-Server", "server-1"); 
                 
-                org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
-                        Map.of("orderId", saved.getId().toString()), headers
+                System.out.println(">>> [SYNC]: Gọi table-service (Feign) gán đơn cho bàn " + request.getTableId());
+                tableFeignClient.assignOrder(
+                        UUID.fromString(request.getTableId()),
+                        Map.of("orderId", saved.getId().toString()),
+                        authToken,
+                        "server-1"
                 );
-                
-                System.out.println(">>> [SYNC]: Gọi table-service gán đơn cho bàn " + request.getTableId());
-                restTemplate.postForObject(
-                        tableServiceUrl + "/tables/" + request.getTableId() + "/assign-order",
-                        entity,
-                        String.class
-                );
-            } catch (org.springframework.web.client.HttpClientErrorException e) {
-                System.err.println("Lỗi 4xx khi đồng bộ trạng thái bàn: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
             } catch (Exception e) {
-                System.err.println("Lỗi khi đồng bộ trạng thái bàn: " + e.getMessage());
+                System.err.println("Lỗi khi đồng bộ trạng thái bàn (Feign): " + e.getMessage());
             }
         }
 
@@ -188,20 +180,15 @@ public class OrderService {
                         headers.set("Authorization", authToken);
                         headers.set("X-Server", "server-1");
                         
-                        org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
-                                Map.of("orderId", ""), headers
+                        System.out.println(">>> [SYNC]: Gọi table-service (Feign) giải phóng bàn " + order.getTableId());
+                        tableFeignClient.assignOrder(
+                                UUID.fromString(order.getTableId()),
+                                Map.of("orderId", ""),
+                                authToken,
+                                "server-1"
                         );
-                        
-                        System.out.println(">>> [SYNC]: Gọi table-service giải phóng bàn " + order.getTableId());
-                        restTemplate.postForObject(
-                                tableServiceUrl + "/tables/" + order.getTableId() + "/assign-order",
-                                entity,
-                                String.class
-                        );
-                    } catch (org.springframework.web.client.HttpClientErrorException e) {
-                        System.err.println("Lỗi 4xx khi giải phóng bàn: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
                     } catch (Exception e) {
-                        System.err.println("Lỗi khi giải phóng bàn: " + e.getMessage());
+                        System.err.println("Lỗi khi giải phóng bàn (Feign): " + e.getMessage());
                     }
                 }
             }
@@ -238,20 +225,15 @@ public class OrderService {
                     headers.set("Authorization", authToken);
                     headers.set("X-Server", "server-1");
                     
-                    org.springframework.http.HttpEntity<Map<String, String>> entity = new org.springframework.http.HttpEntity<>(
-                            Map.of("orderId", ""), headers
+                    System.out.println(">>> [SYNC]: Gọi table-service (Feign) giải phóng bàn (hủy đơn) " + order.getTableId());
+                    tableFeignClient.assignOrder(
+                            UUID.fromString(order.getTableId()),
+                            Map.of("orderId", ""),
+                            authToken,
+                            "server-1"
                     );
-                    
-                    System.out.println(">>> [SYNC]: Gọi table-service giải phóng bàn (hủy đơn) " + order.getTableId());
-                    restTemplate.postForObject(
-                            tableServiceUrl + "/tables/" + order.getTableId() + "/assign-order",
-                            entity,
-                            String.class
-                    );
-                } catch (org.springframework.web.client.HttpClientErrorException e) {
-                    System.err.println("Lỗi 4xx khi giải phóng bàn (hủy đơn): " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
                 } catch (Exception e) {
-                    System.err.println("Lỗi khi giải phóng bàn (hủy đơn): " + e.getMessage());
+                    System.err.println("Lỗi khi giải phóng bàn (hủy đơn - Feign): " + e.getMessage());
                 }
             }
         }
@@ -266,17 +248,5 @@ public class OrderService {
         orderItemRepository.save(item);
     }
 
-    private void sendNotification(String title, String message, String type, String role) {
-        try {
-            Map<String, Object> payload = Map.of(
-                "title", title,
-                "message", message,
-                "type", type,
-                "recipientRole", role
-            );
-            kafkaTemplate.send("notifications-topic", payload);
-        } catch (Exception e) {
-            System.err.println("Lỗi gửi thông báo qua Kafka: " + e.getMessage());
-        }
-    }
+
 }
