@@ -28,6 +28,7 @@ export const apiService = {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'GET',
             headers: getAuthHeaders(),
+            cache: 'no-store'
         });
         const data = await safeJson(response);
         if (!response.ok || data.code === 'ERROR') {

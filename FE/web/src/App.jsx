@@ -878,18 +878,18 @@ const DashboardScreen = ({ user, onLogout }) => {
         stompClient.subscribe('/topic/public', (message) => {
           try {
             const note = JSON.parse(message.body);
-            // Hiển thị thông báo bằng hệ thống toast sẵn có
             toast[note.type || 'info'](note.message || note.title);
 
-            // Nếu là thông báo đơn hàng mới hoặc thanh toán, có thể refresh data
+            // Bỏ qua check activeTab để luôn fetch ngầm data mới nhất
             if (note.title?.includes('Đơn hàng') || note.title?.includes('Thanh toán')) {
-              if (activeTab === 'Orders') fetchOrdersData();
-              if (activeTab === 'Overview') fetchOverviewData();
-              if (activeTab === 'Kitchen' || user?.role === 'KITCHEN' || user?.role === 'ADMIN') {
+              fetchOrdersData();
+              fetchOverviewData();
+              fetchInventoryData();
+              if (user?.role === 'KITCHEN' || user?.role === 'ADMIN') {
                 fetchKitchenData();
                 if (note.title?.includes('Đơn hàng')) {
                   toast.info('🔔 Có món mới cần chế biến!');
-                  playNotifSound(); // 🔊 Âm thanh thông báo
+                  playNotifSound();
                 }
               }
             }
@@ -899,7 +899,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     });
     stompClient.activate();
     return () => { if (stompClient.active) stompClient.deactivate(); };
-  }, [activeTab]);
+  }, []); // Bỏ dependency activeTab để tránh reconnect liên tục khi chuyển tab
 
   // 4) Auto-refresh mỗi 30s — dữ liệu luôn cập nhật mà không cần F5
   useEffect(() => {
@@ -907,6 +907,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       if (activeTab === 'Overview') fetchOverviewData();
       else if (activeTab === 'Orders') fetchOrdersData();
       else if (activeTab === 'Kitchen') fetchKitchenData();
+      else if (activeTab === 'Inventory') fetchInventoryData();
     }, 30000);
     return () => clearInterval(interval);
   }, [activeTab]);
@@ -1082,6 +1083,45 @@ const DashboardScreen = ({ user, onLogout }) => {
       toast.success('Đã hủy đơn hàng');
       fetchOrdersData();
     } catch (e) { toast.error('Lỗi hủy đơn: ' + e.message); }
+  };
+
+  // Tự động hủy tất cả đơn rỗng (không có items) của bàn
+  const handleCleanupEmptyOrders = async (tableId) => {
+    const emptyOrders = allOrders.filter(o =>
+      String(o.tableId) === String(tableId) &&
+      (o.status === 'PENDING' || o.status === 'CONFIRMED') &&
+      (!o.items || o.items.length === 0)
+    );
+    if (emptyOrders.length === 0) return;
+    try {
+      await Promise.all(emptyOrders.map(o => apiService.order.cancel(o.id)));
+      await fetchOrdersData();
+      console.log(`[CLEANUP] Đã dọn ${emptyOrders.length} đơn rỗng của bàn ${tableId}`);
+    } catch (e) {
+      console.error('Lỗi khi dọn đơn rỗng:', e.message);
+    }
+  };
+
+  // Tự động kích hoạt dọn dẹp khi người dùng click xem 1 bàn
+  useEffect(() => {
+    if (selectedTableForOrders && selectedTableForOrders.id) {
+      handleCleanupEmptyOrders(selectedTableForOrders.id);
+    }
+  }, [selectedTableForOrders?.id, allOrders.length]);
+
+
+  const handleRemoveItemFromOrder = async (orderId, itemId, itemName, kitchenStatus) => {
+    if (kitchenStatus && kitchenStatus !== 'PENDING') {
+      toast.warning(`Không thể xóa "${itemName}" vì bếp đã nhận (${kitchenStatus}).`);
+      return;
+    }
+    const ok = await confirm('Xóa món', `Bạn có chắc muốn xóa "${itemName}" khỏi hóa đơn?`, { danger: true, confirmLabel: 'Xóa món' });
+    if (!ok) return;
+    try {
+      await apiService.order.removeItem(orderId, itemId);
+      toast.success(`Đã xóa "${itemName}" khỏi hóa đơn`);
+      fetchOrdersData();
+    } catch (e) { toast.error('Lỗi xóa món: ' + e.message); }
   };
 
   const handleUpdateOrderStatus = async (orderId, status) => {
@@ -2281,7 +2321,12 @@ const DashboardScreen = ({ user, onLogout }) => {
 
                       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {(() => {
-                          const tableOrders = allOrders.filter(o => String(o.tableId) === String(selectedTableForOrders.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
+                          // LỌ bỏ đơn rỗng (không có items) — các đơn này đã bị xóa hết món
+                          const tableOrders = allOrders.filter(o =>
+                            String(o.tableId) === String(selectedTableForOrders.id) &&
+                            (o.status === 'PENDING' || o.status === 'CONFIRMED') &&
+                            o.items && o.items.length > 0
+                          );
                           if (tableOrders.length === 0) {
                             return (
                               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
@@ -2297,12 +2342,37 @@ const DashboardScreen = ({ user, onLogout }) => {
                                 <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', backgroundColor: `${getStatusColor(order.status)}15`, color: getStatusColor(order.status) }}>{order.status}</span>
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {(order.items || []).map((item, idx) => (
-                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                                    <span style={{ color: '#475569' }}><strong style={{ color: '#0F172A' }}>{item.quantity}x</strong> {item.foodName}</span>
-                                    <span style={{ fontWeight: '600' }}>{(item.unitPrice * item.quantity).toLocaleString('vi-VN')}đ</span>
-                                  </div>
-                                ))}
+                                {(order.items || []).map((item, idx) => {
+                                  const canDelete = !item.kitchenStatus || item.kitchenStatus === 'PENDING';
+                                  return (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', gap: '8px' }}>
+                                      <span style={{ color: '#475569', flex: 1 }}><strong style={{ color: '#0F172A' }}>{item.quantity}x</strong> {item.foodName}
+                                        {item.kitchenStatus && item.kitchenStatus !== 'PENDING' && (
+                                          <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '8px',
+                                            backgroundColor: item.kitchenStatus === 'COOKING' ? '#FEF3C7' : item.kitchenStatus === 'READY' ? '#D1FAE5' : '#E0E7FF',
+                                            color: item.kitchenStatus === 'COOKING' ? '#92400E' : item.kitchenStatus === 'READY' ? '#065F46' : '#3730A3'
+                                          }}>{item.kitchenStatus}</span>
+                                        )}
+                                      </span>
+                                      <span style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>{(item.unitPrice * item.quantity).toLocaleString('vi-VN')}đ</span>
+                                      <button
+                                        onClick={() => handleRemoveItemFromOrder(order.id, item.id, item.foodName, item.kitchenStatus)}
+                                        title={canDelete ? 'Xóa món này' : `Không thể xóa — bếp đang ${item.kitchenStatus}`}
+                                        style={{
+                                          background: canDelete ? '#FEE2E2' : '#F1F5F9',
+                                          border: 'none', borderRadius: '6px',
+                                          width: '26px', height: '26px',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          cursor: canDelete ? 'pointer' : 'not-allowed',
+                                          color: canDelete ? '#EF4444' : '#94A3B8',
+                                          flexShrink: 0, transition: 'all 0.15s'
+                                        }}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           ));
@@ -2310,7 +2380,12 @@ const DashboardScreen = ({ user, onLogout }) => {
                       </div>
 
                       {(() => {
-                        const tableOrders = allOrders.filter(o => String(o.tableId) === String(selectedTableForOrders.id) && (o.status === 'PENDING' || o.status === 'CONFIRMED'));
+                        // LỌ bỏ đơn rỗng khỏi tính tổng
+                        const tableOrders = allOrders.filter(o =>
+                          String(o.tableId) === String(selectedTableForOrders.id) &&
+                          (o.status === 'PENDING' || o.status === 'CONFIRMED') &&
+                          o.items && o.items.length > 0
+                        );
                         const total = tableOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
                         if (tableOrders.length === 0) return null;
 

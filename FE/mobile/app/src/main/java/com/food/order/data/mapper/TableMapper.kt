@@ -14,6 +14,6 @@ fun TableResponse.toTableModel(): TableModel {
     return TableModel(
         id = safeId,
         name = safeName,
-        currentOrderId = currentOrderId ?: currentOrderIdCamel
+        currentOrderId = currentOrderId
     )
 }

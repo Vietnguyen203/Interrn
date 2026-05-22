@@ -9,6 +9,12 @@ import retrofit2.http.*
 
 interface CatalogApiService {
 
+    // ===== INVENTORY =====
+    @GET("catalog-service/inventory/ingredients")
+    suspend fun getIngredients(
+        @Header("Authorization") token: String
+    ): ApiResponse<List<com.food.order.data.response.IngredientResponse>>
+
     // ===== CATEGORIES =====
     @GET("catalog-service/categories")
     suspend fun getCategories(

@@ -45,6 +45,9 @@ public class OrderItem {
     @Column(name = "kitchen_status")
     private String kitchenStatus = "PENDING";
 
+    @Column(name = "stock_deducted", nullable = false)
+    private boolean stockDeducted = false;
+
     public BigDecimal getSubtotal() {
         return unitPrice.multiply(BigDecimal.valueOf(quantity));
     }

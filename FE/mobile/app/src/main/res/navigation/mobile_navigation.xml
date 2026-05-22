@@ -165,4 +165,13 @@
         <deepLink app:uri="fo://settings" />
     </fragment>
 
+    <!-- Inventory -->
+    <fragment
+        android:id="@+id/navigation_inventory"
+        android:name="com.food.order.ui.inventory.InventoryFragment"
+        android:label="Inventory"
+        tools:layout="@layout/fragment_inventory">
+        <deepLink app:uri="fo://inventory" />
+    </fragment>
+
 </navigation>

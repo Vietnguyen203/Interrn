@@ -18,6 +18,7 @@ fun MenuItemResponse.toFoodModel(): FoodModel {
         createdBy   = "",
         createdAt   = createdAt ?: "",
         server      = "",
-        description = null
+        description = null,
+        options     = null
     )
 }

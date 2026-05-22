@@ -119,11 +119,13 @@
                 app:iconSrc="@android:drawable/ic_menu_manage"
                 app:titleText="Settings" />
 
-            <View
+            <com.food.order.utils.widget.SystemMenuView
+                android:id="@+id/menuViewInventory"
                 android:layout_width="0dp"
                 android:layout_height="140dp"
                 android:layout_weight="1"
-                android:visibility="invisible" />
+                app:iconSrc="@drawable/icon_food_menu_v2"
+                app:titleText="Inventory" />
         </androidx.appcompat.widget.LinearLayoutCompat>
 
     </androidx.appcompat.widget.LinearLayoutCompat>

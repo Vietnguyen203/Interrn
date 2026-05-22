@@ -78,8 +78,9 @@ public class OrderAPI {
     @DeleteMapping("/{id}/items/{itemId}")
     public ResponseEntity<ApiResponse<OrderResponse>> removeItem(
             @PathVariable UUID id,
-            @PathVariable UUID itemId) {
-        return ResponseEntity.ok(ApiResponse.ok("Xóa món thành công", orderService.removeItemFromOrder(id, itemId)));
+            @PathVariable UUID itemId,
+            @RequestHeader(value = "Authorization", required = false) String token) {
+        return ResponseEntity.ok(ApiResponse.ok("Xóa món thành công", orderService.removeItemFromOrder(id, itemId, token)));
     }
 
     // PATCH /orders/{id}/status - Cập nhật trạng thái đơn
@@ -104,9 +105,10 @@ public class OrderAPI {
     @PatchMapping("/items/{itemId}/kitchen-status")
     public ResponseEntity<ApiResponse<Void>> updateKitchenStatus(
             @PathVariable UUID itemId,
-            @RequestParam String status) {
+            @RequestParam String status,
+            @RequestHeader(value = "Authorization", required = false) String token) {
         System.out.println(">>> [DEBUG KITCHEN]: Cập nhật món " + itemId + " sang trạng thái: " + status);
-        orderService.updateKitchenStatus(itemId, status);
+        orderService.updateKitchenStatus(itemId, status, token);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái bếp thành công", null));
     }
 }

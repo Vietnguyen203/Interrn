@@ -122,7 +122,9 @@ public class InventoryService {
 
     @Transactional
     public void deductStockForOrder(DeductStockRequest request) {
-        if (request == null || request.getItems() == null) return;
+        if (request == null || request.getItems() == null) {
+            return;
+        }
 
         for (DeductStockRequest.DeductItem item : request.getItems()) {
             List<Recipe> recipes = recipeRepository.findByMenuItemId(item.getMenuItemId());
@@ -130,7 +132,9 @@ public class InventoryService {
 
             for (Recipe recipe : recipes) {
                 Ingredient ingredient = ingredientRepository.findById(recipe.getIngredientId()).orElse(null);
-                if (ingredient == null) continue;
+                if (ingredient == null) {
+                    continue;
+                }
 
                 BigDecimal totalDeducted = recipe.getQuantityNeeded().multiply(quantitySold);
 

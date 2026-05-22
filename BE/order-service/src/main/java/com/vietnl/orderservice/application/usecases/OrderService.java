@@ -73,7 +73,6 @@ public class OrderService {
                 headers.set("Authorization", authToken);
                 headers.set("X-Server", "server-1"); 
                 
-                System.out.println(">>> [SYNC]: Gọi table-service (Feign) gán đơn cho bàn " + request.getTableId());
                 tableFeignClient.assignOrder(
                         UUID.fromString(request.getTableId()),
                         Map.of("orderId", saved.getId().toString()),
@@ -168,7 +167,7 @@ public class OrderService {
         Order saved = orderRepository.save(order);
         sendNotification(
                 "Đơn hàng cập nhật",
-                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa được thay đổi số lượng món.",
+                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa được cập nhật.",
                 "info",
                 "KITCHEN"
         );
@@ -177,11 +176,60 @@ public class OrderService {
 
     // ===== XÓA MÓN KHỎI ĐƠN =====
     @Transactional
-    public OrderResponse removeItemFromOrder(UUID orderId, UUID itemId) {
+    public OrderResponse removeItemFromOrder(UUID orderId, UUID itemId, String token) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + orderId));
 
-        order.getItems().removeIf(i -> i.getId().equals(itemId));
+        // Trigger lazy load & tìm item
+        List<OrderItem> items = order.getItems();
+        OrderItem targetItem = items.stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy món trong đơn hàng: " + itemId));
+
+        // Kiểm tra trạng thái bếp — không cho xóa nếu bếp đã nhận
+        String ks = targetItem.getKitchenStatus();
+        if (ks != null && !ks.equals("PENDING")) {
+            throw new RuntimeException(
+                "Không thể xóa món \"" + targetItem.getFoodName()
+                + "\" vì bếp đã nhận (trạng thái: " + ks + ")"
+            );
+        }
+
+        // Dùng remove() để orphanRemoval=true kích hoạt đúng cách
+        items.remove(targetItem);
+
+        // Nếu đơn không còn món nào → tự động hủy đơn để tránh để lại đơn rỗng
+        if (items.isEmpty()) {
+            order.setStatus("CANCELLED");
+            order.recalculateTotal();
+            Order saved = orderRepository.save(order);
+            sendNotification(
+                    "Đơn hàng đã hủy",
+                    "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " đã bị hủy (xóa hết món).",
+                    "warning",
+                    "ALL"
+            );
+            // Giải phóng bàn nếu không còn đơn PENDING/CONFIRMED nào khác
+            if (order.getTableId() != null && token != null) {
+                long activeCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
+                if (activeCount == 0) {
+                    try {
+                        String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                        tableFeignClient.assignOrder(
+                                UUID.fromString(order.getTableId()),
+                                Map.of("orderId", ""),
+                                authToken,
+                                "server-1"
+                        );
+                    } catch (Exception e) {
+                        System.err.println("Lỗi giải phóng bàn sau khi xóa hết món: " + e.getMessage());
+                    }
+                }
+            }
+            return OrderResponse.from(saved);
+        }
+
         order.recalculateTotal();
         Order saved = orderRepository.save(order);
         sendNotification(
@@ -218,22 +266,6 @@ public class OrderService {
         }
 
         if (("COMPLETED".equals(status) || "CANCELLED".equals(status)) && token != null) {
-            if ("COMPLETED".equals(status)) {
-                try {
-                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-                    List<Map<String, Object>> items = order.getItems().stream()
-                            .map(i -> Map.<String, Object>of(
-                                    "menuItemId", i.getMenuItemId().toString(),
-                                    "quantity", i.getQuantity()
-                            ))
-                            .collect(Collectors.toList());
-                    System.out.println(">>> [SYNC]: Gọi catalog-service (Feign) khấu trừ kho cho đơn hàng " + orderId);
-                    catalogFeignClient.deductStock(Map.of("items", items), authToken);
-                } catch (Exception e) {
-                    System.err.println("Lỗi khi khấu trừ kho hàng (Feign): " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
             if (order.getTableId() != null) {
                 long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
                 if (activeOrdersCount == 0) {
@@ -243,7 +275,6 @@ public class OrderService {
                         headers.set("Authorization", authToken);
                         headers.set("X-Server", "server-1");
                         
-                        System.out.println(">>> [SYNC]: Gọi table-service (Feign) giải phóng bàn " + order.getTableId());
                         tableFeignClient.assignOrder(
                                 UUID.fromString(order.getTableId()),
                                 Map.of("orderId", ""),
@@ -294,7 +325,6 @@ public class OrderService {
                     headers.set("Authorization", authToken);
                     headers.set("X-Server", "server-1");
                     
-                    System.out.println(">>> [SYNC]: Gọi table-service (Feign) giải phóng bàn (hủy đơn) " + order.getTableId());
                     tableFeignClient.assignOrder(
                             UUID.fromString(order.getTableId()),
                             Map.of("orderId", ""),
@@ -310,10 +340,33 @@ public class OrderService {
 
     // ===== CẬP NHẬT TRẠNG THÁI BẾP =====
     @Transactional
-    public void updateKitchenStatus(UUID itemId, String kitchenStatus) {
+    public void updateKitchenStatus(UUID itemId, String kitchenStatus, String token) {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
         item.setKitchenStatus(kitchenStatus);
+
+        if ("COOKING".equals(kitchenStatus) && !item.isStockDeducted()) {
+            if (token != null) {
+                try {
+                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                    List<Map<String, Object>> items = List.of(Map.of(
+                            "menuItemId", item.getMenuItemId(),
+                            "quantity", item.getQuantity()
+                    ));
+                    catalogFeignClient.deductStock(Map.of("items", items), authToken);
+                    item.setStockDeducted(true);
+                } catch (Exception e) {
+                    System.err.println("Lỗi khi khấu trừ kho hàng khi xác nhận nấu (Feign): " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.err.println(">>> [WARNING]: Không có Authorization token để gọi catalog-service khấu trừ kho.");
+            }
+        }
+
+        // Ép lưu xuống database
+        orderItemRepository.save(item);
+        orderItemRepository.flush();
 
         Order order = item.getOrder();
         String displayStatus = "PENDING".equals(kitchenStatus) ? "chờ chế biến" : 
@@ -329,18 +382,19 @@ public class OrderService {
     }
 
     private void sendNotification(String title, String message, String type, String role) {
-        try {
-            java.util.Map<String, Object> payload = new java.util.HashMap<>();
-            payload.put("title", title);
-            payload.put("message", message);
-            payload.put("type", type);
-            payload.put("recipientRole", role);
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                java.util.Map<String, Object> payload = new java.util.HashMap<>();
+                payload.put("title", title);
+                payload.put("message", message);
+                payload.put("type", type);
+                payload.put("recipientRole", role);
 
-            kafkaTemplate.send("notifications-topic", payload);
-            System.out.println(">>> [KAFKA]: Đã gửi thông báo '" + title + "' thành công qua Kafka.");
-        } catch (Exception e) {
-            System.err.println("Lỗi gửi thông báo qua Kafka: " + e.getMessage());
-        }
+                kafkaTemplate.send("notifications-topic", payload).get(3, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo qua Kafka (có thể Kafka chưa chạy): " + e.getMessage());
+            }
+        });
     }
 
     private boolean isSameNote(String note1, String note2) {

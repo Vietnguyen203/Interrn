@@ -64,6 +64,9 @@ class SystemMenuDialog private constructor(
         view.findViewById<View>(R.id.menuViewKitchen)?.setOnClickListener {
             onSelect("KITCHEN"); dismiss()
         }
+        view.findViewById<View>(R.id.menuViewInventory)?.setOnClickListener {
+            onSelect("INVENTORY"); dismiss()
+        }
 
         // --- Role based visibility ---
         when (userRole) {
@@ -75,6 +78,7 @@ class SystemMenuDialog private constructor(
                 view.findViewById<View>(R.id.menuViewOrderManagement)?.visibility = View.GONE
                 view.findViewById<View>(R.id.menuViewReport)?.visibility = View.GONE
                 view.findViewById<View>(R.id.menuViewKitchen)?.visibility = View.VISIBLE
+                view.findViewById<View>(R.id.menuViewInventory)?.visibility = View.GONE
             }
             com.food.order.data.Role.WAITER -> {
                 view.findViewById<View>(R.id.menuViewDashboard)?.visibility = View.VISIBLE
@@ -84,6 +88,7 @@ class SystemMenuDialog private constructor(
                 view.findViewById<View>(R.id.menuViewOrderManagement)?.visibility = View.GONE
                 view.findViewById<View>(R.id.menuViewReport)?.visibility = View.GONE
                 view.findViewById<View>(R.id.menuViewKitchen)?.visibility = View.GONE
+                view.findViewById<View>(R.id.menuViewInventory)?.visibility = View.GONE
             }
             com.food.order.data.Role.ADMIN -> {
                 // ADMIN sees everything

@@ -11,4 +11,6 @@
     <color name="status_ordering">#FFC107</color>   <!-- vàng -->
     <color name="status_cancelled">#F44336</color>  <!-- đỏ -->
     <color name="status_completed">#4CAF50</color>  <!-- xanh -->
+    <color name="colorPrimary">#11117F</color>
+    <color name="gray">#9E9E9E</color>
 </resources>
