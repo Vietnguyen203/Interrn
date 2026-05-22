@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="202605191600-create-ingredients" author="vietnl">
+        <createTable tableName="ingredients">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_stock" type="DECIMAL(15,4)" defaultValueNumeric="0.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_stock" type="DECIMAL(15,4)" defaultValueNumeric="0.0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+        <rollback>
+            <dropTable tableName="ingredients"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="202605191600-create-recipes" author="antigravity">
+        <createTable tableName="recipes">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="menu_item_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ingredient_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity_needed" type="DECIMAL(15,4)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="recipes" baseColumnNames="menu_item_id"
+                                 constraintName="fk_recipes_menu_item"
+                                 referencedTableName="menu-items" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="recipes" baseColumnNames="ingredient_id"
+                                 constraintName="fk_recipes_ingredient"
+                                 referencedTableName="ingredients" referencedColumnNames="id"/>
+        <rollback>
+            <dropTable tableName="recipes"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="202605191600-create-inventory-transactions" author="antigravity">
+        <createTable tableName="inventory_transactions">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="ingredient_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="DECIMAL(15,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="price" type="DECIMAL(15,2)"/>
+            <column name="reason" type="VARCHAR(255)"/>
+            <column name="created_at" type="TIMESTAMP"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="inventory_transactions" baseColumnNames="ingredient_id"
+                                 constraintName="fk_inv_trans_ingredient"
+                                 referencedTableName="ingredients" referencedColumnNames="id"/>
+        <rollback>
+            <dropTable tableName="inventory_transactions"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

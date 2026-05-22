@@ -26,9 +26,12 @@ public class SecurityConfig {
                         // GET categories & items: công khai (menu nhà hàng không cần đăng nhập để xem)
                         .requestMatchers(HttpMethod.GET, "/catalog-service/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/catalog-service/items/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/catalog-service/uploads/**").permitAll()
 
-                        // Bếp được phép đề xuất món mới
+                        // Bếp được phép đề xuất món mới và đề xuất sửa công thức
                         .requestMatchers(HttpMethod.POST, "/catalog-service/items/propose").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/catalog-service/items/upload").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/catalog-service/items/*/propose-recipe").hasAnyRole("KITCHEN", "CHEF", "ADMIN")
 
                         // Chỉ ADMIN mới được duyệt/từ chối/tạo/sửa/xóa
                         .requestMatchers(HttpMethod.POST, "/catalog-service/**").hasRole("ADMIN")

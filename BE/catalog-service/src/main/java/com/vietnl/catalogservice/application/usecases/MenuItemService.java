@@ -148,4 +148,29 @@ public class MenuItemService {
         item.setUpdatedAt(LocalDateTime.now());
         return menuItemRepository.save(item);
     }
+
+    public MenuItem proposeRecipe(String id, String newRecipe) {
+        MenuItem item = getById(id);
+        item.setPendingRecipe(newRecipe);
+        item.setUpdatedAt(LocalDateTime.now());
+        return menuItemRepository.save(item);
+    }
+
+    public MenuItem approveRecipe(String id) {
+        MenuItem item = getById(id);
+        if (item.getPendingRecipe() == null) {
+            throw new RuntimeException("Không có đề xuất chỉnh sửa công thức nào.");
+        }
+        item.setRecipe(item.getPendingRecipe());
+        item.setPendingRecipe(null);
+        item.setUpdatedAt(LocalDateTime.now());
+        return menuItemRepository.save(item);
+    }
+
+    public MenuItem rejectRecipe(String id) {
+        MenuItem item = getById(id);
+        item.setPendingRecipe(null);
+        item.setUpdatedAt(LocalDateTime.now());
+        return menuItemRepository.save(item);
+    }
 }

@@ -140,6 +140,36 @@ export const apiService = {
         proposeItem: (data) => catalogFetch('POST', '/catalog-service/items/propose', data),
         approveItem: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/approve`),
         rejectItem: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/reject`),
+        proposeRecipe: (id, recipe) => catalogFetch('PUT', `/catalog-service/items/${id}/propose-recipe`, { recipe }),
+        approveRecipe: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/approve-recipe`),
+        rejectRecipe: (id) => catalogFetch('PUT', `/catalog-service/items/${id}/reject-recipe`),
+        uploadImage: async (file) => {
+            const token = getToken();
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch(`/catalog/catalog-service/items/upload`, {
+                method: 'POST',
+                headers: {
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: formData // browser sets correct content-type
+            });
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
+            if (!response.ok) throw new Error(data.message || `Upload error: ${response.status}`);
+            return data;
+        },
+
+        // Inventory Management
+        getIngredients: () => catalogFetch('GET', '/catalog-service/inventory/ingredients'),
+        createIngredient: (data) => catalogFetch('POST', '/catalog-service/inventory/ingredients', data),
+        updateIngredient: (id, data) => catalogFetch('PUT', `/catalog-service/inventory/ingredients/${id}`, data),
+        deleteIngredient: (id) => catalogFetch('DELETE', `/catalog-service/inventory/ingredients/${id}`),
+        importStock: (data) => catalogFetch('POST', '/catalog-service/inventory/transactions/import', data),
+        exportStock: (data) => catalogFetch('POST', '/catalog-service/inventory/transactions/export', data),
+        getTransactions: () => catalogFetch('GET', '/catalog-service/inventory/transactions'),
+        getRecipes: (menuItemId) => catalogFetch('GET', `/catalog-service/inventory/recipes/${menuItemId}`),
+        updateRecipes: (menuItemId, data) => catalogFetch('POST', `/catalog-service/inventory/recipes/${menuItemId}`, data),
     },
 
     // ===== ORDER SERVICE (port 8082 via /order proxy) =====

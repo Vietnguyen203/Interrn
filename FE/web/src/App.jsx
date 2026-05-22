@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, Utensils, ClipboardList, Settings, LogOut, Menu, X, Plus,
   User as UserIcon, Calendar, BarChart as BarChartIcon, TrendingUp, PieChart as PieChartIcon,
-  Search, Download, Trash2, Edit, Bell, Filter, CheckCircle, XCircle, Info, RefreshCw, AlertCircle, QrCode
+  Search, Download, Trash2, Edit, Bell, Filter, CheckCircle, XCircle, Info, RefreshCw, AlertCircle, QrCode,
+  Package, Archive, FileText, Check, Upload
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -506,6 +507,16 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // State to force re-render for time-dependent displays (like waiting times)
+  const [timeTicker, setTimeTicker] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeTicker(Date.now());
+    }, 15000); // Ticks every 15 seconds to keep waiting times updated
+    return () => clearInterval(timer);
+  }, []);
+
   // ===== NICE-TO-HAVE FEATURES =====
   // 1) Dark Mode
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
@@ -521,7 +532,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       // Nav
       overview: 'Tổng quan', orders: 'Đơn hàng', tables: 'Lịch Sử',
       kitchen: 'Bếp', menu: 'Thực đơn', staff: 'Nhân viên',
-      reports: 'Báo cáo', settings: 'Cài đặt',
+      reports: 'Báo cáo', settings: 'Cài đặt', inventory: 'Quản lý kho',
       // Settings toggles
       logout: 'Đăng xuất', darkMode: 'Giao diện tối', soundNotif: 'Âm thanh TB', language: 'Ngôn ngữ',
       // Common buttons
@@ -591,7 +602,7 @@ const DashboardScreen = ({ user, onLogout }) => {
       // Nav
       overview: 'Overview', orders: 'Orders', tables: 'Tables',
       kitchen: 'Kitchen', menu: 'Menu & Food', staff: 'Staff',
-      reports: 'Reports', settings: 'Settings',
+      reports: 'Reports', settings: 'Settings', inventory: 'Inventory',
       // Settings toggles
       logout: 'Logout', darkMode: 'Dark Mode', soundNotif: 'Sound Alert', language: 'Language',
       // Common buttons
@@ -699,6 +710,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // Modal States
   const [isFoodModalOpen, setIsFoodModalOpen] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [editingFood, setEditingFood] = useState(null);
   const [foodFormData, setFoodFormData] = useState({
     code: '', foodName: '', price: '', categoryId: '', imageUrl: '', options: ''
@@ -751,8 +763,88 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
   const [loadingConfig, setLoadingConfig] = useState({
-    overview: true, orders: false, foods: false, staff: false, tables: false
+    overview: true, orders: false, foods: false, staff: false, tables: false, inventory: false
   });
+
+  // Inventory States
+  const [ingredients, setIngredients] = useState([]);
+  const [inventoryTransactions, setInventoryTransactions] = useState([]);
+  const [inventoryTab, setInventoryTab] = useState('ingredients'); // 'ingredients' | 'recipes' | 'transactions'
+  const [selectedMenuItemForRecipe, setSelectedMenuItemForRecipe] = useState(null);
+  const [recipeItems, setRecipeItems] = useState([]); // [{ ingredientId: '', quantityNeeded: 0 }]
+  const [showIngredientModal, setShowIngredientModal] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState(null);
+
+  // Kitchen view recipe modal states
+  const [isViewRecipeModalOpen, setIsViewRecipeModalOpen] = useState(false);
+  const [viewingFoodItem, setViewingFoodItem] = useState(null);
+  const [viewingRecipeIngredients, setViewingRecipeIngredients] = useState([]);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+
+  const [isEditingRecipeText, setIsEditingRecipeText] = useState(false);
+  const [pendingRecipeText, setPendingRecipeText] = useState('');
+  const [isSubmittingRecipeProposal, setIsSubmittingRecipeProposal] = useState(false);
+
+  const handleOpenViewRecipeModal = async (food) => {
+    setViewingFoodItem(food);
+    setIsViewRecipeModalOpen(true);
+    setLoadingRecipe(true);
+    setViewingRecipeIngredients([]);
+    setIsEditingRecipeText(false);
+    setPendingRecipeText(food.pendingRecipe || food.recipe || '');
+    try {
+      const res = await apiService.catalog.getRecipes(food.id);
+      setViewingRecipeIngredients(res.data || []);
+    } catch (err) {
+      toast.error('Lỗi tải nguyên liệu định lượng: ' + err.message);
+    } finally {
+      setLoadingRecipe(false);
+    }
+  };
+
+  const handleProposeRecipeUpdate = async () => {
+    if (!pendingRecipeText || pendingRecipeText.trim() === '') {
+      toast.error('Vui lòng nhập công thức chế biến mới');
+      return;
+    }
+    setIsSubmittingRecipeProposal(true);
+    try {
+      await apiService.catalog.proposeRecipe(viewingFoodItem.id, pendingRecipeText);
+      toast.success('Đã gửi đề xuất cập nhật công thức thành công, đang chờ Admin duyệt!');
+      setIsEditingRecipeText(false);
+      await fetchFoodsData();
+      setIsViewRecipeModalOpen(false);
+    } catch (err) {
+      toast.error('Lỗi khi gửi đề xuất: ' + err.message);
+    } finally {
+      setIsSubmittingRecipeProposal(false);
+    }
+  };
+
+  const handleApproveRecipeProposal = async (foodId) => {
+    try {
+      await apiService.catalog.approveRecipe(foodId);
+      toast.success('Duyệt công thức mới thành công!');
+      await fetchFoodsData();
+    } catch (err) {
+      toast.error('Lỗi khi duyệt công thức: ' + err.message);
+    }
+  };
+
+  const handleRejectRecipeProposal = async (foodId) => {
+    try {
+      await apiService.catalog.rejectRecipe(foodId);
+      toast.success('Đã từ chối đề xuất cập nhật công thức.');
+      await fetchFoodsData();
+    } catch (err) {
+      toast.error('Lỗi khi từ chối đề xuất: ' + err.message);
+    }
+  };
+  const [ingredientForm, setIngredientForm] = useState({ name: '', unit: '', minStock: '' });
+  const [showStockTransactionModal, setShowStockTransactionModal] = useState(false);
+  const [stockTxType, setStockTxType] = useState('IMPORT'); // 'IMPORT' | 'EXPORT_WASTE'
+  const [stockTxForm, setStockTxForm] = useState({ ingredientId: '', quantity: '', price: '', reason: '' });
+  const [searchIngredientQuery, setSearchIngredientQuery] = useState('');
 
   // WebSocket Connection for Real-time Tables
   useEffect(() => {
@@ -824,8 +916,9 @@ const DashboardScreen = ({ user, onLogout }) => {
     { icon: <ClipboardList size={20} />,  label: 'Orders',     display: t.orders,    roles: ['ADMIN', 'WAITER'] },
     { icon: <LayoutDashboard size={20} />,label: 'Tables',     display: t.tables,    roles: ['ADMIN', 'WAITER'] },
     { icon: <Utensils size={20} />,       label: 'Kitchen',    display: t.kitchen,   roles: ['ADMIN', 'KITCHEN'] },
-    { icon: <Utensils size={20} />,       label: 'Menu & Food',display: t.menu,      roles: ['ADMIN'] },
+    { icon: <Utensils size={20} />,       label: 'Menu & Food',display: t.menu,      roles: ['ADMIN', 'KITCHEN'] },
     { icon: <Users size={20} />,          label: 'Staff',      display: t.staff,     roles: ['ADMIN'] },
+    { icon: <Package size={20} />,        label: 'Inventory',  display: t.inventory, roles: ['ADMIN'] },
     { icon: <PieChartIcon size={20} />,   label: 'Reports',    display: t.reports,   roles: ['ADMIN'] },
     { icon: <Settings size={20} />,       label: 'Settings',   display: t.settings,  roles: ['ADMIN', 'WAITER', 'KITCHEN'] },
   ];
@@ -850,6 +943,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     else if (activeTab === 'Staff') fetchStaffData();
     else if (activeTab === 'Kitchen') fetchKitchenData();
     else if (activeTab === 'Reports') fetchReportData();
+    else if (activeTab === 'Inventory') fetchInventoryData();
   }, [activeTab]);
 
   const [reportData, setReportData] = useState([]);
@@ -1033,10 +1127,10 @@ const DashboardScreen = ({ user, onLogout }) => {
     if (manualNote) finalNote += (finalNote ? " | " : "") + "Ghi chú: " + manualNote;
 
     setCartItems(prev => {
-      const existing = prev.find(item => item.menuItemId === selectedFoodForOrder.id);
+      const existing = prev.find(item => item.menuItemId === selectedFoodForOrder.id && (item.note || '') === (finalNote || ''));
       if (existing) {
-        return prev.map(item => item.menuItemId === selectedFoodForOrder.id 
-          ? { ...item, quantity: item.quantity + orderQuantity, note: finalNote || item.note } 
+        return prev.map(item => (item.menuItemId === selectedFoodForOrder.id && (item.note || '') === (finalNote || ''))
+          ? { ...item, quantity: item.quantity + orderQuantity } 
           : item);
       }
       return [...prev, { 
@@ -1051,18 +1145,18 @@ const DashboardScreen = ({ user, onLogout }) => {
     setSelectedFoodForOrder(null);
   };
 
-  const handleUpdateCartItem = (menuItemId, delta, note = undefined) => {
+  const handleUpdateCartItem = (menuItemId, currentNote, delta, newNote = undefined) => {
     setCartItems(prev => prev.map(item => {
-      if (item.menuItemId !== menuItemId) return item;
+      if (item.menuItemId !== menuItemId || (item.note || '') !== (currentNote || '')) return item;
       const updated = { ...item };
       if (delta !== 0) updated.quantity = Math.max(1, updated.quantity + delta);
-      if (note !== undefined) updated.note = note;
+      if (newNote !== undefined) updated.note = newNote;
       return updated;
     }));
   };
 
-  const handleRemoveFromCart = (menuItemId) => {
-    setCartItems(prev => prev.filter(item => item.menuItemId !== menuItemId));
+  const handleRemoveFromCart = (menuItemId, note) => {
+    setCartItems(prev => prev.filter(item => !(item.menuItemId === menuItemId && (item.note || '') === (note || ''))));
   };
 
   const handleSubmitOrder = async () => {
@@ -1183,12 +1277,14 @@ const DashboardScreen = ({ user, onLogout }) => {
   const fetchFoodsData = async () => {
     setLoadingConfig(prev => ({ ...prev, foods: true }));
     try {
-      const [itemsRes, catsRes] = await Promise.all([
+      const [itemsRes, catsRes, ingRes] = await Promise.all([
         apiService.catalog.getItems(),
         apiService.catalog.getCategories(),
+        apiService.catalog.getIngredients(),
       ]);
       if (itemsRes.data) setFoods(itemsRes.data);
       if (catsRes.data) setCategories(catsRes.data);
+      if (ingRes.data) setIngredients(ingRes.data || []);
     } catch (error) { toast.error('Không thể tải thực đơn: ' + error.message); }
     finally { setLoadingConfig(prev => ({ ...prev, foods: false })); }
   };
@@ -1214,6 +1310,97 @@ const DashboardScreen = ({ user, onLogout }) => {
       toast.error('Không thể tải danh sách bàn: ' + error.message);
     } finally {
       setLoadingConfig(prev => ({ ...prev, tables: false }));
+    }
+  };
+
+  const fetchInventoryData = async () => {
+    setLoadingConfig(prev => ({ ...prev, inventory: true }));
+    try {
+      const ingRes = await apiService.catalog.getIngredients();
+      setIngredients(ingRes.data || []);
+      const txRes = await apiService.catalog.getTransactions();
+      setInventoryTransactions(txRes.data || []);
+    } catch (error) {
+      toast.error('Lỗi tải dữ liệu kho: ' + error.message);
+    } finally {
+      setLoadingConfig(prev => ({ ...prev, inventory: false }));
+    }
+  };
+
+  const handleSaveIngredient = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingIngredient) {
+        await apiService.catalog.updateIngredient(editingIngredient.id, ingredientForm);
+        toast.success('Cập nhật nguyên liệu thành công');
+      } else {
+        await apiService.catalog.createIngredient(ingredientForm);
+        toast.success('Thêm nguyên liệu thành công');
+      }
+      setShowIngredientModal(false);
+      setEditingIngredient(null);
+      setIngredientForm({ name: '', unit: '', minStock: '' });
+      fetchInventoryData();
+    } catch (err) {
+      toast.error('Lỗi lưu nguyên liệu: ' + err.message);
+    }
+  };
+
+  const handleDeleteIngredient = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa nguyên liệu này?')) return;
+    try {
+      await apiService.catalog.deleteIngredient(id);
+      toast.success('Đã xóa nguyên liệu');
+      fetchInventoryData();
+    } catch (err) {
+      toast.error('Lỗi xóa nguyên liệu: ' + err.message);
+    }
+  };
+
+  const handleSaveTransaction = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ingredientId: stockTxForm.ingredientId,
+        quantity: parseFloat(stockTxForm.quantity),
+        price: stockTxType === 'IMPORT' ? parseFloat(stockTxForm.price || 0) : 0,
+        reason: stockTxForm.reason
+      };
+      if (stockTxType === 'IMPORT') {
+        await apiService.catalog.importStock(payload);
+        toast.success('Nhập kho thành công');
+      } else {
+        await apiService.catalog.exportStock(payload);
+        toast.success('Xuất hủy kho thành công');
+      }
+      setShowStockTransactionModal(false);
+      setStockTxForm({ ingredientId: '', quantity: '', price: '', reason: '' });
+      fetchInventoryData();
+    } catch (err) {
+      toast.error('Lỗi giao dịch: ' + err.message);
+    }
+  };
+
+  const handleSelectMenuItemForRecipe = async (menuItem) => {
+    setSelectedMenuItemForRecipe(menuItem);
+    try {
+      const res = await apiService.catalog.getRecipes(menuItem.id);
+      setRecipeItems(res.data.map(item => ({
+        ingredientId: item.ingredientId,
+        quantityNeeded: item.quantityNeeded
+      })) || []);
+    } catch (err) {
+      toast.error('Lỗi tải công thức định lượng: ' + err.message);
+    }
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!selectedMenuItemForRecipe) return;
+    try {
+      await apiService.catalog.updateRecipes(selectedMenuItemForRecipe.id, recipeItems);
+      toast.success('Lưu công thức định lượng thành công');
+    } catch (err) {
+      toast.error('Lỗi lưu công thức định lượng: ' + err.message);
     }
   };
 
@@ -1481,6 +1668,44 @@ const DashboardScreen = ({ user, onLogout }) => {
       setFoodFormData({ code: '', foodName: '', price: '', categoryId: categories[0]?.id || '', imageUrl: '', options: '' });
     }
     setIsFoodModalOpen(true);
+  };
+
+  const handleFoodImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsUploadingImage(true);
+    try {
+      const res = await apiService.catalog.uploadImage(file);
+      if (res.url) {
+        setFoodFormData(prev => ({ ...prev, imageUrl: res.url }));
+        toast.success('Tải ảnh lên thành công!');
+      } else {
+        toast.error('Không nhận được URL ảnh từ máy chủ');
+      }
+    } catch (err) {
+      toast.error('Lỗi tải ảnh lên: ' + err.message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleProposeFoodImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsUploadingImage(true);
+    try {
+      const res = await apiService.catalog.uploadImage(file);
+      if (res.url) {
+        setProposeFoodFormData(prev => ({ ...prev, imageUrl: res.url }));
+        toast.success('Tải ảnh lên thành công!');
+      } else {
+        toast.error('Không nhận được URL ảnh từ máy chủ');
+      }
+    } catch (err) {
+      toast.error('Lỗi tải ảnh lên: ' + err.message);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSaveFood = async (e) => {
@@ -1891,7 +2116,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                                           <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
                                           <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748B' }}>
                                             ⏱️ {(() => {
-                                              const waited = Math.floor((new Date() - new Date(item.createdAt)) / 60000);
+                                              const waited = Math.floor((timeTicker - new Date(item.createdAt).getTime()) / 60000);
                                               return waited > 0 ? `${waited} phút` : 'Vừa xong';
                                             })()}
                                           </span>
@@ -2154,10 +2379,57 @@ const DashboardScreen = ({ user, onLogout }) => {
                               <strong>Công thức:</strong><br />
                               {item.recipe || 'Không có công thức'}
                             </div>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button onClick={() => handleApproveProposal(item.id)} className="btn btn-primary" style={{ flex: 1, padding: '6px', fontSize: '13px', backgroundColor: '#10B981', borderColor: '#10B981' }}>✓ Duyệt</button>
-                              <button onClick={() => handleRejectProposal(item.id)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '13px', color: '#EF4444', borderColor: '#EF4444' }}>✕ Từ chối</button>
+                            {user?.role === 'ADMIN' ? (
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => handleApproveProposal(item.id)} className="btn btn-primary" style={{ flex: 1, padding: '6px', fontSize: '13px', backgroundColor: '#10B981', borderColor: '#10B981' }}>✓ Duyệt</button>
+                                <button onClick={() => handleRejectProposal(item.id)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '13px', color: '#EF4444', borderColor: '#EF4444' }}>✕ Từ chối</button>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#F59E0B', textAlign: 'center', backgroundColor: '#FFFBEB', padding: '6px', borderRadius: '6px' }}>
+                                ⏳ Đang chờ Admin duyệt
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Đề xuất sửa công thức món ăn */}
+                  <div style={{ marginBottom: '40px' }}>
+                    <h3 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 16px', color: '#1D4ED8' }}>📝 Đề xuất sửa đổi công thức</h3>
+                    {foods.filter(f => f.pendingRecipe && f.pendingRecipe.trim() !== '').length === 0 ? (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Không có đề xuất sửa đổi công thức nào đang chờ duyệt.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                        {foods.filter(f => f.pendingRecipe && f.pendingRecipe.trim() !== '').map(item => (
+                          <div key={item.id} className="card" style={{ padding: '16px', borderLeft: '4px solid #3B82F6' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <h4 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: '700' }}>{item.foodName}</h4>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 8px' }}>Mã: {item.code} | Danh mục: {categories.find(c => c.id === item.categoryId)?.name}</p>
+                              </div>
                             </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', marginBottom: '16px' }}>
+                              <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                                <strong style={{ color: 'var(--text-secondary)' }}>Công thức hiện tại:</strong>
+                                <div style={{ marginTop: '4px', whiteSpace: 'pre-wrap' }}>{item.recipe || '(Trống)'}</div>
+                              </div>
+                              <div style={{ backgroundColor: '#EFF6FF', padding: '10px', borderRadius: '6px', border: '1px solid #BFDBFE' }}>
+                                <strong style={{ color: '#1E40AF' }}>Công thức đề xuất mới:</strong>
+                                <div style={{ marginTop: '4px', whiteSpace: 'pre-wrap', fontWeight: '500', color: '#1E3A8A' }}>{item.pendingRecipe}</div>
+                              </div>
+                            </div>
+                            {user?.role === 'ADMIN' ? (
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button onClick={() => handleApproveRecipeProposal(item.id)} className="btn btn-primary" style={{ flex: 1, padding: '6px', fontSize: '13px', backgroundColor: '#10B981', borderColor: '#10B981' }}>✓ Duyệt</button>
+                                <button onClick={() => handleRejectRecipeProposal(item.id)} className="btn btn-outline" style={{ flex: 1, padding: '6px', fontSize: '13px', color: '#EF4444', borderColor: '#EF4444' }}>✕ Từ chối</button>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#3B82F6', textAlign: 'center', backgroundColor: '#EFF6FF', padding: '6px', borderRadius: '6px' }}>
+                                ⏳ Đang chờ Admin duyệt công thức mới
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2168,9 +2440,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <h3 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>📂 Danh mục thực đơn</h3>
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Chọn danh mục để xem và quản lý món ăn</p>
                     </div>
-                    <button onClick={() => handleOpenCategoryModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Plus size={16} /> Thêm Danh Mục
-                    </button>
+                    {user?.role === 'ADMIN' && (
+                      <button onClick={() => handleOpenCategoryModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Plus size={16} /> Thêm Danh Mục
+                      </button>
+                    )}
                   </div>
 
                   {categories.length === 0 ? (
@@ -2197,10 +2471,12 @@ const DashboardScreen = ({ user, onLogout }) => {
                               <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)', background: 'var(--primary-light)', padding: '4px 10px', borderRadius: '20px' }}>
                                 {foods.filter(f => f.categoryId === cat.id).length} món
                               </span>
-                              <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
-                                <button onClick={() => handleOpenCategoryModal(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}><Settings size={15} /></button>
-                                <button onClick={() => handleDeleteCategory(cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }}><LogOut size={15} /></button>
-                              </div>
+                              {user?.role === 'ADMIN' && (
+                                <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                                  <button onClick={() => handleOpenCategoryModal(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}><Settings size={15} /></button>
+                                  <button onClick={() => handleDeleteCategory(cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px' }}><LogOut size={15} /></button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2223,9 +2499,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>#{selectedCategory.code}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Plus size={16} /> Thêm Món
-                    </button>
+                    {user?.role === 'ADMIN' && (
+                      <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Plus size={16} /> Thêm Món
+                      </button>
+                    )}
                   </div>
 
                   {(() => {
@@ -2234,7 +2512,9 @@ const DashboardScreen = ({ user, onLogout }) => {
                       <div className="card" style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         <p style={{ fontSize: '48px', margin: '0 0 16px' }}>🍽️</p>
                         <p style={{ fontWeight: '600' }}>Danh mục này chưa có món ăn nào.</p>
-                        <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ marginTop: '16px' }}>+ Thêm món đầu tiên</button>
+                        {user?.role === 'ADMIN' && (
+                          <button onClick={() => handleOpenFoodModal()} className="btn btn-primary" style={{ marginTop: '16px' }}>+ Thêm món đầu tiên</button>
+                        )}
                       </div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
@@ -2266,14 +2546,39 @@ const DashboardScreen = ({ user, onLogout }) => {
                             <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                               <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>{food.foodName}</h4>
                               <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>#{food.code}</p>
+                              <button 
+                                onClick={() => handleOpenViewRecipeModal(food)}
+                                style={{ 
+                                  alignSelf: 'flex-start',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: 'var(--primary-light)',
+                                  color: 'var(--primary)',
+                                  border: 'none',
+                                  padding: '4px 10px',
+                                  borderRadius: '20px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  marginTop: '4px',
+                                  transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
+                              >
+                                📖 Xem công thức
+                              </button>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
                                 <p style={{ fontSize: '17px', fontWeight: '700', color: 'var(--status-ordering)', margin: 0 }}>
                                   {Number(food.price).toLocaleString('vi-VN')}<span style={{ fontSize: '12px', fontWeight: '400', color: 'var(--text-secondary)' }}> đ</span>
                                 </p>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                  <button onClick={() => handleOpenFoodModal(food)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Settings size={15} /></button>
-                                  <button onClick={() => handleDeleteFood(food.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }}><LogOut size={15} /></button>
-                                </div>
+                                {user?.role === 'ADMIN' && (
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={() => handleOpenFoodModal(food)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><Settings size={15} /></button>
+                                    <button onClick={() => handleDeleteFood(food.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }}><LogOut size={15} /></button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2322,14 +2627,34 @@ const DashboardScreen = ({ user, onLogout }) => {
                         />
                       </div>
                       <div className="input-group">
-                        <label>🖼️ URL Hình ảnh trực tiếp (tuỳ chọn)</label>
-                        <input
-                          type="text"
-                          value={foodFormData.imageUrl || ''}
-                          onChange={e => setFoodFormData({ ...foodFormData, imageUrl: e.target.value })}
-                          className="input-field"
-                          placeholder="https://example.com/food.jpg  ← phải là link trực tiếp đến file .jpg/.png/.webp"
-                        />
+                        <label>🖼️ Hình ảnh món ăn</label>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                          <input
+                            type="text"
+                            value={foodFormData.imageUrl || ''}
+                            onChange={e => setFoodFormData({ ...foodFormData, imageUrl: e.target.value })}
+                            className="input-field"
+                            placeholder="Nhập URL ảnh hoặc bấm chọn tải lên..."
+                            style={{ flex: 1, margin: 0 }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', padding: '0 16px', height: '42px', margin: 0 }}
+                            onClick={() => document.getElementById('food-image-file').click()}
+                            disabled={isUploadingImage}
+                          >
+                            {isUploadingImage ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                            {isUploadingImage ? 'Đang tải...' : 'Tải lên'}
+                          </button>
+                          <input
+                            id="food-image-file"
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={handleFoodImageUpload}
+                          />
+                        </div>
                         {foodFormData.imageUrl && (
                           <div style={{ marginTop: '10px', borderRadius: '10px', overflow: 'hidden', height: '140px', background: '#f1f5f9', position: 'relative' }}>
                             <img
@@ -2344,15 +2669,15 @@ const DashboardScreen = ({ user, onLogout }) => {
                               height: '100%', gap: '6px', color: '#ef4444', fontSize: '13px'
                             }}>
                               <span style={{ fontSize: '24px' }}>⚠️</span>
-                              <span style={{ fontWeight: '600' }}>URL không hợp lệ hoặc bị chặn</span>
+                              <span style={{ fontWeight: '600' }}>Không thể hiển thị ảnh (kiểm tra lại URL)</span>
                               <span style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', padding: '0 16px' }}>
-                                Cần URL kết thúc bằng .jpg / .png / .webp và không bị chặn cross-origin
+                                URL cần hoạt động và không bị chặn cross-origin
                               </span>
                             </div>
                           </div>
                         )}
                         <p style={{ fontSize: '11px', color: '#94a3b8', margin: '6px 0 0' }}>
-                          💡 Tip: Click chuột phải vào ảnh trên Google → "Sao chép địa chỉ hình ảnh" để lấy URL trực tiếp
+                          💡 Tip: Bạn có thể chọn file ảnh từ máy tính hoặc dán URL ảnh trực tiếp từ Google.
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
@@ -2387,6 +2712,153 @@ const DashboardScreen = ({ user, onLogout }) => {
                         <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Lưu Danh Mục</button>
                       </div>
                     </form>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Modal Xem Công Thức Chi Tiết (Cho bếp/admin xem) */}
+              {isViewRecipeModalOpen && viewingFoodItem && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '550px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                      <div>
+                        <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>📖 Công thức & Định lượng</h2>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Xem chi tiết cách chế biến và nguyên liệu của món ăn</p>
+                      </div>
+                      <button onClick={() => setIsViewRecipeModalOpen(false)} style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={18} /></button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Dish Details Card */}
+                      <div style={{ display: 'flex', gap: '16px', backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-app)', flexShrink: 0 }}>
+                          {viewingFoodItem.imageUrl ? (
+                            <img src={viewingFoodItem.imageUrl} alt={viewingFoodItem.foodName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '24px', fontWeight: '800' }}>
+                              {viewingFoodItem.foodName?.charAt(0)?.toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1E293B', margin: '0 0 4px' }}>{viewingFoodItem.foodName}</h3>
+                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>Mã món: <strong style={{ color: '#0F172A' }}>{viewingFoodItem.code}</strong></p>
+                          <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--primary)', backgroundColor: 'var(--primary-light)', padding: '2px 8px', borderRadius: '12px' }}>
+                            {categories.find(c => c.id === viewingFoodItem.categoryId)?.name || 'Chưa rõ'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Recipe Details Section */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#1E293B', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>🍳 Hướng dẫn chế biến</h4>
+                          {user?.role === 'KITCHEN' && !isEditingRecipeText && (
+                            <button 
+                              onClick={() => {
+                                setIsEditingRecipeText(true);
+                                setPendingRecipeText(viewingFoodItem.pendingRecipe || viewingFoodItem.recipe || '');
+                              }} 
+                              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              ✏️ Đề xuất sửa công thức
+                            </button>
+                          )}
+                        </div>
+
+                        {viewingFoodItem.pendingRecipe && (
+                          <div style={{ backgroundColor: '#EFF6FF', borderLeft: '4px solid #3B82F6', padding: '10px 12px', borderRadius: '6px', fontSize: '12px', color: '#1E40AF', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontWeight: '700' }}>⏳ Đang có đề xuất sửa đổi công thức chờ Admin duyệt:</span>
+                            <span style={{ fontStyle: 'italic', opacity: 0.9 }}>"{viewingFoodItem.pendingRecipe}"</span>
+                          </div>
+                        )}
+
+                        {isEditingRecipeText ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <textarea 
+                              value={pendingRecipeText} 
+                              onChange={e => setPendingRecipeText(e.target.value)} 
+                              style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical' }}
+                              placeholder="Nhập hướng dẫn chế biến chi tiết..."
+                            />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button 
+                                onClick={handleProposeRecipeUpdate} 
+                                disabled={isSubmittingRecipeProposal}
+                                className="btn btn-primary" 
+                                style={{ flex: 1, padding: '8px 12px', fontSize: '13px', backgroundColor: '#10B981', borderColor: '#10B981' }}
+                              >
+                                {isSubmittingRecipeProposal ? 'Đang gửi...' : '✓ Gửi đề xuất'}
+                              </button>
+                              <button 
+                                onClick={() => setIsEditingRecipeText(false)} 
+                                className="btn btn-outline" 
+                                style={{ flex: 1, padding: '8px 12px', fontSize: '13px' }}
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ 
+                            backgroundColor: '#FFFBEB', 
+                            borderLeft: '4px solid #F59E0B', 
+                            padding: '16px', 
+                            borderRadius: '8px', 
+                            fontSize: '14px', 
+                            lineHeight: '1.6', 
+                            color: '#451A03',
+                            whiteSpace: 'pre-wrap',
+                            maxHeight: '200px',
+                            overflowY: 'auto'
+                          }}>
+                            {viewingFoodItem.recipe || 'Chưa cập nhật hướng dẫn chế biến cho món ăn này.'}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Ingredient Dosage (Định lượng) Section */}
+                      <div>
+                        <h4 style={{ fontSize: '15px', fontWeight: '700', color: '#1E293B', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>⚖️ Định lượng nguyên liệu (kho)</h4>
+                        {loadingRecipe ? (
+                          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Đang tải thông tin định lượng...</p>
+                        ) : viewingRecipeIngredients.length === 0 ? (
+                          <div style={{ backgroundColor: '#F1F5F9', padding: '16px', borderRadius: '8px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            Món ăn này chưa được cấu hình nguyên liệu tự động khấu trừ trong kho.
+                          </div>
+                        ) : (
+                          <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border-color)' }}>
+                                  <th style={{ padding: '10px 12px', fontWeight: '600', color: 'var(--text-secondary)' }}>Nguyên liệu</th>
+                                  <th style={{ padding: '10px 12px', fontWeight: '600', color: 'var(--text-secondary)', textAlign: 'right' }}>Lượng cần (cho 1 suất)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {viewingRecipeIngredients.map((item, idx) => {
+                                  const ing = ingredients.find(i => i.id === item.ingredientId);
+                                  return (
+                                    <tr key={idx} style={{ borderBottom: idx < viewingRecipeIngredients.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                                      <td style={{ padding: '10px 12px', fontWeight: '600', color: '#334155' }}>
+                                        {ing ? ing.name : 'Không xác định'} {ing?.code && <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '400' }}>(#{ing.code})</span>}
+                                      </td>
+                                      <td style={{ padding: '10px 12px', fontWeight: '700', color: 'var(--primary)', textAlign: 'right' }}>
+                                        {item.quantityNeeded} {ing?.unit || ''}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', marginTop: '8px' }}>
+                        <button type="button" onClick={() => setIsViewRecipeModalOpen(false)} className="btn btn-primary" style={{ flex: 1, padding: '12px', borderRadius: '10px', backgroundColor: '#11117F', border: 'none', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Đóng</button>
+                      </div>
+                    </div>
                   </motion.div>
                 </div>
               )}
@@ -2945,8 +3417,552 @@ const DashboardScreen = ({ user, onLogout }) => {
             </motion.div>
           )}
 
+          {activeTab === 'Inventory' && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              {/* Top Navigation for Inventory */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', background: 'var(--bg-card)', padding: '8px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                {[
+                  { key: 'ingredients', label: 'Nguyên Vật Liệu', icon: <Package size={18} /> },
+                  { key: 'recipes', label: 'Công Thức Định Lượng', icon: <Archive size={18} /> },
+                  { key: 'transactions', label: 'Lịch Sử Kho', icon: <FileText size={18} /> }
+                ].map(subTab => (
+                  <button
+                    key={subTab.key}
+                    onClick={() => {
+                      setInventoryTab(subTab.key);
+                      if (subTab.key === 'recipes' && foods.length > 0 && !selectedMenuItemForRecipe) {
+                        handleSelectMenuItemForRecipe(foods[0]);
+                      }
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                      fontWeight: '700', fontSize: '13px', transition: 'var(--transition)',
+                      backgroundColor: inventoryTab === subTab.key ? 'var(--primary-light)' : 'transparent',
+                      color: inventoryTab === subTab.key ? 'var(--primary)' : 'var(--text-secondary)'
+                    }}
+                  >
+                    {subTab.icon}
+                    {subTab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* TAB 1: INGREDIENTS */}
+              {inventoryTab === 'ingredients' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                      <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={16} />
+                      <input
+                        type="text"
+                        placeholder="Tìm kiếm nguyên liệu..."
+                        value={searchIngredientQuery}
+                        onChange={(e) => setSearchIngredientQuery(e.target.value)}
+                        style={{ width: '100%', padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)', outline: 'none' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => {
+                          setStockTxType('IMPORT');
+                          setStockTxForm({ ingredientId: ingredients[0]?.id || '', quantity: '', price: '', reason: '' });
+                          setShowStockTransactionModal(true);
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--primary)', backgroundColor: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontWeight: '700' }}
+                      >
+                        <Plus size={16} />
+                        Nhập/Xuất Kho
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingIngredient(null);
+                          setIngredientForm({ name: '', unit: '', minStock: '' });
+                          setShowIngredientModal(true);
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#FFF', cursor: 'pointer', fontWeight: '700' }}
+                      >
+                        <Plus size={16} />
+                        Thêm Nguyên Liệu
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Tên nguyên liệu</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Đơn vị tính</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Tồn kho hiện tại</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Ngưỡng tối thiểu</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Trạng thái</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ingredients
+                          .filter(ing => ing.name.toLowerCase().includes(searchIngredientQuery.toLowerCase()))
+                          .map(ing => {
+                            const isLow = ing.currentStock <= ing.minStock;
+                            return (
+                              <tr key={ing.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                <td style={{ padding: '14px 12px', fontWeight: '600' }}>{ing.name}</td>
+                                <td style={{ padding: '14px 12px' }}>{ing.unit}</td>
+                                <td style={{ padding: '14px 12px', fontWeight: '700' }}>
+                                  {parseFloat(ing.currentStock).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '14px 12px' }}>
+                                  {parseFloat(ing.minStock).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '14px 12px' }}>
+                                  <span style={{
+                                    padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                                    backgroundColor: isLow ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                    color: isLow ? '#ef4444' : '#10b981'
+                                  }}>
+                                    {isLow ? '⚠️ Sắp hết hàng' : '✅ An toàn'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '14px 12px', textAlign: 'right' }}>
+                                  <button
+                                    onClick={() => {
+                                      setEditingIngredient(ing);
+                                      setIngredientForm({ name: ing.name, unit: ing.unit, minStock: ing.minStock });
+                                      setShowIngredientModal(true);
+                                    }}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', marginRight: '10px' }}
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteIngredient(ing.id)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        {ingredients.length === 0 && (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Chưa có nguyên liệu nào. Hãy thêm mới!</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: RECIPES */}
+              {inventoryTab === 'recipes' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '20px' }}>
+                  {/* Left Column: Foods List */}
+                  <div className="card" style={{ padding: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Thực Đơn Món Ăn</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {foods.map(item => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleSelectMenuItemForRecipe(item)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', textAlign: 'left',
+                            backgroundColor: selectedMenuItemForRecipe?.id === item.id ? 'var(--primary-light)' : 'transparent',
+                            color: selectedMenuItemForRecipe?.id === item.id ? 'var(--primary)' : 'var(--text-primary)'
+                          }}
+                        >
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.foodName} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Utensils size={18} /></div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: '700', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.foodName}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mã: {item.code}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Recipe details */}
+                  <div className="card" style={{ padding: '24px' }}>
+                    {selectedMenuItemForRecipe ? (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+                          {selectedMenuItemForRecipe.imageUrl ? (
+                            <img src={selectedMenuItemForRecipe.imageUrl} alt={selectedMenuItemForRecipe.foodName} style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '60px', height: '60px', borderRadius: '10px', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Utensils size={24} /></div>
+                          )}
+                          <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>Công thức: {selectedMenuItemForRecipe.foodName}</h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>Định lượng nguyên liệu tiêu hao cho 1 đơn vị món bán ra</p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                          {recipeItems.map((item, idx) => {
+                            const matchedIng = ingredients.find(ing => ing.id === item.ingredientId);
+                            return (
+                              <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <div style={{ flex: 2 }}>
+                                  <select
+                                    value={item.ingredientId}
+                                    onChange={(e) => {
+                                      const updated = [...recipeItems];
+                                      updated[idx].ingredientId = e.target.value;
+                                      setRecipeItems(updated);
+                                    }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                                  >
+                                    <option value="">-- Chọn nguyên liệu --</option>
+                                    {ingredients.map(ing => (
+                                      <option key={ing.id} value={ing.id}>{ing.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <input
+                                    type="number"
+                                    step="0.001"
+                                    placeholder="Số lượng"
+                                    value={item.quantityNeeded}
+                                    onChange={(e) => {
+                                      const updated = [...recipeItems];
+                                      updated[idx].quantityNeeded = e.target.value;
+                                      setRecipeItems(updated);
+                                    }}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                                  />
+                                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '40px' }}>{matchedIng?.unit || ''}</span>
+                                </div>
+                                <button
+                                  onClick={() => setRecipeItems(recipeItems.filter((_, i) => i !== idx))}
+                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px' }}
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                          {recipeItems.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                              Chưa có cấu hình nguyên liệu định lượng cho món ăn này.
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+                          <button
+                            onClick={() => setRecipeItems([...recipeItems, { ingredientId: '', quantityNeeded: '' }])}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px dashed var(--primary)', backgroundColor: 'transparent', color: 'var(--primary)', cursor: 'pointer', fontWeight: '700' }}
+                          >
+                            <Plus size={16} /> Thêm Nguyên Liệu
+                          </button>
+                          <button
+                            onClick={handleSaveRecipe}
+                            style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#FFF', cursor: 'pointer', fontWeight: '700' }}
+                          >
+                            Lưu Công Thức
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
+                        <Archive size={48} style={{ opacity: 0.5, marginBottom: '16px' }} />
+                        <h3>Chọn món ăn ở danh mục bên trái</h3>
+                        <p>Chọn món ăn để cấu hình công thức định lượng tiêu hao nguyên liệu khi chế biến.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: TRANSACTIONS HISTORY */}
+              {inventoryTab === 'transactions' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Thời gian</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Nguyên liệu</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Loại giao dịch</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Số lượng</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Đơn giá</th>
+                          <th style={{ padding: '12px', color: 'var(--text-muted)' }}>Ghi chú / Lý do</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventoryTransactions.map(tx => {
+                          const matchedIng = ingredients.find(ing => ing.id === tx.ingredientId);
+                          const isImport = tx.transactionType === 'IMPORT';
+                          const isSale = tx.transactionType === 'EXPORT_SALE';
+                          return (
+                            <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '14px 12px', fontSize: '13px' }}>
+                                {new Date(tx.createdAt).toLocaleString('vi-VN')}
+                              </td>
+                              <td style={{ padding: '14px 12px', fontWeight: '600' }}>
+                                {matchedIng?.name || 'Nguyên liệu cũ'}
+                              </td>
+                              <td style={{ padding: '14px 12px' }}>
+                                <span style={{
+                                  padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                                  backgroundColor: isImport ? 'rgba(16, 185, 129, 0.1)' : isSale ? 'rgba(99, 102, 241, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                  color: isImport ? '#10b981' : isSale ? '#6366f1' : '#ef4444'
+                                }}>
+                                  {isImport ? '📥 Nhập kho' : isSale ? '🛍️ Xuất bán hàng' : '🗑️ Xuất hủy'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 12px', fontWeight: '700' }}>
+                                {isImport ? '+' : '-'}{parseFloat(tx.quantity).toFixed(2)} {matchedIng?.unit || ''}
+                              </td>
+                              <td style={{ padding: '14px 12px' }}>
+                                {tx.price ? `${new Intl.NumberFormat('vi-VN').format(tx.price)}đ` : '-'}
+                              </td>
+                              <td style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                {tx.reason || 'N/A'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {inventoryTransactions.length === 0 && (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Chưa có lịch sử giao dịch kho hàng.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
         </div>
       </main>
+
+      {/* Ingredient Modal overlay */}
+      {showIngredientModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              padding: '30px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', letterSpacing: '-0.5px' }}>
+                {editingIngredient ? 'Cập Nhật Nguyên Liệu' : 'Thêm Nguyên Liệu Mới'}
+              </h2>
+              <button
+                onClick={() => setShowIngredientModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveIngredient} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Tên nguyên liệu *</label>
+                <input
+                  type="text"
+                  required
+                  value={ingredientForm.name}
+                  onChange={e => setIngredientForm({ ...ingredientForm, name: e.target.value })}
+                  className="form-input"
+                  placeholder="Ví dụ: Thịt bò, Trứng, Sốt BBQ..."
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Đơn vị tính *</label>
+                <input
+                  type="text"
+                  required
+                  value={ingredientForm.unit}
+                  onChange={e => setIngredientForm({ ...ingredientForm, unit: e.target.value })}
+                  className="form-input"
+                  placeholder="Ví dụ: kg, quả, lít, gram..."
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Ngưỡng tối thiểu cảnh báo *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={ingredientForm.minStock}
+                  onChange={e => setIngredientForm({ ...ingredientForm, minStock: e.target.value })}
+                  className="form-input"
+                  placeholder="Cảnh báo khi tồn kho thấp hơn mức này"
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowIngredientModal(false)}
+                  style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#FFF', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  Lưu Lại
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Stock Transaction Modal overlay */}
+      {showStockTransactionModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              padding: '30px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)', letterSpacing: '-0.5px' }}>
+                Giao Dịch Nhập / Xuất Kho
+              </h2>
+              <button
+                onClick={() => setShowStockTransactionModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Type selector tab */}
+            <div style={{ display: 'flex', gap: '10px', background: 'var(--bg-body)', padding: '4px', borderRadius: '8px', marginBottom: '10px' }}>
+              {['IMPORT', 'EXPORT_WASTE'].map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setStockTxType(type)}
+                  style={{
+                    flex: 1, padding: '8px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '700', fontSize: '13px',
+                    backgroundColor: stockTxType === type ? 'var(--bg-surface)' : 'transparent',
+                    color: stockTxType === type ? 'var(--primary)' : 'var(--text-secondary)',
+                    boxShadow: stockTxType === type ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  {type === 'IMPORT' ? '📥 Nhập kho' : '🗑️ Xuất hủy'}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSaveTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Chọn nguyên vật liệu *</label>
+                <select
+                  required
+                  value={stockTxForm.ingredientId}
+                  onChange={e => setStockTxForm({ ...stockTxForm, ingredientId: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                >
+                  <option value="">-- Chọn nguyên liệu --</option>
+                  {ingredients.map(ing => (
+                    <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Số lượng giao dịch *</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  required
+                  placeholder="Ví dụ: 10, 5.5..."
+                  value={stockTxForm.quantity}
+                  onChange={e => setStockTxForm({ ...stockTxForm, quantity: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {stockTxType === 'IMPORT' && (
+                <div className="input-group">
+                  <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Đơn giá nhập kho (VNĐ)</label>
+                  <input
+                    type="number"
+                    placeholder="Ví dụ: 150000"
+                    value={stockTxForm.price}
+                    onChange={e => setStockTxForm({ ...stockTxForm, price: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              )}
+
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '700', marginBottom: '6px', display: 'block', color: 'var(--text-primary)' }}>Lý do / Ghi chú *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Nhập hàng sỉ định kỳ, Xuất hủy thịt hết hạn..."
+                  value={stockTxForm.reason}
+                  onChange={e => setStockTxForm({ ...stockTxForm, reason: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-body)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowStockTransactionModal(false)}
+                  style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--primary)', color: '#FFF', cursor: 'pointer', fontWeight: '700' }}
+                >
+                  Xác Nhận
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       {/* Staff Modal overlay - Outside main card to avoid hover interference */}
       {isStaffModalOpen && (
@@ -3179,7 +4195,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {cartItems.map(item => (
-                        <div key={item.menuItemId} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '16px', borderBottom: '1px dashed #E2E8F0' }}>
+                        <div key={`${item.menuItemId}_${item.note || ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '16px', borderBottom: '1px dashed #E2E8F0' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div style={{ flex: 1 }}>
                               <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{item.foodName}</p>
@@ -3187,11 +4203,11 @@ const DashboardScreen = ({ user, onLogout }) => {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #CBD5E1', borderRadius: '6px', overflow: 'hidden' }}>
-                                <button onClick={() => handleUpdateCartItem(item.menuItemId, -1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>-</button>
+                                <button onClick={() => handleUpdateCartItem(item.menuItemId, item.note, -1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>-</button>
                                 <span style={{ padding: '0 12px', fontSize: '14px', fontWeight: '600' }}>{item.quantity}</span>
-                                <button onClick={() => handleUpdateCartItem(item.menuItemId, 1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>+</button>
+                                <button onClick={() => handleUpdateCartItem(item.menuItemId, item.note, 1)} style={{ padding: '4px 8px', border: 'none', background: '#F1F5F9', cursor: 'pointer' }}>+</button>
                               </div>
-                              <button onClick={() => handleRemoveFromCart(item.menuItemId)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }}><X size={18} /></button>
+                              <button onClick={() => handleRemoveFromCart(item.menuItemId, item.note)} style={{ background: 'transparent', border: 'none', color: '#EF4444', cursor: 'pointer', padding: 0 }}><X size={18} /></button>
                             </div>
                           </div>
                           {/* Note input for each item */}
@@ -3199,7 +4215,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                             type="text"
                             placeholder="Ghi chú món (ví dụ: ít cay...)"
                             value={item.note || ''}
-                            onChange={(e) => handleUpdateCartItem(item.menuItemId, 0, e.target.value)}
+                            onChange={(e) => handleUpdateCartItem(item.menuItemId, item.note, 0, e.target.value)}
                             style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', outline: 'none' }}
                           />
                         </div>
@@ -3519,8 +4535,52 @@ const DashboardScreen = ({ user, onLogout }) => {
                   <textarea className="input-field" required value={proposeFoodFormData.recipe} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, recipe: e.target.value })} placeholder="Chi tiết nguyên liệu, định lượng, cách làm..." style={{ width: '100%', minHeight: '110px', resize: 'vertical' }}></textarea>
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>URL Hình ảnh (Tùy chọn)</label>
-                  <input type="text" className="input-field" value={proposeFoodFormData.imageUrl} onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, imageUrl: e.target.value })} placeholder="https://..." style={{ width: '100%' }} />
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>Hình ảnh (Tùy chọn)</label>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={proposeFoodFormData.imageUrl}
+                      onChange={e => setProposeFoodFormData({ ...proposeFoodFormData, imageUrl: e.target.value })}
+                      placeholder="Nhập URL hoặc tải ảnh lên..."
+                      style={{ flex: 1, margin: 0 }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', padding: '0 16px', height: '42px', margin: 0 }}
+                      onClick={() => document.getElementById('propose-food-image-file').click()}
+                      disabled={isUploadingImage}
+                    >
+                      {isUploadingImage ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                      {isUploadingImage ? 'Đang tải...' : 'Tải lên'}
+                    </button>
+                    <input
+                      id="propose-food-image-file"
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handleProposeFoodImageUpload}
+                    />
+                  </div>
+                  {proposeFoodFormData.imageUrl && (
+                    <div style={{ marginTop: '10px', borderRadius: '10px', overflow: 'hidden', height: '100px', background: '#f1f5f9', position: 'relative' }}>
+                      <img
+                        src={proposeFoodFormData.imageUrl}
+                        alt="preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onLoad={e => { e.target.style.display = 'block'; e.target.nextSibling.style.display = 'none'; }}
+                        onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      />
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', gap: '6px', color: '#ef4444', fontSize: '12px'
+                      }}>
+                        <span style={{ fontSize: '20px' }}>⚠️</span>
+                        <span style={{ fontWeight: '600' }}>Không thể hiển thị ảnh</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

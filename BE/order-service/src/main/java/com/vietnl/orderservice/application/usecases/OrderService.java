@@ -8,6 +8,7 @@ import com.vietnl.orderservice.domain.models.entities.Order;
 import com.vietnl.orderservice.domain.models.entities.OrderItem;
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderItemRepository;
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderRepository;
+import com.vietnl.orderservice.infrastructure.communication.CatalogFeignClient;
 import com.vietnl.orderservice.infrastructure.communication.TableFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final TableFeignClient tableFeignClient;
+    private final CatalogFeignClient catalogFeignClient;
 
     // ===== TẠO ĐƠN HÀNG =====
     @Transactional
@@ -54,6 +56,14 @@ public class OrderService {
 
         order.recalculateTotal();
         Order saved = orderRepository.save(order);
+
+        // Gửi thông báo qua Kafka để hệ thống WebSocket thông báo và reload thời gian thực
+        sendNotification(
+                "Đơn hàng mới",
+                "Có đơn hàng mới tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi"),
+                "info",
+                "KITCHEN"
+        );
 
         // Báo cho table-service để gán đơn vào bàn (đổi màu thành OCCUPIED)
         if (request.getTableId() != null && token != null) {
@@ -112,7 +122,7 @@ public class OrderService {
         }
 
         order.getItems().stream()
-                .filter(i -> i.getMenuItemId().equals(request.getMenuItemId()))
+                .filter(i -> i.getMenuItemId().equals(request.getMenuItemId()) && isSameNote(i.getNote(), request.getNote()))
                 .findFirst()
                 .ifPresentOrElse(
                     existing -> existing.setQuantity(existing.getQuantity() + request.getQuantity()),
@@ -130,7 +140,14 @@ public class OrderService {
                 );
 
         order.recalculateTotal();
-        return OrderResponse.from(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+        sendNotification(
+                "Đơn hàng cập nhật",
+                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa được bổ sung món.",
+                "info",
+                "KITCHEN"
+        );
+        return OrderResponse.from(saved);
     }
 
     // ===== CẬP NHẬT MÓN TRONG ĐƠN =====
@@ -148,7 +165,14 @@ public class OrderService {
         if (request.getNote() != null) item.setNote(request.getNote());
 
         order.recalculateTotal();
-        return OrderResponse.from(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+        sendNotification(
+                "Đơn hàng cập nhật",
+                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa được thay đổi số lượng món.",
+                "info",
+                "KITCHEN"
+        );
+        return OrderResponse.from(saved);
     }
 
     // ===== XÓA MÓN KHỎI ĐƠN =====
@@ -159,7 +183,14 @@ public class OrderService {
 
         order.getItems().removeIf(i -> i.getId().equals(itemId));
         order.recalculateTotal();
-        return OrderResponse.from(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+        sendNotification(
+                "Đơn hàng cập nhật",
+                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa được xóa bớt món.",
+                "info",
+                "KITCHEN"
+        );
+        return OrderResponse.from(saved);
     }
 
     // ===== CẬP NHẬT TRẠNG THÁI ĐƠN =====
@@ -170,7 +201,39 @@ public class OrderService {
         order.setStatus(status);
         Order saved = orderRepository.save(order);
 
+        if ("COMPLETED".equals(status)) {
+            sendNotification(
+                    "Đơn hàng hoàn thành",
+                    "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " đã được thanh toán hoàn tất.",
+                    "success",
+                    "ALL"
+            );
+        } else if ("CANCELLED".equals(status)) {
+            sendNotification(
+                    "Đơn hàng đã hủy",
+                    "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " đã bị hủy.",
+                    "warning",
+                    "ALL"
+            );
+        }
+
         if (("COMPLETED".equals(status) || "CANCELLED".equals(status)) && token != null) {
+            if ("COMPLETED".equals(status)) {
+                try {
+                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                    List<Map<String, Object>> items = order.getItems().stream()
+                            .map(i -> Map.<String, Object>of(
+                                    "menuItemId", i.getMenuItemId().toString(),
+                                    "quantity", i.getQuantity()
+                            ))
+                            .collect(Collectors.toList());
+                    System.out.println(">>> [SYNC]: Gọi catalog-service (Feign) khấu trừ kho cho đơn hàng " + orderId);
+                    catalogFeignClient.deductStock(Map.of("items", items), authToken);
+                } catch (Exception e) {
+                    System.err.println("Lỗi khi khấu trừ kho hàng (Feign): " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
             if (order.getTableId() != null) {
                 long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
                 if (activeOrdersCount == 0) {
@@ -214,7 +277,13 @@ public class OrderService {
             throw new RuntimeException("Không thể hủy đơn hàng đã hoàn thành");
         }
         order.setStatus("CANCELLED");
-        orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        sendNotification(
+                "Đơn hàng đã hủy",
+                "Đơn hàng tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " đã bị hủy.",
+                "warning",
+                "ALL"
+        );
 
         if (order.getTableId() != null && token != null) {
             long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
@@ -245,8 +314,38 @@ public class OrderService {
         OrderItem item = orderItemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
         item.setKitchenStatus(kitchenStatus);
-        orderItemRepository.save(item);
+
+        Order order = item.getOrder();
+        String displayStatus = "PENDING".equals(kitchenStatus) ? "chờ chế biến" : 
+                              "COOKING".equals(kitchenStatus) ? "đang nấu" : 
+                              "READY".equals(kitchenStatus) ? "đã xong" : kitchenStatus;
+
+        sendNotification(
+                "Đơn hàng cập nhật",
+                "Món '" + item.getFoodName() + "' tại bàn " + (order != null && order.getTableNumber() != null ? order.getTableNumber() : "") + " " + displayStatus,
+                "info",
+                "ALL"
+        );
     }
 
+    private void sendNotification(String title, String message, String type, String role) {
+        try {
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("title", title);
+            payload.put("message", message);
+            payload.put("type", type);
+            payload.put("recipientRole", role);
 
+            kafkaTemplate.send("notifications-topic", payload);
+            System.out.println(">>> [KAFKA]: Đã gửi thông báo '" + title + "' thành công qua Kafka.");
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo qua Kafka: " + e.getMessage());
+        }
+    }
+
+    private boolean isSameNote(String note1, String note2) {
+        String n1 = note1 == null ? "" : note1.trim();
+        String n2 = note2 == null ? "" : note2.trim();
+        return n1.equals(n2);
+    }
 }

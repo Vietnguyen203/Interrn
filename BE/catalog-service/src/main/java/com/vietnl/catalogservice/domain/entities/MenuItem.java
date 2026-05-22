@@ -34,6 +34,9 @@ public class MenuItem {
     @Column(name = "recipe", length = 4000)
     private String recipe;
 
+    @Column(name = "pending_recipe", length = 4000)
+    private String pendingRecipe;
+
     @Column(name = "status")
     private Integer status;
 
