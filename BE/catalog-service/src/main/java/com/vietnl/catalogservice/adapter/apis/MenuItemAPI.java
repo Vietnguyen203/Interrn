@@ -24,15 +24,17 @@ public class MenuItemAPI {
 
     // GET all items
     @GetMapping
-    public ResponseEntity<?> getAll() {
-        List<MenuItem> list = menuItemService.getAll();
+    public ResponseEntity<?> getAll(@RequestParam(defaultValue = "false") boolean includeProposals) {
+        List<MenuItem> list = menuItemService.getAll(includeProposals);
         return ResponseEntity.ok(Map.of("code", "200", "data", list));
     }
 
     // GET items by category
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<?> getByCategoryId(@PathVariable String categoryId) {
-        List<MenuItem> list = menuItemService.getByCategoryId(categoryId);
+    public ResponseEntity<?> getByCategoryId(
+            @PathVariable String categoryId,
+            @RequestParam(defaultValue = "false") boolean includeProposals) {
+        List<MenuItem> list = menuItemService.getByCategoryId(categoryId, includeProposals);
         return ResponseEntity.ok(Map.of("code", "200", "data", list));
     }
 

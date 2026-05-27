@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DÙNG RIÊNG CHO DIALOG REGISTER (đặt prefix reg_ để tránh trùng) -->
+    <string name="reg_username">Username</string>
+    <string name="reg_password">Password</string>
+    <string name="reg_confirm_password">Confirm password</string>
+    <string name="reg_cancel">Cancel</string>
+    <string name="reg_action_register">Register</string>
+</resources>

@@ -56,6 +56,7 @@ class SettingsFragment : Fragment() {
                 if (newLang != SessionManager.getLang(ctx)) {
                     SessionManager.setLang(ctx, newLang)
                     updateLangDesc(newLang)
+                    activity?.recreate()
                 }
             }
         }

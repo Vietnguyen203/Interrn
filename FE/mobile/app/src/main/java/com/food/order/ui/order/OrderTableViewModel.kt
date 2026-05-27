@@ -170,7 +170,7 @@ class OrderTableViewModel : ViewModel() {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
-                val response = orderRepository.listOrders(token, page, size)
+                val response = orderRepository.listOrders(token = token, page = page, size = size)
                 if (response.isSuccess) {
                     pageFlow.value = response.page
                     currentPage = page

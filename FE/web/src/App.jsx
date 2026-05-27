@@ -748,6 +748,7 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [selectedTableId, setSelectedTableId] = useState('');
   const [orderNote, setOrderNote] = useState('');
   const [selectedTableForOrders, setSelectedTableForOrders] = useState(null);
+  const [selectedTableForQR, setSelectedTableForQR] = useState(null);
 
   // Order Options Popup States
   const [selectedFoodForOrder, setSelectedFoodForOrder] = useState(null);
@@ -943,9 +944,39 @@ const DashboardScreen = ({ user, onLogout }) => {
     else if (activeTab === 'Menu & Food') fetchFoodsData();
     else if (activeTab === 'Staff') fetchStaffData();
     else if (activeTab === 'Kitchen') fetchKitchenData();
-    else if (activeTab === 'Reports') fetchReportData();
     else if (activeTab === 'Inventory') fetchInventoryData();
   }, [activeTab]);
+
+  const [reportSubTab, setReportSubTab] = useState('REVENUE'); // 'REVENUE' | 'COMPARISON'
+  const [compDate, setCompDate] = useState(() => {
+    const d = new Date();
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().split('T')[0];
+  });
+  const [compShift, setCompShift] = useState('ALL');
+  const [compPeriod, setCompPeriod] = useState('DAY');
+  const [compData, setCompData] = useState(null);
+  const [loadingComp, setLoadingComp] = useState(false);
+
+  const fetchComparisonData = async (date = compDate, shift = compShift, period = compPeriod) => {
+    setLoadingComp(true);
+    try {
+      const res = await apiService.order.getComparisonReport(date, shift, period);
+      setCompData(res.data || null);
+    } catch (error) {
+      toast.error('Lỗi tải báo cáo đối soát: ' + error.message);
+      setCompData(null);
+    } finally {
+      setLoadingComp(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'Reports') {
+      if (reportSubTab === 'REVENUE') fetchReportData();
+      else if (reportSubTab === 'COMPARISON') fetchComparisonData(compDate, compShift, compPeriod);
+    }
+  }, [activeTab, reportSubTab, compDate, compShift, compPeriod]);
 
   const [reportData, setReportData] = useState([]);
   const [reportType, setReportType] = useState('DAY');
@@ -1003,6 +1034,18 @@ const DashboardScreen = ({ user, onLogout }) => {
       await apiService.kitchen.updateItemStatus(itemId, newStatus);
       const labels = { COOKING: 'đang nấu', READY: 'sẵn sàng', SERVED: 'đã phục vụ' };
       toast.success(`Cập nhật món → ${labels[newStatus] || newStatus}`);
+      fetchKitchenData();
+    } catch (error) { toast.error('Lỗi cập nhật: ' + error.message); }
+  };
+
+  const handleCompleteAllItems = async (items) => {
+    try {
+      const pendingAndCooking = items.filter(i => i.kitchenStatus === 'PENDING' || i.kitchenStatus === 'COOKING');
+      if (pendingAndCooking.length === 0) return;
+      await Promise.all(pendingAndCooking.map(item => 
+        apiService.kitchen.updateItemStatus(item.id, 'READY')
+      ));
+      toast.success(`Đã hoàn thành ${pendingAndCooking.length} món`);
       fetchKitchenData();
     } catch (error) { toast.error('Lỗi cập nhật: ' + error.message); }
   };
@@ -1697,6 +1740,182 @@ const DashboardScreen = ({ user, onLogout }) => {
     toast.success('Đã xuất báo cáo thành công!');
   };
 
+  const handleDownloadCompPDF = () => {
+    if (!compData) {
+      toast.error('Không có dữ liệu đối soát để xuất PDF');
+      return;
+    }
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const cleanStr = (s) => {
+      if (!s) return '';
+      return s.normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/đ/g, 'd')
+              .replace(/Đ/g, 'D');
+    };
+    const fmt = (v) => new Intl.NumberFormat('vi-VN').format(v) + 'd';
+
+    // --- Header ---
+    doc.setFillColor(17, 17, 127);  // #11117F
+    doc.rect(0, 0, pageW, 35, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('BAO CAO DOI SOAT KHO & DOANH THU', pageW / 2, 14, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Ky bao cao: ${compPeriod === 'DAY' ? 'Ngay' : 'Tuan'} | Ca lam viec: ${compShift} | Ngay tao: ${compDate}`, pageW / 2, 22, { align: 'center' });
+    doc.text('He thong quan ly nha hang FoodOrder', pageW / 2, 28, { align: 'center' });
+
+    // --- Summary Section ---
+    let y = 48;
+    doc.setTextColor(17, 17, 127);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('I. CHI SO TONG QUAN', 14, y);
+    y += 8;
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(14, y, pageW - 14, y);
+    y += 6;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Doanh thu ban hang:', 16, y);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fmt(compData.totalRevenue || 0), 65, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Chi phi nhap kho:', 110, y);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fmt(compData.inventory?.importValue || 0), 160, y);
+    y += 6;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('So luong don hang:', 16, y);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${compData.orderCount || 0} don`, 65, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Giao dich kho hang:', 110, y);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${compData.inventory?.totalTransactions || 0} giao dich`, 160, y);
+    y += 8;
+
+    // --- Table Ingredients ---
+    doc.setTextColor(17, 17, 127);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('II. CHI TIET DOI SOAT NGUYEN LIEU KHO', 14, y);
+    y += 8;
+
+    // Headers
+    doc.setFillColor(241, 245, 249);
+    doc.rect(14, y, pageW - 28, 8, 'F');
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Ten nguyen lieu', 16, y + 5.5);
+    doc.text('DVT', 68, y + 5.5);
+    doc.text('Luong Nhap', 82, y + 5.5, { align: 'right' });
+    doc.text('Xuat Ban', 108, y + 5.5, { align: 'right' });
+    doc.text('Xuat Huy', 132, y + 5.5, { align: 'right' });
+    doc.text('Tong Xuat', 158, y + 5.5, { align: 'right' });
+    doc.text('Chenh lech', 182, y + 5.5, { align: 'right' });
+    doc.text('Ton hien tai', pageW - 16, y + 5.5, { align: 'right' });
+    
+    y += 8;
+
+    const items = compData.inventory?.items || [];
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+
+    if (items.length === 0) {
+      doc.text('Khong co du lieu nguyen lieu', pageW / 2, y + 8, { align: 'center' });
+    } else {
+      items.forEach((item) => {
+        // Page boundary check
+        if (y > doc.internal.pageSize.getHeight() - 25) {
+          doc.addPage();
+          y = 20;
+          // Re-render header of table in new page
+          doc.setFillColor(241, 245, 249);
+          doc.rect(14, y, pageW - 28, 8, 'F');
+          doc.setTextColor(100, 116, 139);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.text('Ten nguyen lieu', 16, y + 5.5);
+          doc.text('DVT', 68, y + 5.5);
+          doc.text('Luong Nhap', 82, y + 5.5, { align: 'right' });
+          doc.text('Xuat Ban', 108, y + 5.5, { align: 'right' });
+          doc.text('Xuat Huy', 132, y + 5.5, { align: 'right' });
+          doc.text('Tong Xuat', 158, y + 5.5, { align: 'right' });
+          doc.text('Chenh lech', 182, y + 5.5, { align: 'right' });
+          doc.text('Ton hien tai', pageW - 16, y + 5.5, { align: 'right' });
+          y += 8;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(15, 23, 42);
+        }
+
+        // Draw line separator
+        doc.setDrawColor(241, 245, 249);
+        doc.line(14, y, pageW - 14, y);
+
+        const name = cleanStr(item.ingredientName);
+        const unit = cleanStr(item.unit);
+        const impQty = item.importQuantity || 0;
+        const saleQty = item.exportSaleQuantity || 0;
+        const wasteQty = item.exportWasteQuantity || 0;
+        const totQty = item.totalExportQuantity || 0;
+        const netQty = item.netQuantity || 0;
+        const curStock = item.currentStock || 0;
+
+        doc.text(name.length > 28 ? name.slice(0, 27) + '...' : name, 16, y + 5);
+        doc.text(unit, 68, y + 5);
+        doc.text(String(impQty), 82, y + 5, { align: 'right' });
+        doc.text(String(saleQty), 108, y + 5, { align: 'right' });
+        doc.text(String(wasteQty), 132, y + 5, { align: 'right' });
+        doc.text(String(totQty), 158, y + 5, { align: 'right' });
+        
+        // Highlight negative net qty or positive
+        if (netQty < 0) {
+          doc.setTextColor(239, 68, 68); // red
+        } else if (netQty > 0) {
+          doc.setTextColor(16, 185, 129); // green
+        } else {
+          doc.setTextColor(15, 23, 42);
+        }
+        doc.text(String(netQty), 182, y + 5, { align: 'right' });
+
+        doc.setTextColor(15, 23, 42);
+        doc.text(String(curStock), pageW - 16, y + 5, { align: 'right' });
+        y += 7.5;
+      });
+    }
+
+    // --- Footer ---
+    const footerY = doc.internal.pageSize.getHeight() - 14;
+    doc.setDrawColor(220, 220, 220);
+    doc.line(14, footerY - 4, pageW - 14, footerY - 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Bao cao doi soat kho - doanh thu tu dong phat sinh boi FoodOrder.', pageW / 2, footerY, { align: 'center' });
+
+    doc.save(`Bao-cao-doi-soat-kho-doanh-thu-${compDate}.pdf`);
+    toast.success('Đã tải báo cáo đối soát PDF thành công!');
+  };
+
   // ---- Handlers ----
 
   const handleOpenFoodModal = (food = null) => {
@@ -2129,9 +2348,17 @@ const DashboardScreen = ({ user, onLogout }) => {
                             </div>
                             <h4 style={{ fontSize: '18px', fontWeight: '800', color: '#11117F', margin: 0 }}>{tableName}</h4>
                           </div>
-                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '20px' }}>
-                            {items.length} món
-                          </span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', padding: '4px 10px', borderRadius: '20px' }}>
+                              {items.length} món
+                            </span>
+                            {items.some(i => i.kitchenStatus === 'PENDING' || i.kitchenStatus === 'COOKING') && (
+                              <button onClick={() => handleCompleteAllItems(items)}
+                                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: '700', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#10B981', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)' }}>
+                                <CheckCircle size={14} /> Xong tất cả
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Items List */}
@@ -3131,6 +3358,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{table.capacity} chỗ &middot; {table.location || '—'}</span>
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => setSelectedTableForQR(table)} className="btn-ghost" style={{ color: 'var(--primary)', padding: '4px' }} title="Mã QR Đặt Món"><QrCode size={16} /></button>
                             <button onClick={() => handleOpenTableModal(table)} className="btn-ghost" style={{ color: 'var(--primary)', padding: '4px' }}><Settings size={16} /></button>
                             <button onClick={() => handleDeleteTable(tableId)} className="btn-ghost" style={{ color: 'var(--status-cancelled)', padding: '4px' }}><Trash2 size={16} /></button>
                           </div>
@@ -3214,6 +3442,36 @@ const DashboardScreen = ({ user, onLogout }) => {
               </div>
 
               {/* Modal Thêm/Sửa Bàn (Đặt trong Settings) */}
+              {selectedTableForQR && (
+                <div className="modal-overlay" onClick={() => setSelectedTableForQR(null)}>
+                  <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                    <div className="modal-header">
+                      <h3>Mã QR Đặt Món - Bàn {selectedTableForQR.tableNumber}</h3>
+                      <button className="btn-ghost" onClick={() => setSelectedTableForQR(null)}><X size={20} /></button>
+                    </div>
+                    <div style={{ padding: '20px' }}>
+                      <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Khách hàng quét mã QR này bằng điện thoại để tự xem Menu và đặt món.</p>
+                      <div style={{ backgroundColor: 'white', padding: '16px', display: 'inline-block', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + '/customer?tableId=' + (selectedTableForQR.id || selectedTableForQR.ID) + '&tableName=' + selectedTableForQR.tableNumber)}`} 
+                          alt="QR Code" 
+                          style={{ width: '250px', height: '250px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ flex: 1 }}
+                          onClick={() => window.open(window.location.origin + '/customer?tableId=' + (selectedTableForQR.id || selectedTableForQR.ID) + '&tableName=' + selectedTableForQR.tableNumber, '_blank')}
+                        >
+                          Trang khách
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isTableModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
@@ -3245,250 +3503,585 @@ const DashboardScreen = ({ user, onLogout }) => {
           {/* Development Placeholders for others */}
           {activeTab === 'Reports' && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(17, 17, 127, 0.1)', color: '#11117F' }}>
-                      <BarChartIcon size={24} />
-                    </div>
-                    <div>
-                      <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}> {t.reportTitle} </h3>
-                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{t.reportSubtitle}</p>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
-                    {['DAY', 'MONTH', 'YEAR', 'CATEGORY'].map(type => (
-                      <button
-                        key={type}
-                        onClick={() => fetchReportData(type)}
-                        style={{
-                          padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                          fontWeight: '700', fontSize: '12px',
-                          backgroundColor: reportType === type ? '#FFF' : 'transparent',
-                          color: reportType === type ? '#11117F' : '#64748B',
-                          boxShadow: reportType === type ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none'
-                        }}
-                      >
-                        {type === 'DAY' ? '📅 Ngày' : type === 'MONTH' ? '🗓️ Tháng' : type === 'YEAR' ? '📆 Năm' : '🍔 Món Ăn'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <motion.div
-                  key={reportType}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                  style={{ height: '450px', width: '100%', marginTop: '20px' }}
+              
+              {/* Sub-tab navigation */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', background: 'var(--bg-card)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)', width: 'fit-content' }}>
+                <button
+                  onClick={() => setReportSubTab('REVENUE')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px',
+                    backgroundColor: reportSubTab === 'REVENUE' ? 'var(--primary)' : 'transparent',
+                    color: reportSubTab === 'REVENUE' ? 'white' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
                 >
-                  {loadingConfig.reports ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                      <RefreshCw className="animate-spin" size={32} color="var(--primary)" />
-                    </div>
-                  ) : reportData.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '100px 0' }}>
-                      <TrendingUp size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
-                      <p style={{ color: 'var(--text-secondary)' }}>Chưa có đủ dữ liệu để tạo biểu đồ.</p>
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      {reportType !== 'CATEGORY' ? (
-                        <BarChart data={reportData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                          <defs>
-                            <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#4F46E5" stopOpacity={1} />
-                              <stop offset="100%" stopColor="#11117F" stopOpacity={0.85} />
-                            </linearGradient>
-                            <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#818CF8" stopOpacity={1} />
-                              <stop offset="100%" stopColor="#4F46E5" stopOpacity={0.9} />
-                            </linearGradient>
-                            <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#11117F" floodOpacity="0.25" />
-                            </filter>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                          <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 12, fill: '#64748B', fontWeight: 600 }}
-                            dy={10}
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 12, fill: '#94A3B8' }}
-                            tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
-                          />
-                          <Tooltip
-                            cursor={{ fill: 'rgba(79,70,229,0.06)', radius: 8 }}
-                            contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', padding: '12px 16px' }}
-                            content={({ active, payload, label }) => {
-                              if (!active || !payload?.length) return null;
-                              const val = payload[0].value;
-                              return (
-                                <div style={{ background: '#FFF', borderRadius: '14px', padding: '12px 16px', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', minWidth: '170px' }}>
-                                  <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(135deg,#4F46E5,#11117F)', display: 'inline-block' }} />
-                                    <div>
-                                      <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#11117F' }}>{new Intl.NumberFormat('vi-VN').format(val)}đ</p>
-                                      <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>Doanh thu</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }}
-                          />
-                          <Bar
-                            dataKey="value"
-                            fill="url(#barGradient)"
-                            radius={[8, 8, 0, 0]}
-                            barSize={42}
-                            isAnimationActive={true}
-                            animationDuration={1000}
-                            animationEasing="ease-out"
-                            activeBar={{ fill: 'url(#barGradientHover)', filter: 'url(#barShadow)' }}
-                          />
-                        </BarChart>
-                      ) : (
-                        <PieChart>
-                          <defs>
-                            {reportData.map((entry, index) => {
-                              const hue = Math.round((index * 137.508) % 360);
-                              return (
-                                <filter key={`glow-${index}`} id={`glow-${index}`} x="-30%" y="-30%" width="160%" height="160%">
-                                  <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={`hsl(${hue},65%,52%)`} floodOpacity="0.6" />
-                                </filter>
-                              );
-                            })}
-                          </defs>
-                          <Pie
-                            data={reportData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={80}
-                            outerRadius={130}
-                            paddingAngle={4}
-                            dataKey="value"
-                            isAnimationActive={true}
-                            animationBegin={0}
-                            animationDuration={1100}
-                            animationEasing="ease-out"
-                            activeShape={(props) => {
-                              const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
-                              const total = reportData.reduce((s, d) => s + (d.value || 0), 0);
-                              const pct = total > 0 ? ((payload.value / total) * 100).toFixed(1) : '0';
-                              const RADIAN = Math.PI / 180;
-                              // Sector path tính toán thủ công để điều chỉnh outerRadius
-                              const expandedOuter = outerRadius + 16;
-                              const sin = Math.sin(-RADIAN * ((startAngle + endAngle) / 2));
-                              const cos = Math.cos(-RADIAN * ((startAngle + endAngle) / 2));
-                              const hue = Math.round((index * 137.508) % 360);
-                              // Vẽ sector nổi lên
-                              const x1o = cx + expandedOuter * cos; const y1o = cy + expandedOuter * sin;
-                              return (
-                                <g>
-                                  {/* Sector nổi lên (Recharts Sector component dùng lại) */}
-                                  <path
-                                    d={`M ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)}
-                                       L ${cx + expandedOuter * Math.cos(-RADIAN * startAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * startAngle)}
-                                       A ${expandedOuter} ${expandedOuter} 0 ${endAngle - startAngle > 180 ? 1 : 0} 0
-                                         ${cx + expandedOuter * Math.cos(-RADIAN * endAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * endAngle)}
-                                       L ${cx + innerRadius * Math.cos(-RADIAN * endAngle)} ${cy + innerRadius * Math.sin(-RADIAN * endAngle)}
-                                       A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1
-                                         ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} Z`}
-                                    fill={fill}
-                                    filter={`url(#glow-${index})`}
-                                    style={{ transition: 'all 0.2s ease' }}
-                                  />
-                                  {/* % + tên món ở giữa donut */}
-                                  <text x={cx} y={cy - 14} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '28px', fontWeight: '900', fill: `hsl(${hue},65%,42%)`, fontFamily: 'sans-serif' }}>
-                                    {pct}%
-                                  </text>
-                                  <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '12px', fontWeight: '700', fill: '#475569', fontFamily: 'sans-serif' }}>
-                                    {payload.name.length > 14 ? payload.name.slice(0, 13) + '…' : payload.name}
-                                  </text>
-                                  <text x={cx} y={cy + 34} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '11px', fill: '#94a3b8', fontFamily: 'sans-serif' }}>
-                                    {new Intl.NumberFormat('vi-VN').format(payload.value)}đ
-                                  </text>
-                                </g>
-                              );
-                            }}
-                          >
-                            {reportData.map((entry, index) => {
-                              const hue = (index * 137.508) % 360;
-                              const color = `hsl(${Math.round(hue)}, 65%, 52%)`;
-                              return <Cell key={`cell-${index}`} fill={color} />;
-                            })}
-                          </Pie>
-                          <Legend verticalAlign="bottom" height={36} />
-                        </PieChart>
-                      )}
-                    </ResponsiveContainer>
-                  )}
-                </motion.div>
+                  <TrendingUp size={16} />
+                  Doanh Thu Món Ăn
+                </button>
+                <button
+                  onClick={() => setReportSubTab('COMPARISON')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    fontWeight: '700', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px',
+                    backgroundColor: reportSubTab === 'COMPARISON' ? 'var(--primary)' : 'transparent',
+                    color: reportSubTab === 'COMPARISON' ? 'white' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <ClipboardList size={16} />
+                  Đối Soát Kho & Doanh Thu
+                </button>
               </div>
 
-              {(() => {
-                const now = new Date();
-                const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-                const thisMonthStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
-                const thisYearStr = `${now.getFullYear()}`;
-
-                let currentPeriodRevenue = 0;
-                let currentPeriodLabel = '';
-
-                if (reportType === 'DAY') {
-                  const todayEntry = reportData.find(d => d.name === todayStr);
-                  currentPeriodRevenue = todayEntry ? todayEntry.value : 0;
-                  currentPeriodLabel = `Hôm nay (${todayStr})`;
-                } else if (reportType === 'MONTH') {
-                  const monthEntry = reportData.find(d => d.name === thisMonthStr);
-                  currentPeriodRevenue = monthEntry ? monthEntry.value : 0;
-                  currentPeriodLabel = `Tháng này (${thisMonthStr})`;
-                } else if (reportType === 'YEAR') {
-                  const yearEntry = reportData.find(d => d.name === thisYearStr);
-                  currentPeriodRevenue = yearEntry ? yearEntry.value : 0;
-                  currentPeriodLabel = `Năm nay (${thisYearStr})`;
-                } else {
-                  // CATEGORY: tổng tất cả
-                  currentPeriodRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
-                  currentPeriodLabel = 'Tổng tất cả danh mục';
-                }
-
-                const totalAllRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
-                const typeLabel = reportType === 'DAY' ? '📅 Theo Ngày' : reportType === 'MONTH' ? '🗓️ Theo Tháng' : reportType === 'YEAR' ? '📆 Theo Năm' : '🍔 Theo Món Ăn';
-
-                return (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-                    {/* Card 1: Doanh thu kỳ hiện tại */}
-                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F' }}>
-                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DOANH THU KỲ NÀY</p>
-                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{currentPeriodLabel}</p>
-                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#11117F' }}>
-                        {new Intl.NumberFormat('vi-VN').format(currentPeriodRevenue)}đ
-                      </h4>
+              {/* TAB 1: REVENUE REPORTING (EXISTING VIEW) */}
+              {reportSubTab === 'REVENUE' && (
+                <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(17, 17, 127, 0.1)', color: '#11117F' }}>
+                        <BarChartIcon size={24} />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '22px', fontWeight: '800', color: '#11117F', margin: 0 }}> {t.reportTitle} </h3>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{t.reportSubtitle}</p>
+                      </div>
                     </div>
-                    {/* Card 2: Tổng doanh thu tất cả kỳ */}
-                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981' }}>
-                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG CỘNG (TẤT CẢ KỲ)</p>
-                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{reportData.length} kỳ trong biểu đồ</p>
-                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#10B981' }}>
-                        {new Intl.NumberFormat('vi-VN').format(totalAllRevenue)}đ
-                      </h4>
-                    </div>
-                    {/* Card 3: Loại báo cáo */}
-                    <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B' }}>
-                      <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ĐANG XEM</p>
-                      <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>Loại báo cáo hiện tại</p>
-                      <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#F59E0B' }}>{typeLabel}</h4>
+                    <div style={{ display: 'flex', gap: '8px', background: '#F1F5F9', padding: '4px', borderRadius: '12px' }}>
+                      {['DAY', 'MONTH', 'YEAR', 'CATEGORY'].map(type => (
+                        <button
+                          key={type}
+                          onClick={() => fetchReportData(type)}
+                          style={{
+                            padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            fontWeight: '700', fontSize: '12px',
+                            backgroundColor: reportType === type ? '#FFF' : 'transparent',
+                            color: reportType === type ? '#11117F' : '#64748B',
+                            boxShadow: reportType === type ? '0 4px 6px -1px rgba(0,0,0,0.1)' : 'none'
+                          }}
+                        >
+                          {type === 'DAY' ? '📅 Ngày' : type === 'MONTH' ? '🗓️ Tháng' : type === 'YEAR' ? '📆 Năm' : '🍔 Món Ăn'}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                );
-              })()}
+
+                  <motion.div
+                    key={reportType}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    style={{ height: '450px', width: '100%', marginTop: '20px' }}
+                  >
+                    {loadingConfig.reports ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <RefreshCw className="animate-spin" size={32} color="var(--primary)" />
+                      </div>
+                    ) : reportData.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '100px 0' }}>
+                        <TrendingUp size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                        <p style={{ color: 'var(--text-secondary)' }}>Chưa có đủ dữ liệu để tạo biểu đồ.</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        {reportType !== 'CATEGORY' ? (
+                          <BarChart data={reportData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                            <defs>
+                              <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#4F46E5" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#11117F" stopOpacity={0.85} />
+                              </linearGradient>
+                              <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#818CF8" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#4F46E5" stopOpacity={0.9} />
+                              </linearGradient>
+                              <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#11117F" floodOpacity="0.25" />
+                              </filter>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis
+                              dataKey="name"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: '#64748B', fontWeight: 600 }}
+                              dy={10}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: '#94A3B8' }}
+                              tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
+                            />
+                            <Tooltip
+                              cursor={{ fill: 'rgba(79,70,229,0.06)', radius: 8 }}
+                              contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', padding: '12px 16px' }}
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload?.length) return null;
+                                const val = payload[0].value;
+                                return (
+                                  <div style={{ background: '#FFF', borderRadius: '14px', padding: '12px 16px', boxShadow: '0 20px 40px rgba(0,0,0,0.12)', minWidth: '170px' }}>
+                                    <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'linear-gradient(135deg,#4F46E5,#11117F)', display: 'inline-block' }} />
+                                      <div>
+                                        <p style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#11117F' }}>{new Intl.NumberFormat('vi-VN').format(val)}đ</p>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>Doanh thu</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Bar
+                              dataKey="value"
+                              fill="url(#barGradient)"
+                              radius={[8, 8, 0, 0]}
+                              barSize={42}
+                              isAnimationActive={true}
+                              animationDuration={1000}
+                              animationEasing="ease-out"
+                              activeBar={{ fill: 'url(#barGradientHover)', filter: 'url(#barShadow)' }}
+                            />
+                          </BarChart>
+                        ) : (
+                          <PieChart>
+                            <defs>
+                              {reportData.map((entry, index) => {
+                                const hue = Math.round((index * 137.508) % 360);
+                                return (
+                                  <filter key={`glow-${index}`} id={`glow-${index}`} x="-30%" y="-30%" width="160%" height="160%">
+                                    <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={`hsl(${hue},65%,52%)`} floodOpacity="0.6" />
+                                  </filter>
+                                );
+                              })}
+                            </defs>
+                            <Pie
+                              data={reportData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={80}
+                              outerRadius={130}
+                              paddingAngle={4}
+                              dataKey="value"
+                              isAnimationActive={true}
+                              animationBegin={0}
+                              animationDuration={1100}
+                              animationEasing="ease-out"
+                              activeShape={(props) => {
+                                const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, index } = props;
+                                const total = reportData.reduce((s, d) => s + (d.value || 0), 0);
+                                const pct = total > 0 ? ((payload.value / total) * 100).toFixed(1) : '0';
+                                const RADIAN = Math.PI / 180;
+                                const expandedOuter = outerRadius + 16;
+                                const sin = Math.sin(-RADIAN * ((startAngle + endAngle) / 2));
+                                const cos = Math.cos(-RADIAN * ((startAngle + endAngle) / 2));
+                                const hue = Math.round((index * 137.508) % 360);
+                                const x1o = cx + expandedOuter * cos; const y1o = cy + expandedOuter * sin;
+                                return (
+                                  <g>
+                                    <path
+                                      d={`M ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)}
+                                         L ${cx + expandedOuter * Math.cos(-RADIAN * startAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * startAngle)}
+                                         A ${expandedOuter} ${expandedOuter} 0 ${endAngle - startAngle > 180 ? 1 : 0} 0
+                                           ${cx + expandedOuter * Math.cos(-RADIAN * endAngle)} ${cy + expandedOuter * Math.sin(-RADIAN * endAngle)}
+                                         L ${cx + innerRadius * Math.cos(-RADIAN * endAngle)} ${cy + innerRadius * Math.sin(-RADIAN * endAngle)}
+                                         A ${innerRadius} ${innerRadius} 0 ${endAngle - startAngle > 180 ? 1 : 0} 1
+                                           ${cx + innerRadius * Math.cos(-RADIAN * startAngle)} ${cy + innerRadius * Math.sin(-RADIAN * startAngle)} Z`}
+                                      fill={fill}
+                                      filter={`url(#glow-${index})`}
+                                      style={{ transition: 'all 0.2s ease' }}
+                                    />
+                                    <text x={cx} y={cy - 14} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '28px', fontWeight: '900', fill: `hsl(${hue},65%,42%)`, fontFamily: 'sans-serif' }}>
+                                      {pct}%
+                                    </text>
+                                    <text x={cx} y={cy + 16} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '12px', fontWeight: '700', fill: '#475569', fontFamily: 'sans-serif' }}>
+                                      {payload.name.length > 14 ? payload.name.slice(0, 13) + '…' : payload.name}
+                                    </text>
+                                    <text x={cx} y={cy + 34} textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '11px', fill: '#94a3b8', fontFamily: 'sans-serif' }}>
+                                      {new Intl.NumberFormat('vi-VN').format(payload.value)}đ
+                                    </text>
+                                  </g>
+                                );
+                              }}
+                            >
+                              {reportData.map((entry, index) => {
+                                const hue = (index * 137.508) % 360;
+                                const color = `hsl(${Math.round(hue)}, 65%, 52%)`;
+                                return <Cell key={`cell-${index}`} fill={color} />;
+                              })}
+                            </Pie>
+                            <Legend verticalAlign="bottom" height={36} />
+                          </PieChart>
+                        )}
+                      </ResponsiveContainer>
+                    )}
+                  </motion.div>
+
+                  {(() => {
+                    const now = new Date();
+                    const todayStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+                    const thisMonthStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+                    const thisYearStr = `${now.getFullYear()}`;
+
+                    let currentPeriodRevenue = 0;
+                    let currentPeriodLabel = '';
+
+                    if (reportType === 'DAY') {
+                      const todayEntry = reportData.find(d => d.name === todayStr);
+                      currentPeriodRevenue = todayEntry ? todayEntry.value : 0;
+                      currentPeriodLabel = `Hôm nay (${todayStr})`;
+                    } else if (reportType === 'MONTH') {
+                      const monthEntry = reportData.find(d => d.name === thisMonthStr);
+                      currentPeriodRevenue = monthEntry ? monthEntry.value : 0;
+                      currentPeriodLabel = `Tháng này (${thisMonthStr})`;
+                    } else if (reportType === 'YEAR') {
+                      const yearEntry = reportData.find(d => d.name === thisYearStr);
+                      currentPeriodRevenue = yearEntry ? yearEntry.value : 0;
+                      currentPeriodLabel = `Năm nay (${thisYearStr})`;
+                    } else {
+                      currentPeriodRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
+                      currentPeriodLabel = 'Tổng tất cả danh mục';
+                    }
+
+                    const totalAllRevenue = reportData.reduce((acc, curr) => acc + curr.value, 0);
+                    const typeLabel = reportType === 'DAY' ? '📅 Theo Ngày' : reportType === 'MONTH' ? '🗓️ Theo Tháng' : reportType === 'YEAR' ? '📆 Theo Năm' : '🍔 Theo Món Ăn';
+
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginTop: '24px' }}>
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F' }}>
+                          <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DOANH THU KỲ NÀY</p>
+                          <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{currentPeriodLabel}</p>
+                          <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#11117F' }}>
+                            {new Intl.NumberFormat('vi-VN').format(currentPeriodRevenue)}đ
+                          </h4>
+                        </div>
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981' }}>
+                          <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TỔNG CỘNG (TẤT CẢ KỲ)</p>
+                          <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>{reportData.length} kỳ trong biểu đồ</p>
+                          <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#10B981' }}>
+                            {new Intl.NumberFormat('vi-VN').format(totalAllRevenue)}đ
+                          </h4>
+                        </div>
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B' }}>
+                          <p style={{ fontSize: '12px', color: '#64748B', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ĐANG XEM</p>
+                          <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 8px' }}>Loại báo cáo hiện tại</p>
+                          <h4 style={{ fontSize: '22px', fontWeight: '800', margin: 0, color: '#F59E0B' }}>{typeLabel}</h4>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* TAB 2: INVENTORY & REVENUE COMPARISON (NEW DASHBOARD) */}
+              {reportSubTab === 'COMPARISON' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  
+                  {/* Control filter panel */}
+                  <div className="card" style={{ padding: '20px', display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(17, 17, 127, 0.1)', color: '#11117F' }}>
+                        <ClipboardList size={24} />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#11117F', margin: 0 }}>Đối Soát Doanh Thu & Kho Hàng</h3>
+                        <p style={{ fontSize: '12px', color: '#94A3B8', margin: '2px 0 0' }}>So sánh doanh số với biến động nhập xuất nguyên liệu</p>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                      {/* Date Picker */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>CHỌN NGÀY</label>
+                        <input
+                          type="date"
+                          value={compDate}
+                          onChange={(e) => setCompDate(e.target.value)}
+                          style={{
+                            padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0',
+                            fontWeight: '600', fontSize: '13px', color: '#334155', outline: 'none'
+                          }}
+                        />
+                      </div>
+                      
+                      {/* Period Switch */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>KỲ BÁO CÁO</label>
+                        <select
+                          value={compPeriod}
+                          onChange={(e) => {
+                            setCompPeriod(e.target.value);
+                            if (e.target.value === 'WEEK') setCompShift('ALL');
+                          }}
+                          style={{
+                            padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0',
+                            fontWeight: '600', fontSize: '13px', color: '#334155', outline: 'none', background: 'white'
+                          }}
+                        >
+                          <option value="DAY">Theo Ngày</option>
+                          <option value="WEEK">Theo Tuần</option>
+                        </select>
+                      </div>
+
+                      {/* Shift Switch */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>CA LÀM VIỆC</label>
+                        <select
+                          value={compShift}
+                          disabled={compPeriod === 'WEEK'}
+                          onChange={(e) => setCompShift(e.target.value)}
+                          style={{
+                            padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0',
+                            fontWeight: '600', fontSize: '13px', color: '#334155', outline: 'none', background: 'white',
+                            opacity: compPeriod === 'WEEK' ? 0.6 : 1
+                          }}
+                        >
+                          <option value="ALL">Tất cả ca</option>
+                          <option value="MORNING">Ca Sáng (06h - 14h)</option>
+                          <option value="AFTERNOON">Ca Chiều (14h - 22h)</option>
+                          <option value="NIGHT">Ca Tối (22h - 06h)</option>
+                        </select>
+                      </div>
+
+                      {/* Export PDF Button */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'stretch', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={handleDownloadCompPDF}
+                          disabled={!compData || loadingComp}
+                          style={{
+                            padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                            fontWeight: '700', fontSize: '13px', backgroundColor: '#10B981', color: 'white',
+                            display: 'flex', alignItems: 'center', gap: '6px', height: '37px',
+                            transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(16,185,129,0.2)',
+                            opacity: (!compData || loadingComp) ? 0.6 : 1
+                          }}
+                        >
+                          <Download size={15} />
+                          Xuất PDF
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* LOADING OR EMPTY LAYOUT */}
+                  {loadingComp ? (
+                    <div className="card" style={{ padding: '80px 0', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <RefreshCw className="animate-spin" size={36} color="var(--primary)" />
+                    </div>
+                  ) : !compData ? (
+                    <div className="card" style={{ padding: '80px 0', textAlign: 'center' }}>
+                      <ClipboardList size={48} style={{ opacity: 0.15, marginBottom: '16px', color: 'var(--primary)' }} />
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Không tìm thấy dữ liệu đối soát phù hợp.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* KPI METRIC GRID */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                        {/* KPI 1: Doanh thu */}
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #11117F', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>DOANH THU ĐƠN HÀNG</p>
+                            <h4 style={{ fontSize: '24px', fontWeight: '800', color: '#11117F', margin: '4px 0' }}>
+                              {new Intl.NumberFormat('vi-VN').format(compData.totalRevenue || 0)}đ
+                            </h4>
+                            <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>Từ các đơn hàng COMPLETED</p>
+                          </div>
+                          <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(17, 17, 127, 0.08)', color: '#11117F' }}>
+                            <TrendingUp size={24} />
+                          </div>
+                        </div>
+
+                        {/* KPI 2: Nhập kho */}
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #F59E0B', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CHI PHÍ NHẬP HÀNG</p>
+                            <h4 style={{ fontSize: '24px', fontWeight: '800', color: '#F59E0B', margin: '4px 0' }}>
+                              {new Intl.NumberFormat('vi-VN').format(compData.inventory?.importValue || 0)}đ
+                            </h4>
+                            <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>Nguyên liệu đầu vào</p>
+                          </div>
+                          <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.08)', color: '#F59E0B' }}>
+                            <Package size={24} />
+                          </div>
+                        </div>
+
+                        {/* KPI 3: Lượng đơn */}
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #10B981', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>SỐ LƯỢNG ĐƠN HÀNG</p>
+                            <h4 style={{ fontSize: '24px', fontWeight: '800', color: '#10B981', margin: '4px 0' }}>
+                              {compData.orderCount || 0} đơn
+                            </h4>
+                            <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>Trung bình {new Intl.NumberFormat('vi-VN').format(compData.averageOrderValue || 0)}đ/đơn</p>
+                          </div>
+                          <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(16, 185, 129, 0.08)', color: '#10B981' }}>
+                            <FileText size={24} />
+                          </div>
+                        </div>
+
+                        {/* KPI 4: Giao dịch kho */}
+                        <div className="card" style={{ padding: '20px', borderLeft: '4px solid #8B5CF6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>GIAO DỊCH KHO HÀNG</p>
+                            <h4 style={{ fontSize: '24px', fontWeight: '800', color: '#8B5CF6', margin: '4px 0' }}>
+                              {compData.inventory?.totalTransactions || 0} GD
+                            </h4>
+                            <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>Nhập xuất trong kỳ đối soát</p>
+                          </div>
+                          <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: 'rgba(139, 92, 246, 0.08)', color: '#8B5CF6' }}>
+                            <Archive size={24} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CHARTS LAYOUT */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
+                        
+                        {/* Chart 1: Doanh thu chi tiết theo thời gian */}
+                        <div className="card" style={{ padding: '20px' }}>
+                          <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', margin: '0 0 16px' }}>
+                            {compPeriod === 'DAY' ? '⏰ Biểu đồ doanh thu theo giờ' : '📅 Biểu đồ doanh thu trong tuần'}
+                          </h4>
+                          <div style={{ height: '300px', width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={compData.breakdown} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                <YAxis
+                                  tick={{ fontSize: 11, fill: '#94A3B8' }}
+                                  axisLine={false}
+                                  tickLine={false}
+                                  tickFormatter={(v) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
+                                />
+                                <Tooltip
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                                  formatter={(val) => [`${new Intl.NumberFormat('vi-VN').format(val)}đ`, 'Doanh thu']}
+                                />
+                                <Line type="monotone" dataKey="value" stroke="#11117F" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Chart 2: Nhập xuất của 10 nguyên liệu hàng đầu */}
+                        <div className="card" style={{ padding: '20px' }}>
+                          <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#334155', margin: '0 0 16px' }}>
+                            📊 Cân đối nhập xuất nguyên vật liệu chính (Top 10)
+                          </h4>
+                          <div style={{ height: '300px', width: '100%' }}>
+                            {(!compData.inventory?.items || compData.inventory.items.length === 0) ? (
+                              <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                                Chưa ghi nhận giao dịch nhập xuất nguyên liệu.
+                              </div>
+                            ) : (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={compData.inventory.items.slice(0, 10).map(item => ({
+                                    name: item.ingredientName,
+                                    'Lượng Nhập': item.importQuantity || 0,
+                                    'Lượng Xuất': item.totalExportQuantity || 0
+                                  }))}
+                                  margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+                                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                  <Bar dataKey="Lượng Nhập" fill="#3B82F6" radius={[4, 4, 0, 0]} barSize={14} />
+                                  <Bar dataKey="Lượng Xuất" fill="#8B5CF6" radius={[4, 4, 0, 0]} barSize={14} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* DETAILED AUDIT TABLE CARD */}
+                      <div className="card" style={{ padding: '24px', overflowX: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                          <h4 style={{ fontSize: '15px', fontWeight: '800', color: '#11117F', margin: 0 }}>
+                            📋 Bảng chi tiết đối soát chênh lệch kho
+                          </h4>
+                          <span style={{ fontSize: '12px', color: '#64748B', background: '#F1F5F9', padding: '4px 10px', borderRadius: '12px', fontWeight: '600' }}>
+                            {compData.inventory?.items?.length || 0} nguyên liệu
+                          </span>
+                        </div>
+                        
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '2px solid #E2E8F0', paddingBottom: '12px' }}>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#64748B' }}>Tên nguyên liệu</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#64748B', width: '80px' }}>ĐVT</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#3B82F6', textAlign: 'right' }}>Lượng Nhập (1)</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#8B5CF6', textAlign: 'right' }}>Xuất Bán (2)</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#EF4444', textAlign: 'right' }}>Xuất Hủy (3)</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#6D28D9', textAlign: 'right' }}>Tổng Xuất (2+3)</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#475569', textAlign: 'right' }}>Chênh lệch (1 - Tổng)</th>
+                              <th style={{ padding: '12px 8px', fontSize: '12px', fontWeight: '700', color: '#0F172A', textAlign: 'right' }}>Tồn hiện tại</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(!compData.inventory?.items || compData.inventory.items.length === 0) ? (
+                              <tr>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: '#94A3B8', fontSize: '13px' }}>
+                                  Không ghi nhận biến động kho nguyên liệu trong kỳ đối soát.
+                                </td>
+                              </tr>
+                            ) : (
+                              compData.inventory.items.map((item, index) => {
+                                const netVal = item.netQuantity || 0;
+                                return (
+                                  <tr
+                                    key={item.ingredientId || index}
+                                    style={{
+                                      borderBottom: '1px solid #F1F5F9',
+                                      backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(241, 245, 249, 0.25)',
+                                      transition: 'background-color 0.2s'
+                                    }}
+                                    className="table-row-hover"
+                                  >
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '700', color: '#1E293B' }}>{item.ingredientName}</td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', color: '#64748B', fontWeight: '600' }}>{item.unit || '-'}</td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '700', color: '#3B82F6', textAlign: 'right' }}>
+                                      {item.importQuantity || 0}
+                                    </td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '600', color: '#8B5CF6', textAlign: 'right' }}>
+                                      {item.exportSaleQuantity || 0}
+                                    </td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '600', color: '#EF4444', textAlign: 'right' }}>
+                                      {item.exportWasteQuantity || 0}
+                                    </td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '700', color: '#6D28D9', textAlign: 'right' }}>
+                                      {item.totalExportQuantity || 0}
+                                    </td>
+                                    <td
+                                      style={{
+                                        padding: '12px 8px',
+                                        fontSize: '13px',
+                                        fontWeight: '800',
+                                        textAlign: 'right',
+                                        color: netVal < 0 ? '#EF4444' : netVal > 0 ? '#10B981' : '#475569'
+                                      }}
+                                    >
+                                      {netVal > 0 ? `+${netVal}` : netVal}
+                                    </td>
+                                    <td style={{ padding: '12px 8px', fontSize: '13px', fontWeight: '700', color: '#0F172A', textAlign: 'right' }}>
+                                      {item.currentStock || 0}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </motion.div>
           )}
 

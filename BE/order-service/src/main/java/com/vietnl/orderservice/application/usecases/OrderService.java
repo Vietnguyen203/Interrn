@@ -28,13 +28,23 @@ public class OrderService {
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
     private final TableFeignClient tableFeignClient;
     private final CatalogFeignClient catalogFeignClient;
+    private final com.vietnl.orderservice.infrastructure.security.JwtUtil jwtUtil;
 
     // ===== TẠO ĐƠN HÀNG =====
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request, String username, String token) {
         Order order = new Order();
         order.setTableId(request.getTableId());
-        order.setTableNumber(request.getTableNumber());
+        
+        String authToken = token != null ? (token.startsWith("Bearer ") ? token : "Bearer " + token) : "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+
+        if (request.getTableId() != null) {
+            String fetchedTableNum = fetchTableNumber(request.getTableId(), authToken);
+            order.setTableNumber(fetchedTableNum != null ? fetchedTableNum : request.getTableNumber());
+        } else {
+            order.setTableNumber(request.getTableNumber());
+        }
+        
         order.setNote(request.getNote());
         order.setCreatedBy(username);
         order.setStatus("PENDING");
@@ -45,8 +55,16 @@ public class OrderService {
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
                 item.setMenuItemId(itemReq.getMenuItemId());
-                item.setFoodName(itemReq.getFoodName());
-                item.setUnitPrice(itemReq.getUnitPrice());
+                
+                MenuItemDetails details = fetchMenuItem(itemReq.getMenuItemId(), authToken);
+                if (details != null) {
+                    item.setFoodName(details.getFoodName());
+                    item.setUnitPrice(details.getPrice());
+                } else {
+                    item.setFoodName(itemReq.getFoodName());
+                    item.setUnitPrice(itemReq.getUnitPrice());
+                }
+                
                 item.setQuantity(itemReq.getQuantity());
                 item.setNote(itemReq.getNote());
                 item.setKitchenStatus("PENDING");
@@ -68,7 +86,6 @@ public class OrderService {
         // Báo cho table-service để gán đơn vào bàn (đổi màu thành OCCUPIED)
         if (request.getTableId() != null && token != null) {
             try {
-                String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
                 org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
                 headers.set("Authorization", authToken);
                 headers.set("X-Server", "server-1"); 
@@ -81,6 +98,74 @@ public class OrderService {
                 );
             } catch (Exception e) {
                 System.err.println("Lỗi khi đồng bộ trạng thái bàn (Feign): " + e.getMessage());
+            }
+        }
+
+        return OrderResponse.from(saved);
+    }
+
+    // ===== TẠO ĐƠN HÀNG CÔNG KHAI (KHÁCH QUÉT QR) =====
+    @Transactional
+    public OrderResponse createPublicOrder(CreateOrderRequest request) {
+        String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+        
+        Order order = new Order();
+        order.setTableId(request.getTableId());
+        
+        if (request.getTableId() != null) {
+            String fetchedTableNum = fetchTableNumber(request.getTableId(), systemToken);
+            order.setTableNumber(fetchedTableNum != null ? fetchedTableNum : request.getTableNumber());
+        } else {
+            order.setTableNumber(request.getTableNumber());
+        }
+        
+        order.setNote(request.getNote());
+        order.setCreatedBy("Khách hàng (QR)");
+        order.setStatus("PENDING");
+
+        if (request.getItems() != null) {
+            for (OrderItemRequest itemReq : request.getItems()) {
+                OrderItem item = new OrderItem();
+                item.setOrder(order);
+                item.setMenuItemId(itemReq.getMenuItemId());
+                
+                MenuItemDetails details = fetchMenuItem(itemReq.getMenuItemId(), systemToken);
+                if (details != null) {
+                    item.setFoodName(details.getFoodName());
+                    item.setUnitPrice(details.getPrice());
+                } else {
+                    item.setFoodName(itemReq.getFoodName());
+                    item.setUnitPrice(itemReq.getUnitPrice());
+                }
+                
+                item.setQuantity(itemReq.getQuantity());
+                item.setNote(itemReq.getNote());
+                item.setKitchenStatus("PENDING");
+                order.getItems().add(item);
+            }
+        }
+
+        order.recalculateTotal();
+        Order saved = orderRepository.save(order);
+
+        sendNotification(
+                "Đơn hàng mới từ mã QR",
+                "Khách tại bàn " + (saved.getTableNumber() != null ? saved.getTableNumber() : "mang đi") + " vừa đặt món qua mã QR",
+                "info",
+                "KITCHEN"
+        );
+
+        // Báo cho table-service để gán đơn vào bàn bằng Internal Token
+        if (request.getTableId() != null) {
+            try {
+                tableFeignClient.assignOrder(
+                        UUID.fromString(request.getTableId()),
+                        Map.of("orderId", saved.getId().toString()),
+                        systemToken,
+                        "server-1"
+                );
+            } catch (Exception e) {
+                System.err.println("Lỗi khi đồng bộ trạng thái bàn (Feign - Public Order): " + e.getMessage());
             }
         }
 
@@ -120,6 +205,9 @@ public class OrderService {
             throw new RuntimeException("Không thể thêm món vào đơn hàng đã kết thúc");
         }
 
+        String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+        MenuItemDetails details = fetchMenuItem(request.getMenuItemId(), systemToken);
+
         order.getItems().stream()
                 .filter(i -> i.getMenuItemId().equals(request.getMenuItemId()) && isSameNote(i.getNote(), request.getNote()))
                 .findFirst()
@@ -129,8 +217,8 @@ public class OrderService {
                         OrderItem item = new OrderItem();
                         item.setOrder(order);
                         item.setMenuItemId(request.getMenuItemId());
-                        item.setFoodName(request.getFoodName());
-                        item.setUnitPrice(request.getUnitPrice());
+                        item.setFoodName(details != null ? details.getFoodName() : request.getFoodName());
+                        item.setUnitPrice(details != null ? details.getPrice() : request.getUnitPrice());
                         item.setQuantity(request.getQuantity());
                         item.setNote(request.getNote());
                         item.setKitchenStatus("PENDING");
@@ -401,5 +489,47 @@ public class OrderService {
         String n1 = note1 == null ? "" : note1.trim();
         String n2 = note2 == null ? "" : note2.trim();
         return n1.equals(n2);
+    }
+
+    @lombok.Data
+    private static class MenuItemDetails {
+        private String foodName;
+        private java.math.BigDecimal price;
+    }
+
+    private MenuItemDetails fetchMenuItem(String menuItemId, String token) {
+        try {
+            Map<String, Object> response = catalogFeignClient.getMenuItemById(menuItemId, token);
+            if (response != null && "200".equals(String.valueOf(response.get("code")))) {
+                Map<String, Object> data = (Map<String, Object>) response.get("data");
+                if (data != null) {
+                    MenuItemDetails details = new MenuItemDetails();
+                    details.setFoodName((String) data.get("foodName"));
+                    Object priceObj = data.get("price");
+                    if (priceObj instanceof Number) {
+                        details.setPrice(new java.math.BigDecimal(priceObj.toString()));
+                    }
+                    return details;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gọi catalog-service: " + e.getMessage());
+        }
+        return null;
+    }
+
+    private String fetchTableNumber(String tableId, String token) {
+        try {
+            Map<String, Object> response = tableFeignClient.getTableById(UUID.fromString(tableId), token);
+            if (response != null && "200".equals(String.valueOf(response.get("code")))) {
+                Map<String, Object> data = (Map<String, Object>) response.get("data");
+                if (data != null && data.get("tableNumber") != null) {
+                    return data.get("tableNumber").toString();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gọi table-service lấy thông tin bàn: " + e.getMessage());
+        }
+        return null;
     }
 }

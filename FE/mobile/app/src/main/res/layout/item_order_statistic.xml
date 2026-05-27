@@ -153,5 +153,40 @@
                 android:textColor="@color/black" />
 
         </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- Dynamic Items Section -->
+        <View
+            android:id="@+id/dividerItems"
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:background="#33000000"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/layoutItemsHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="8dp"
+            android:background="#F8FAFC"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋 Chi tiết món ăn"
+                android:textColor="#475569"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutItems"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="8dp" />
+
     </androidx.appcompat.widget.LinearLayoutCompat>
 </androidx.cardview.widget.CardView>

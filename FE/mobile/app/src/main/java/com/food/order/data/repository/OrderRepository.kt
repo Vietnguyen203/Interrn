@@ -18,8 +18,8 @@ object OrderRepository {
     suspend fun getOrder(token: String, id: String): ApiResponse<OrderResponse> =
         api.getOrder(token, id)
 
-    suspend fun listOrders(token: String, page: Int? = null, size: Int? = null): ApiResponse<List<OrderResponse>> =
-        api.listOrders(token, page, size)
+    suspend fun listOrders(token: String, status: String? = null, page: Int? = null, size: Int? = null): ApiResponse<List<OrderResponse>> =
+        api.listOrders(token, status, page, size)
 
     suspend fun createOrder(token: String, request: OrderRequest): ApiResponse<OrderResponse> =
         api.createOrder(token, request)
@@ -98,7 +98,7 @@ object OrderRepository {
         emit(pagedData.orders to meta)
     }
     // ====== KITCHEN ======
-    suspend fun getKitchenItems(token: String): ApiResponse<List<OrderItemResponse>> =
+    suspend fun getKitchenItems(token: String): ApiResponse<List<OrderResponse>> =
         api.getKitchenItems(token)
 
     suspend fun updateKitchenItemStatus(token: String, orderItemId: String, status: String): ApiResponse<Void> =

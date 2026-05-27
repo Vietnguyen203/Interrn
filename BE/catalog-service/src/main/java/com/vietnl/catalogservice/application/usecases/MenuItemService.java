@@ -7,13 +7,17 @@ import com.vietnl.catalogservice.domain.enums.ItemStatus;
 import com.vietnl.catalogservice.infrastructure.persistence.repositories.CategoryRepository;
 import com.vietnl.catalogservice.infrastructure.persistence.repositories.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -22,12 +26,22 @@ public class MenuItemService {
     private final MenuItemRepository menuItemRepository;
     private final CategoryRepository categoryRepository;
 
-    public List<MenuItem> getAll() {
-        return menuItemRepository.findAll();
+    @Value("${notification.service.url:http://localhost:8086}")
+    private String notificationServiceUrl;
+
+    public List<MenuItem> getAll(boolean includeProposals) {
+        if (includeProposals) {
+            return menuItemRepository.findAll();
+        }
+        return menuItemRepository.findByStatus(ItemStatus.ACTIVE.getValue());
     }
 
-    public List<MenuItem> getByCategoryId(String categoryId) {
-        return menuItemRepository.findByCategoryId(UUID.fromString(categoryId));
+    public List<MenuItem> getByCategoryId(String categoryId, boolean includeProposals) {
+        UUID categoryUuid = UUID.fromString(categoryId);
+        if (includeProposals) {
+            return menuItemRepository.findByCategoryId(categoryUuid);
+        }
+        return menuItemRepository.findByCategoryIdAndStatus(categoryUuid, ItemStatus.ACTIVE.getValue());
     }
 
     public MenuItem getById(String id) {
@@ -136,7 +150,14 @@ public class MenuItemService {
         }
         item.setStatus(ItemStatus.ACTIVE.getValue());
         item.setUpdatedAt(LocalDateTime.now());
-        return menuItemRepository.save(item);
+        MenuItem approved = menuItemRepository.save(item);
+        sendNotification(
+                "Đề xuất món ăn đã được duyệt",
+                "Món '" + approved.getFoodName() + "' đã được Admin duyệt và đưa vào menu.",
+                "success",
+                "KITCHEN"
+        );
+        return approved;
     }
 
     public MenuItem reject(String id) {
@@ -144,9 +165,14 @@ public class MenuItemService {
         if (item.getStatus() != ItemStatus.PENDING.getValue()) {
             throw new RuntimeException("Chỉ có thể từ chối món đang ở trạng thái chờ (PENDING)");
         }
-        item.setStatus(ItemStatus.REJECTED.getValue());
-        item.setUpdatedAt(LocalDateTime.now());
-        return menuItemRepository.save(item);
+        menuItemRepository.delete(item);
+        sendNotification(
+                "Đề xuất món ăn bị từ chối",
+                "Món '" + item.getFoodName() + "' đã bị Admin từ chối và không được đưa vào menu.",
+                "warning",
+                "KITCHEN"
+        );
+        return item;
     }
 
     public MenuItem proposeRecipe(String id, String newRecipe) {
@@ -172,5 +198,25 @@ public class MenuItemService {
         item.setPendingRecipe(null);
         item.setUpdatedAt(LocalDateTime.now());
         return menuItemRepository.save(item);
+    }
+
+    private void sendNotification(String title, String message, String type, String role) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                RestTemplate restTemplate = new RestTemplate();
+                restTemplate.postForEntity(
+                        notificationServiceUrl + "/notifications/send",
+                        Map.of(
+                                "title", title,
+                                "message", message,
+                                "type", type,
+                                "recipientRole", role
+                        ),
+                        Void.class
+                );
+            } catch (Exception e) {
+                System.err.println("Không thể gửi thông báo tới notification-service: " + e.getMessage());
+            }
+        });
     }
 }

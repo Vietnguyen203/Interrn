@@ -179,9 +179,12 @@ export const apiService = {
         getAll: (status) => orderFetch('GET', `/orders${status ? `?status=${status}` : ''}`),
         getById: (id) => orderFetch('GET', `/orders/${id}`),
         getReports: (type) => orderFetch('GET', `/reports?type=${type}`),
+        getComparisonReport: (date, shift, period) =>
+            orderFetch('GET', `/reports/comparison?date=${date || ''}&shift=${shift || ''}&period=${period || ''}`),
 
         // Tạo đơn hàng mới
         create: (data) => orderFetch('POST', '/orders', data),
+        createPublic: (data) => orderFetch('POST', '/orders/public', data),
 
         // Thêm / sửa / xóa món trong đơn
         addItem: (orderId, item) => orderFetch('POST', `/orders/${orderId}/items`, item),

@@ -23,9 +23,15 @@ class KitchenFragment : Fragment() {
     private val userToken: String by lazy { SessionManager.getBearerToken(requireContext()) }
 
     private val kitchenAdapter: KitchenAdapter by lazy {
-        KitchenAdapter(emptyList()) { item, targetStatus ->
-            viewModel.updateItemStatus(userToken, item.orderItemId, targetStatus)
-        }
+        KitchenAdapter(
+            groups = emptyList(),
+            onActionClick = { item, targetStatus ->
+                viewModel.updateItemStatus(userToken, item.orderItemId, targetStatus)
+            },
+            onCompleteAllClick = { items ->
+                viewModel.completeAllItems(userToken, items)
+            }
+        )
     }
 
     override fun onCreateView(
@@ -54,9 +60,9 @@ class KitchenFragment : Fragment() {
     private fun registerObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             launch {
-                viewModel.itemsFlow.collectLatest { items ->
-                    kitchenAdapter.updateData(items)
-                    binding.tvEmpty.isVisible = items.isEmpty()
+                viewModel.groupedItemsFlow.collectLatest { groups ->
+                    kitchenAdapter.updateData(groups)
+                    binding.tvEmpty.isVisible = groups.isEmpty()
                 }
             }
             launch {

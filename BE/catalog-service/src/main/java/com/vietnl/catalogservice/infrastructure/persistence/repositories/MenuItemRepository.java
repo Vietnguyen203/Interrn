@@ -11,5 +11,7 @@ import java.util.UUID;
 @Repository
 public interface MenuItemRepository extends JpaRepository<MenuItem, UUID> {
     List<MenuItem> findByCategoryId(UUID categoryId);
+    List<MenuItem> findByStatus(Integer status);
+    List<MenuItem> findByCategoryIdAndStatus(UUID categoryId, Integer status);
     Optional<MenuItem> findByCode(String code);
 }

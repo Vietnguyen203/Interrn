@@ -19,4 +19,10 @@ public interface TableFeignClient {
             @RequestHeader("Authorization") String token,
             @RequestHeader("X-Server") String server
     );
+
+    @org.springframework.web.bind.annotation.GetMapping("/tables/{id}")
+    Map<String, Object> getTableById(
+            @PathVariable("id") UUID id,
+            @RequestHeader("Authorization") String token
+    );
 }

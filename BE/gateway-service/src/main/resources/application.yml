@@ -56,7 +56,13 @@ spring:
             # Sửa lại regex để xử lý cả trường hợp segment trống
             - RewritePath=/api/users-service/?(?<segment>.*), /users-service/request/$\{segment}
 
-        # 6. Notification Service (8086)
+        # 6. Notification Service - WebSocket (ws://)
+        - id: ws_notification_route
+          uri: ws://localhost:8086
+          predicates:
+            - Path=/ws-notifications/**
+
+        # 7. Notification Service (8086)
         - id: notification_route
           uri: http://localhost:8086
           predicates:

@@ -3,6 +3,7 @@ package com.vietnl.usersservice.adapter.apis;
 import com.vietnl.usersservice.application.requests.LoginRequest;
 import com.vietnl.usersservice.application.requests.ResetPasswordRequest;
 import com.vietnl.usersservice.application.requests.UserRequest;
+import com.vietnl.usersservice.application.requests.VerifyLoginOtpRequest;
 import com.vietnl.usersservice.application.responses.LoginResponse;
 import com.vietnl.usersservice.application.responses.UserResponse;
 import com.vietnl.usersservice.application.usecases.UserService;
@@ -43,11 +44,11 @@ public class UserAPI {
 
         // ===== VERIFY OTP =====
         @PostMapping("/login/verify-otp")
-        public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
-                String username = request.get("username");
-                String otp = request.get("otp");
-                String deviceId = request.get("deviceId");
-                boolean rememberMe = Boolean.parseBoolean(String.valueOf(request.get("rememberMe")));
+        public ResponseEntity<?> verifyOtp(@RequestBody VerifyLoginOtpRequest request) {
+                String username = request.getUsername();
+                String otp = request.getOtp();
+                String deviceId = request.getDeviceId();
+                boolean rememberMe = Boolean.TRUE.equals(request.getRememberMe());
 
                 LoginResponse response = userService.verifyLoginOtp(username, otp, deviceId, rememberMe);
 

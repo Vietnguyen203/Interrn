@@ -40,4 +40,16 @@ public class JwtUtil {
             return false;
         }
     }
+
+    public String generateToken(String username, String role) {
+        java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
+        extraClaims.put("role", role);
+        return Jwts.builder()
+                .setClaims(extraClaims)
+                .setSubject(username)
+                .setIssuedAt(new java.util.Date(System.currentTimeMillis()))
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour
+                .signWith(getKey(), io.jsonwebtoken.SignatureAlgorithm.HS256)
+                .compact();
+    }
 }

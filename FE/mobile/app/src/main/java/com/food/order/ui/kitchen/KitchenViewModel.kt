@@ -4,7 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.food.order.data.ApiError
 import com.food.order.data.repository.OrderRepository
-import com.food.order.data.response.OrderItemResponse
+import com.food.order.data.response.OrderResponse
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -15,8 +16,8 @@ class KitchenViewModel : ViewModel() {
 
     private val repository = OrderRepository
 
-    private val _itemsFlow = MutableStateFlow<List<OrderItemResponse>>(emptyList())
-    val itemsFlow = _itemsFlow.asStateFlow()
+    private val _groupedItemsFlow = MutableStateFlow<List<KitchenTableGroup>>(emptyList())
+    val groupedItemsFlow = _groupedItemsFlow.asStateFlow()
 
     private val _loadingFlow = MutableStateFlow(false)
     val loadingFlow = _loadingFlow.asStateFlow()
@@ -28,12 +29,52 @@ class KitchenViewModel : ViewModel() {
         viewModelScope.launch {
             _loadingFlow.value = true
             try {
-                val response = repository.getKitchenItems(token)
-                if (response.isSuccess) {
-                    _itemsFlow.value = response.data ?: emptyList()
-                } else {
-                    _errorFlow.emit(response.message ?: "Failed to fetch items")
+                // Fetch both PENDING and CONFIRMED orders concurrently
+                val pendingDeferred = async { repository.listOrders(token, "PENDING") }
+                val confirmedDeferred = async { repository.listOrders(token, "CONFIRMED") }
+
+                val pendingRes = pendingDeferred.await()
+                val confirmedRes = confirmedDeferred.await()
+
+                val pendingOrders = if (pendingRes.isSuccess) pendingRes.data ?: emptyList() else emptyList()
+                val confirmedOrders = if (confirmedRes.isSuccess) confirmedRes.data ?: emptyList() else emptyList()
+
+                val allKitchenItems = mutableListOf<KitchenItem>()
+
+                val extractItems = { orders: List<OrderResponse> ->
+                    orders.forEach { order ->
+                        order.items.forEach { item ->
+                            val ks = item.kitchenStatus ?: "PENDING"
+                            if (ks == "PENDING" || ks == "COOKING") {
+                                allKitchenItems.add(
+                                    KitchenItem(
+                                        orderItemId = item.id.orEmpty(),
+                                        foodName = item.foodName ?: "Món không tên",
+                                        quantity = item.quantity ?: 1,
+                                        note = item.note,
+                                        kitchenStatus = ks,
+                                        orderId = order.id.orEmpty(),
+                                        tableNumber = if (!order.tableNumber.isNullOrBlank()) {
+                                            if (order.tableNumber.contains("Bàn")) order.tableNumber else "Bàn ${order.tableNumber}"
+                                        } else {
+                                            "Mang đi"
+                                        }
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
+
+                extractItems(pendingOrders)
+                extractItems(confirmedOrders)
+
+                // Group by tableNumber and sort
+                val grouped = allKitchenItems.groupBy { it.tableNumber }
+                    .map { (tableNum, items) -> KitchenTableGroup(tableNum, items) }
+                    .sortedBy { it.tableNumber }
+
+                _groupedItemsFlow.value = grouped
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally {
@@ -53,6 +94,30 @@ class KitchenViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
+            }
+        }
+    }
+
+    fun completeAllItems(token: String, items: List<KitchenItem>) {
+        viewModelScope.launch {
+            _loadingFlow.value = true
+            try {
+                // Call updateKitchenItemStatus concurrently for all items in the group
+                val jobs = items.map { item ->
+                    launch {
+                        try {
+                            repository.updateKitchenItemStatus(token, item.orderItemId, "READY")
+                        } catch (e: Exception) {
+                            System.err.println("Lỗi cập nhật món ${item.foodName}: ${e.message}")
+                        }
+                    }
+                }
+                jobs.forEach { it.join() }
+                fetchKitchenItems(token)
+            } catch (e: Exception) {
+                _errorFlow.emit(ApiError.parse(e))
+            } finally {
+                _loadingFlow.value = false
             }
         }
     }

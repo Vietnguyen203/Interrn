@@ -155,6 +155,7 @@ interface ApiService {
     @GET("order/orders")
     suspend fun listOrders(
         @Header("Authorization") token: String,
+        @Query("status") status: String? = null,
         @Query("page") page: Int? = null,
         @Query("size") size: Int? = null
     ): ApiResponse<List<OrderResponse>>
@@ -263,12 +264,37 @@ interface ApiService {
     ): ApiResponse<FoodStatisticsResponse>
     // ===== KITCHEN =====
     @GET("order/orders?status=PENDING")
-    suspend fun getKitchenItems(@Header("Authorization") token: String): ApiResponse<List<OrderItemResponse>>
+    suspend fun getKitchenItems(@Header("Authorization") token: String): ApiResponse<List<OrderResponse>>
 
     @PATCH("order/orders/items/{orderItemId}/kitchen-status")
     suspend fun updateKitchenItemStatus(
         @Header("Authorization") token: String,
         @Path("orderItemId") orderItemId: String,
         @Query("status") status: String
+    ): ApiResponse<Void>
+
+    // ===== NOTIFICATIONS =====
+    @GET("api/notifications/recent")
+    suspend fun getRecentNotifications(
+        @Header("Authorization") token: String,
+        @Query("role") role: String
+    ): ApiResponse<List<NotificationResponse>>
+
+    @PATCH("api/notifications/{id}/read")
+    suspend fun markNotificationRead(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): ApiResponse<NotificationResponse>
+
+    @POST("api/notifications/device-token")
+    suspend fun registerFcmToken(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards String>
+    ): ApiResponse<Void>
+
+    @DELETE("api/notifications/device-token")
+    suspend fun removeFcmToken(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards String>
     ): ApiResponse<Void>
 }

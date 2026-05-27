@@ -115,7 +115,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="?attr/colorSurfaceVariant"
+                        android:background="#E2E8F0"
                         android:layout_marginStart="16dp" />
 
                     <!-- Row: Sound Notification -->
@@ -151,7 +151,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="@string/sound_notification_desc_on"
                                 android:textSize="12sp"
-                                android:textColor="?attr/colorOnSurfaceVariant" />
+                                android:textColor="#64748B" />
                         </LinearLayout>
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -165,7 +165,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="?attr/colorSurfaceVariant"
+                        android:background="#E2E8F0"
                         android:layout_marginStart="16dp" />
 
                     <!-- Row: Language -->
@@ -201,7 +201,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Tiếng Việt"
                                 android:textSize="12sp"
-                                android:textColor="?attr/colorOnSurfaceVariant" />
+                                android:textColor="#64748B" />
                         </LinearLayout>
 
                         <!-- Language pill buttons -->
@@ -298,7 +298,7 @@
                                 android:textSize="12sp"
                                 android:ellipsize="end"
                                 android:maxLines="1"
-                                android:textColor="?attr/colorOnSurfaceVariant" />
+                                android:textColor="#64748B" />
                         </LinearLayout>
 
                         <ImageView

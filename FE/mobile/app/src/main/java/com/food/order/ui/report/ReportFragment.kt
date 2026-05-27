@@ -16,6 +16,7 @@ import com.anychart.chart.common.dataentry.ValueDataEntry
 import com.anychart.charts.Pie
 import com.anychart.enums.Align
 import com.anychart.enums.LegendLayout
+import android.webkit.WebView
 import androidx.navigation.fragment.findNavController
 import com.food.order.data.response.RevenueByWeek
 import com.food.order.databinding.FragmentReportBinding
@@ -64,6 +65,7 @@ class ReportFragment : Fragment() {
                 viewModel.revenueByWeekFlow.collectLatest { weeks ->
                     if (!isAdded || _binding == null) return@collectLatest
                     if (weeks.isNullOrEmpty()) {
+                        destroyChartView()
                         binding.layoutAnyChartView.removeAllViews()
                         binding.layoutAnyChartView.visibility = View.INVISIBLE
                     } else {
@@ -88,12 +90,6 @@ class ReportFragment : Fragment() {
         viewModel.server = sharedPref.getString("server_address", "") ?: ""
         viewModel.authToken = "Bearer " + (sharedPref.getString("token", "") ?: "")
 
-        if (chartView == null) {
-            chartView = AnyChartView(requireContext()).apply { setProgressBar(binding.progressBar) }
-            binding.layoutAnyChartView.removeAllViews()
-            binding.layoutAnyChartView.addView(chartView)
-        }
-
         viewModel.fetchDataInTime()
         binding.ivPrev.setOnClickListener { viewModel.prevTime() }
         binding.ivNext.setOnClickListener { viewModel.nextTime() }
@@ -103,35 +99,55 @@ class ReportFragment : Fragment() {
     private fun setupPieChart(result: List<RevenueByWeek>) {
         if (!isAdded || _binding == null) return
 
+        destroyChartView()
+
         val data: MutableList<DataEntry> = ArrayList()
         for (r in result) data.add(ValueDataEntry("Week ${r.week}", r.total))
 
-        if (pie == null) {
-            pie = AnyChart.pie().apply {
-                title("")
-                labels().position("outside")
-                legend().title().enabled(true)
-                legend().title().text("Week").padding(0.0, 0.0, 10.0, 0.0)
-                legend().position("center-bottom").itemsLayout(LegendLayout.HORIZONTAL).align(Align.CENTER)
+        val pieChart = pie ?: AnyChart.pie().apply {
+            title("")
+            labels().position("outside")
+            legend().title().enabled(true)
+            legend().title().text("Week").padding(0.0, 0.0, 10.0, 0.0)
+            legend().position("center-bottom").itemsLayout(LegendLayout.HORIZONTAL).align(Align.CENTER)
+        }
+        pie = pieChart
+        pieChart.data(data)
+
+        // Tạo AnyChartView mới và gán chart ngay lập tức trước khi thêm vào layout
+        // để tránh crash NullPointerException trong onPageFinished của WebView
+        val cv = AnyChartView(requireContext()).apply {
+            setProgressBar(binding.progressBar)
+            setChart(pieChart)
+        }
+
+        binding.layoutAnyChartView.removeAllViews()
+        binding.layoutAnyChartView.addView(cv)
+        chartView = cv
+    }
+
+    private fun destroyChartView() {
+        val cv = chartView ?: return
+        chartView = null
+        try {
+            cv.clear()
+            val webViewId = resources.getIdentifier("web_view", "id", requireContext().packageName)
+            if (webViewId != 0) {
+                val webView = cv.findViewById<WebView>(webViewId)
+                webView?.apply {
+                    stopLoading()
+                    webViewClient = android.webkit.WebViewClient()
+                    webChromeClient = android.webkit.WebChromeClient()
+                    destroy()
+                }
             }
-        }
-        pie!!.data(data)
-
-        val cv = chartView ?: AnyChartView(requireContext()).also {
-            chartView = it; it.setProgressBar(binding.progressBar)
-            binding.layoutAnyChartView.removeAllViews()
-            binding.layoutAnyChartView.addView(it)
-        }
-
-        try { cv.setChart(pie) } catch (_: Throwable) {
-            binding.layoutAnyChartView.removeAllViews()
-            binding.layoutAnyChartView.visibility = View.INVISIBLE
-        }
+        } catch (_: Throwable) {}
     }
 
     override fun onDestroyView() {
-        try { chartView?.clear() } catch (_: Throwable) {}
-        chartView = null; pie = null; _binding = null
+        destroyChartView()
+        pie = null
+        _binding = null
         super.onDestroyView()
     }
 }

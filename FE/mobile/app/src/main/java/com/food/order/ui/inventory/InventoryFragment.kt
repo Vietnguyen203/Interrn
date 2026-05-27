@@ -68,16 +68,16 @@ class InventoryFragment : Fragment() {
 
         binding.cardViewBack.setOnClickListener { findNavController().popBackStack() }
         binding.ivSync.setOnClickListener {
-            viewModel.getIngredients(userToken)
+            viewModel.getIngredients(userToken, requireContext())
             Toast.makeText(requireContext(), "Đang đồng bộ...", Toast.LENGTH_SHORT).show()
         }
 
-        viewModel.getIngredients(userToken)
+        viewModel.getIngredients(userToken, requireContext())
     }
 
     override fun onResume() {
         super.onResume()
-        viewModel.getIngredients(userToken)
+        viewModel.getIngredients(userToken, requireContext())
     }
 
     override fun onDestroyView() {

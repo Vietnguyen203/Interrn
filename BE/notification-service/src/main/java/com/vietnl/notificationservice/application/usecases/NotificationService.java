@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -15,6 +18,7 @@ public class NotificationService {
 
     private final NotificationRepository repository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final FcmService fcmService;
 
     @Transactional
     public Notification createAndSend(String title, String message, String type, String role) {
@@ -26,19 +30,32 @@ public class NotificationService {
         notification.setRecipientRole(role);
         notification = repository.save(notification);
 
-        // 2. Gửi qua WebSocket
-        // Gửi đến topic chung cho tất cả
+        // 2. Gửi qua WebSocket STOMP
         messagingTemplate.convertAndSend("/topic/public", notification);
-        
-        // Gửi đến topic riêng cho từng role nếu cần
         if (role != null && !role.equals("ALL")) {
             messagingTemplate.convertAndSend("/topic/role/" + role, notification);
         }
+
+        // 3. Gửi Firebase FCM push notification
+        Map<String, String> data = Map.of(
+            "notificationId", notification.getId().toString(),
+            "type", type != null ? type : "info",
+            "role", role != null ? role : "ALL"
+        );
+        fcmService.sendToRole(role, title, message, data);
 
         return notification;
     }
 
     public List<Notification> getRecentNotifications(String role) {
         return repository.findByRecipientRoleOrRecipientRoleOrderByCreatedAtDesc(role, "ALL");
+    }
+
+    @Transactional
+    public Optional<Notification> markAsRead(String id) {
+        return repository.findById(UUID.fromString(id)).map(n -> {
+            n.setRead(true);
+            return repository.save(n);
+        });
     }
 }

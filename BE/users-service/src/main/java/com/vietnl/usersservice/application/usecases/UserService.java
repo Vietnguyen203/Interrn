@@ -8,6 +8,7 @@ import com.vietnl.usersservice.application.responses.LoginResponse;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import com.vietnl.usersservice.application.validators.UserValidator;
 import com.vietnl.usersservice.domain.entities.User;
 import com.vietnl.usersservice.domain.enums.UserRole;
@@ -59,7 +60,7 @@ public class UserService {
         }
 
         // Kiểm tra thiết bị tin cậy (Save Device)
-        if (deviceId != null && user.getTrustedDevice() != null) {
+        if (StringUtils.hasText(deviceId) && user.getTrustedDevice() != null) {
             try {
                 UUID deviceUuid = UUID.fromString(deviceId);
                 if (user.getTrustedDevice().equals(deviceUuid)) {
@@ -132,7 +133,7 @@ public class UserService {
         claims.put("fullName", user.getFullName());
 
         // Nếu người dùng chọn ghi nhớ thiết bị
-        if (rememberMe && deviceId != null) {
+        if (rememberMe && StringUtils.hasText(deviceId)) {
             try {
                 UUID deviceUuid = UUID.fromString(deviceId);
                 if (user.getTrustedDevice() == null || !user.getTrustedDevice().equals(deviceUuid)) {

@@ -13,60 +13,69 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- Table Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="8dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_myplaces"
+                android:contentDescription="Table Icon"
+                app:tint="#11117F" />
 
             <TextView
-                android:id="@+id/tvFoodName"
+                android:id="@+id/tvTableNumber"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Food Name"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Bàn số 1"
                 android:textColor="#11117F"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvStatus"
+                android:id="@+id/tvItemCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="#FFF0F0"
-                android:padding="4dp"
-                android:text="PENDING"
-                android:textColor="#F44336"
+                android:layout_marginEnd="8dp"
+                android:background="#EFF6FF"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:text="3 món"
+                android:textColor="#1D4ED8"
                 android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnCompleteAll"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:backgroundTint="#10B981"
+                android:text="Xong tất cả"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvQuantity"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Quantity: 1"
-            android:textColor="#666666" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="#E2E8F0"
+            android:layout_marginBottom="8dp" />
 
-        <TextView
-            android:id="@+id/tvNote"
+        <!-- Sub-items Container -->
+        <LinearLayout
+            android:id="@+id/containerItems"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="#F9F9F9"
-            android:padding="8dp"
-            android:text="Note: No sugar"
-            android:textSize="13sp"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/btnAction"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="#11117F"
-            android:text="Accept Order"
-            android:textColor="@android:color/white" />
+            android:orientation="vertical" />
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

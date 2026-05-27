@@ -19,12 +19,12 @@ class InventoryViewModel : ViewModel() {
     private val _errorFlow = MutableStateFlow<String?>(null)
     val errorFlow: StateFlow<String?> = _errorFlow
 
-    fun getIngredients(token: String) {
+    fun getIngredients(token: String, context: android.content.Context) {
         viewModelScope.launch {
             _loadingFlow.value = true
             _errorFlow.value = null
             try {
-                val api = com.food.order.data.CatalogRetrofitClient.instance
+                val api = com.food.order.data.CatalogRetrofitClient.build(context)
                 val response = api.getIngredients(token)
                 if (response.isSuccess) {
                     _ingredientsFlow.value = response.data ?: emptyList()

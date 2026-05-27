@@ -41,6 +41,14 @@ public class OrderAPI {
         return ResponseEntity.ok(ApiResponse.ok("Tạo đơn hàng thành công", response));
     }
 
+    // POST /orders/public - Khách hàng tạo đơn hàng qua mã QR
+    @PostMapping("/public")
+    public ResponseEntity<ApiResponse<OrderResponse>> createPublicOrder(
+            @Valid @RequestBody CreateOrderRequest request) {
+        OrderResponse response = orderService.createPublicOrder(request);
+        return ResponseEntity.ok(ApiResponse.ok("Khách hàng tạo đơn hàng thành công", response));
+    }
+
     // GET /orders - Lấy tất cả đơn hàng
     @GetMapping
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAllOrders(

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -72,9 +73,22 @@ public class InventoryAPI {
     }
 
     @GetMapping("/transactions")
-    public ResponseEntity<?> getAllTransactions() {
-        List<InventoryTransaction> list = inventoryService.getAllTransactions();
+    public ResponseEntity<?> getAllTransactions(
+            @RequestParam(required = false) LocalDate date,
+            @RequestParam(defaultValue = "ALL") String shift,
+            @RequestParam(defaultValue = "ALL") String period) {
+        List<InventoryTransaction> list = "ALL".equalsIgnoreCase(period) && date == null && "ALL".equalsIgnoreCase(shift)
+                ? inventoryService.getAllTransactions()
+                : inventoryService.getTransactions(date, period, shift);
         return ResponseEntity.ok(Map.of("code", "200", "data", list));
+    }
+
+    @GetMapping("/transactions/summary")
+    public ResponseEntity<?> getTransactionSummary(
+            @RequestParam(required = false) LocalDate date,
+            @RequestParam(defaultValue = "ALL") String shift,
+            @RequestParam(defaultValue = "DAY") String period) {
+        return ResponseEntity.ok(Map.of("code", "200", "data", inventoryService.getInventorySummary(date, period, shift)));
     }
 
     // --- Recipe Management ---

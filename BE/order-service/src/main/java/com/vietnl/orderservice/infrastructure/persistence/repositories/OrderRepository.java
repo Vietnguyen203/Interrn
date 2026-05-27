@@ -23,6 +23,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE UPPER(o.status) = UPPER(:status)")
     List<Order> findByStatusIgnoreCaseWithItems(@Param("status") String status);
 
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE UPPER(o.status) = 'COMPLETED' AND o.createdAt BETWEEN :start AND :end")
+    List<Order> findCompletedOrdersBetween(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
     List<Order> findByStatusOrderByCreatedAtDesc(String status);
 
     List<Order> findByTableIdOrderByCreatedAtDesc(String tableId);

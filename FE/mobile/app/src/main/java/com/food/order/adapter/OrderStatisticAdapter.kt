@@ -30,7 +30,12 @@ class OrderStatisticAdapter(
             binding.tvWaiter.text = order.employeeName
             binding.tvOrder.text = order.id
             binding.tvTable.text = order.tableName
-            binding.tvTotal.text = order.totalAmount.toString()
+            
+            // Format totalAmount beautifully in Vietnamese Dong
+            val moneyFmt = java.text.NumberFormat.getInstance(java.util.Locale("vi", "VN"))
+            val formattedTotal = order.totalAmount?.let { moneyFmt.format(it) + " ₫" } ?: "0 ₫"
+            binding.tvTotal.text = formattedTotal
+            
             binding.tvStatus.text = order.status
             val colorResId: Int = when (order.status) {
                 "ORDERING" -> R.color.status_ordering
@@ -39,6 +44,35 @@ class OrderStatisticAdapter(
             }
 
             binding.tvStatus.setTextColor(ContextCompat.getColor(binding.root.context, colorResId))
+
+            // Populate items dynamically
+            binding.layoutItems.removeAllViews()
+            if (order.items.isNotEmpty()) {
+                binding.dividerItems.visibility = android.view.View.VISIBLE
+                binding.layoutItemsHeader.visibility = android.view.View.VISIBLE
+                
+                val context = binding.root.context
+                val inflater = LayoutInflater.from(context)
+                
+                for (item in order.items) {
+                    val dishView = inflater.inflate(R.layout.item_order_detail_dish, binding.layoutItems, false)
+                    val tvDishName = dishView.findViewById<android.widget.TextView>(R.id.tvDishName)
+                    val tvDishQty = dishView.findViewById<android.widget.TextView>(R.id.tvDishQty)
+                    val tvDishPrice = dishView.findViewById<android.widget.TextView>(R.id.tvDishPrice)
+                    
+                    tvDishName.text = item.foodName ?: "Món ăn ẩn"
+                    tvDishQty.text = "x${item.quantity ?: 0}"
+                    
+                    val itemTotal = (item.price ?: 0.0) * (item.quantity ?: 0)
+                    tvDishPrice.text = moneyFmt.format(itemTotal) + " ₫"
+                    
+                    binding.layoutItems.addView(dishView)
+                }
+            } else {
+                binding.dividerItems.visibility = android.view.View.GONE
+                binding.layoutItemsHeader.visibility = android.view.View.GONE
+            }
+
             binding.root.setOnClickListener {
                 onItemClick(order)
             }
