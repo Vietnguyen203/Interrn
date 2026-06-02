@@ -43,6 +43,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/cardViewBack" />
 
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/etSearch"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginTop="15dp"
+        android:background="@drawable/bg_input_common_border_10"
+        android:padding="10dp"
+        android:hint="Tìm kiếm món ăn..."
+        android:textColor="#1E293B"
+        app:layout_constraintTop_toBottomOf="@id/cardViewBack"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        app:tabMode="scrollable"
+        app:layout_constraintTop_toBottomOf="@id/etSearch"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="0dp"
@@ -53,7 +77,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvFood"
+        app:layout_constraintTop_toBottomOf="@id/tabLayout"
         app:spanCount="2"
         tools:itemCount="10"
         tools:listitem="@layout/item_food" />
@@ -66,7 +90,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvFood"
+        app:layout_constraintTop_toBottomOf="@id/tabLayout"
         app:srcCompat="@drawable/ic_empty_box" />
 
     <com.food.order.utils.widget.FoodOrderLoadingView

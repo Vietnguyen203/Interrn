@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   LayoutDashboard, Users, Utensils, ClipboardList, Settings, LogOut, Menu, X, Plus,
   User as UserIcon, Calendar, BarChart as BarChartIcon, TrendingUp, PieChart as PieChartIcon,
@@ -223,7 +224,12 @@ const LoginScreen = ({ onLoginSuccess }) => {
   const getDeviceId = () => {
     let id = localStorage.getItem('deviceId');
     if (!id) {
-      id = crypto.randomUUID();
+      if (window.crypto && window.crypto.randomUUID) {
+        id = window.crypto.randomUUID();
+      } else {
+        // Fallback cho HTTP LAN (không có crypto.randomUUID do không phải https/localhost)
+        id = 'device_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      }
       localStorage.setItem('deviceId', id);
     }
     return id;
@@ -849,7 +855,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for Real-time Tables
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8083/ws');
+    const socket = new SockJS('/ws');
     const stompClient = new Client({
       webSocketFactory: () => socket,
       debug: (str) => console.log('>>> [WS Debug Table]:', str),
@@ -870,7 +876,7 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for General Notifications
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8086/ws-notifications');
+    const socket = new SockJS('/ws-notifications');
     const stompClient = new Client({
       webSocketFactory: () => socket,
       debug: (str) => console.log('>>> [WS Debug Note]:', str),
@@ -2270,8 +2276,16 @@ const DashboardScreen = ({ user, onLogout }) => {
                           textAlign: 'center',
                           border: `1px solid ${isOccupied ? 'var(--secondary)' : 'var(--border-color)'}`,
                           backgroundColor: isOccupied ? 'rgba(9, 52, 219, 0.05)' : 'var(--bg-app)',
-                          transition: 'all 0.3s ease'
+                          transition: 'all 0.3s ease',
+                          position: 'relative'
                         }}>
+                          <button 
+                            onClick={() => setSelectedTableForQR(table)} 
+                            style={{ position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)' }}
+                            title="Mã QR Đặt Món"
+                          >
+                            <QrCode size={16} />
+                          </button>
                           <span style={{ display: 'block', fontSize: '15px', fontWeight: '700', marginBottom: '6px', color: '#11117F' }}>
                             Bàn {table.tableNumber}
                           </span>
@@ -3441,36 +3455,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Modal Thêm/Sửa Bàn (Đặt trong Settings) */}
-              {selectedTableForQR && (
-                <div className="modal-overlay" onClick={() => setSelectedTableForQR(null)}>
-                  <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
-                    <div className="modal-header">
-                      <h3>Mã QR Đặt Món - Bàn {selectedTableForQR.tableNumber}</h3>
-                      <button className="btn-ghost" onClick={() => setSelectedTableForQR(null)}><X size={20} /></button>
-                    </div>
-                    <div style={{ padding: '20px' }}>
-                      <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Khách hàng quét mã QR này bằng điện thoại để tự xem Menu và đặt món.</p>
-                      <div style={{ backgroundColor: 'white', padding: '16px', display: 'inline-block', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(window.location.origin + '/customer?tableId=' + (selectedTableForQR.id || selectedTableForQR.ID) + '&tableName=' + selectedTableForQR.tableNumber)}`} 
-                          alt="QR Code" 
-                          style={{ width: '250px', height: '250px' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ flex: 1 }}
-                          onClick={() => window.open(window.location.origin + '/customer?tableId=' + (selectedTableForQR.id || selectedTableForQR.ID) + '&tableName=' + selectedTableForQR.tableNumber, '_blank')}
-                        >
-                          Trang khách
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
               {isTableModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4413,6 +4398,10 @@ const DashboardScreen = ({ user, onLogout }) => {
 
         </div>
       </main>
+
+      {/* QR Code Modal for Tables (Global) */}
+      <QRCodeModal table={selectedTableForQR} onClose={() => setSelectedTableForQR(null)} />
+
 
       {/* Ingredient Modal overlay */}
       {showIngredientModal && (
@@ -5362,6 +5351,63 @@ const App = () => {
         <LoginScreen key="login" onLoginSuccess={(user) => setCurrentUser(user)} />
       )}
     </AnimatePresence>
+  );
+};
+
+const QRCodeModal = ({ table, onClose }) => {
+  const [hostIp, setHostIp] = useState(() => {
+    return window.location.hostname === 'localhost' ? '192.168.31.53:5173' : window.location.host;
+  });
+
+  if (!table) return null;
+  const qrUrl = `http://${hostIp}/customer?tableId=${table.id || table.ID}&tableName=${table.tableNumber}`;
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10000 }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+        <div className="modal-header">
+          <h3>Mã QR Đặt Món - Bàn {table.tableNumber}</h3>
+          <button className="btn-ghost" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '20px' }}>
+          {window.location.hostname === 'localhost' && (
+            <details style={{ marginBottom: '20px', textAlign: 'left', backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0', cursor: 'pointer' }}>
+              <summary style={{ fontSize: '13px', color: '#64748B', fontWeight: '600', userSelect: 'none' }}>⚙️ Cài đặt IP mạng LAN (Nâng cao)</summary>
+              <div style={{ marginTop: '12px', cursor: 'default' }}>
+                <input 
+                  type="text" 
+                  value={hostIp} 
+                  onChange={(e) => setHostIp(e.target.value)} 
+                  className="input-field" 
+                  style={{ width: '100%', padding: '8px', fontSize: '14px', fontFamily: 'monospace' }} 
+                />
+                <p style={{ fontSize: '12px', color: '#EF4444', margin: '8px 0 0 0', fontWeight: '500' }}>
+                  *Chỉ thay đổi nếu điện thoại khách hàng báo lỗi kết nối. Hãy điền IP LAN thực tế của máy tính này.
+                </p>
+              </div>
+            </details>
+          )}
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', fontSize: '14px' }}>Khách hàng quét mã QR này bằng điện thoại để tự xem Menu và đặt món.</p>
+          <div style={{ backgroundColor: 'white', padding: '16px', display: 'inline-block', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            <QRCodeCanvas 
+              value={qrUrl} 
+              size={250} 
+              level={"H"}
+              includeMargin={false}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              className="btn btn-secondary" 
+              style={{ flex: 1 }}
+              onClick={() => window.open(qrUrl, '_blank')}
+            >
+              Mở Trang khách
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -23,6 +23,13 @@ import android.graphics.drawable.ColorDrawable
 import android.view.Window
 import com.food.order.data.model.FoodModel
 import com.food.order.databinding.DialogOrderOptionsBinding
+import android.text.Editable
+import android.text.TextWatcher
+import com.google.android.material.tabs.TabLayout
+import java.util.Collections
+
+class OrderFoodFragment : Fragment() {
+
 import java.util.Collections
 
 class OrderFoodFragment : Fragment() {
@@ -39,6 +46,23 @@ class OrderFoodFragment : Fragment() {
         }, true)
     }
 
+    private var allFoods = listOf<FoodModel>()
+    private var activeCategoryId: String? = null
+    private var searchQuery: String = ""
+
+    private fun filterFoods() {
+        var filtered = allFoods
+        if (searchQuery.isNotBlank()) {
+            filtered = filtered.filter { it.foodName.contains(searchQuery, ignoreCase = true) }
+        } else if (activeCategoryId != null) {
+            filtered = filtered.filter { it.categoryId == activeCategoryId }
+        }
+
+        binding.recyclerView.isVisible = filtered.isNotEmpty()
+        binding.ivEmpty.isVisible = filtered.isEmpty()
+        adapter.updateData(filtered)
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentOrderFoodBinding.inflate(inflater, container, false)
 
@@ -50,9 +74,21 @@ class OrderFoodFragment : Fragment() {
             }
             launch {
                 viewModel.foodsFlow.collect { foods ->
-                    binding.recyclerView.isVisible = foods.isNotEmpty()
-                    binding.ivEmpty.isVisible = foods.isEmpty()
-                    adapter.updateData(foods)
+                    allFoods = foods
+                    filterFoods()
+                }
+            }
+            launch {
+                viewModel.categoriesFlow.collect { categories ->
+                    binding.tabLayout.removeAllTabs()
+                    for (cat in categories) {
+                        val tab = binding.tabLayout.newTab().setText(cat.name).setTag(cat.id)
+                        binding.tabLayout.addTab(tab)
+                    }
+                    if (categories.isNotEmpty() && activeCategoryId == null) {
+                        activeCategoryId = categories[0].id
+                        filterFoods()
+                    }
                 }
             }
             launch {
@@ -78,6 +114,25 @@ class OrderFoodFragment : Fragment() {
             findNavController().popBackStack()
         }
 
+        binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                activeCategoryId = tab?.tag as? String
+                filterFoods()
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchQuery = s.toString().trim()
+                filterFoods()
+            }
+        })
+
+        viewModel.getCategories(requireContext(), userToken)
         viewModel.getFoodsFromServer(requireContext(), userToken)
     }
 
