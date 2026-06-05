@@ -780,6 +780,8 @@ const DashboardScreen = ({ user, onLogout }) => {
   const [selectedMenuItemForRecipe, setSelectedMenuItemForRecipe] = useState(null);
   const [recipeItems, setRecipeItems] = useState([]); // [{ ingredientId: '', quantityNeeded: 0 }]
   const [showIngredientModal, setShowIngredientModal] = useState(false);
+  const [showDeleteIngredientModal, setShowDeleteIngredientModal] = useState(false);
+  const [deleteIngredientState, setDeleteIngredientState] = useState({ id: null, reason: '' });
   const [editingIngredient, setEditingIngredient] = useState(null);
 
   // Kitchen view recipe modal states
@@ -855,9 +857,11 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for Real-time Tables
   useEffect(() => {
+    const token = localStorage.getItem('token');
     const socket = new SockJS('/ws');
     const stompClient = new Client({
       webSocketFactory: () => socket,
+      connectHeaders: { Authorization: `Bearer ${token}` },
       debug: (str) => console.log('>>> [WS Debug Table]:', str),
       onConnect: () => {
         console.log('>>> WebSocket Connected to table-service');
@@ -876,9 +880,11 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for General Notifications
   useEffect(() => {
+    const token = localStorage.getItem('token');
     const socket = new SockJS('/ws-notifications');
     const stompClient = new Client({
       webSocketFactory: () => socket,
+      connectHeaders: { Authorization: `Bearer ${token}` },
       debug: (str) => console.log('>>> [WS Debug Note]:', str),
       onConnect: () => {
         console.log('>>> WebSocket Connected to notification-service');
@@ -1435,11 +1441,12 @@ const DashboardScreen = ({ user, onLogout }) => {
     }
   };
 
-  const handleDeleteIngredient = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa nguyên liệu này?')) return;
+  const confirmDeleteIngredient = async (e) => {
+    if (e) e.preventDefault();
     try {
-      await apiService.catalog.deleteIngredient(id);
-      toast.success('Đã xóa nguyên liệu');
+      await apiService.catalog.deleteIngredient(deleteIngredientState.id, deleteIngredientState.reason);
+      toast.success('Đã xóa nguyên liệu và lưu lý do');
+      setShowDeleteIngredientModal(false);
       fetchInventoryData();
     } catch (err) {
       toast.error('Lỗi xóa nguyên liệu: ' + err.message);
@@ -4188,7 +4195,7 @@ const DashboardScreen = ({ user, onLogout }) => {
                                     <Edit size={16} />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteIngredient(ing.id)}
+                                    onClick={() => { setDeleteIngredientState({ id: ing.id, reason: '' }); setShowDeleteIngredientModal(true); }}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
                                   >
                                     <Trash2 size={16} />
@@ -5308,6 +5315,38 @@ const DashboardScreen = ({ user, onLogout }) => {
           </motion.div>
         </div>
       )}
+
+        {/* Delete Ingredient Modal */}
+        {showDeleteIngredientModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              style={{ width: '400px', backgroundColor: 'var(--bg-surface)', padding: '24px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}
+            >
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#ef4444' }}>Xác nhận xóa nguyên liệu</h3>
+              <p style={{ color: 'var(--text-secondary)' }}>Bạn có chắc chắn muốn xóa nguyên liệu này? Mọi tồn kho hiện tại sẽ được đánh dấu là Xuất bỏ.</p>
+              
+              <div className="input-group">
+                <label className="form-label" style={{ fontWeight: '600' }}>Lý do xóa (không bắt buộc)</label>
+                <textarea 
+                  className="form-input" 
+                  value={deleteIngredientState.reason}
+                  onChange={(e) => setDeleteIngredientState({...deleteIngredientState, reason: e.target.value})}
+                  placeholder="Ví dụ: Nhập sai tên, Hư hỏng..."
+                  rows={3}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', resize: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button type="button" onClick={() => setShowDeleteIngredientModal(false)} className="btn btn-outline" style={{ padding: '8px 16px' }}>Hủy</button>
+                <button type="button" onClick={confirmDeleteIngredient} className="btn" style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Xóa Nguyên Liệu</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
     </div>
   );
 };

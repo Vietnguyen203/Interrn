@@ -31,6 +31,9 @@ public class Ingredient {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 

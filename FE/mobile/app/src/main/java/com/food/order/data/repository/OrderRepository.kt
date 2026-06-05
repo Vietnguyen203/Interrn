@@ -74,8 +74,8 @@ object OrderRepository {
         api.copyTableOrder(token, request)
 
     // ====== PAYMENT ======
-    suspend fun previewBill(token: String, id: String, discount: Double?): ApiResponse<BillPreviewResponse> =
-        api.previewBill(token, id, if (discount == null) emptyMap() else mapOf("discount" to discount))
+    suspend fun createPayment(token: String, request: Map<String, Any>): ApiResponse<Void> =
+        api.createPayment(token, request)
 
     suspend fun checkoutOrder(token: String, id: String, request: CheckoutRequest): ApiResponse<ReceiptResponse> =
         api.checkoutOrder(token, id, request)

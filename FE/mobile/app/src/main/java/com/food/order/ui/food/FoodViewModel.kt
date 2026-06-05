@@ -209,12 +209,36 @@ class FoodViewModel : ViewModel() {
         }
     }
 
-    fun addOrderItem(token: String, orderId: String, food: FoodModel, quantity: Int, note: String) {
+    var activeOrderId: String? = null
+
+    fun addOrderItem(token: String, orderId: String, tableId: String, food: FoodModel, quantity: Int, note: String) {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
+                var currentOrderId = activeOrderId ?: orderId
+                if (currentOrderId.isEmpty() && tableId.isNotEmpty()) {
+                    val createRes = orderRepository.createOrder(
+                        token, 
+                        com.food.order.data.request.OrderRequest(tableId = tableId, items = emptyList())
+                    )
+                    if (createRes.isSuccess && createRes.data?.id != null) {
+                        currentOrderId = createRes.data.id
+                        activeOrderId = currentOrderId
+                    } else {
+                        _errorFlow.emit(createRes.message ?: "Tạo đơn hàng thất bại")
+                        _loadingFlow.emit(false)
+                        return@launch
+                    }
+                }
+
+                if (currentOrderId.isEmpty()) {
+                    _errorFlow.emit("Không thể xác định đơn hàng")
+                    _loadingFlow.emit(false)
+                    return@launch
+                }
+
                 val response = orderRepository.addOrderItem(
-                    token, orderId,
+                    token, currentOrderId,
                     AddOrderItemRequest(
                         foodId = food.id,
                         foodImage = food.image,

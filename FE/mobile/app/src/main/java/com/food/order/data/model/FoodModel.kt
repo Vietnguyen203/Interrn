@@ -5,7 +5,7 @@ import java.io.Serializable
 data class FoodModel(
     val id: String,
     val foodName: String,
-    val image: String,
+    @com.google.gson.annotations.SerializedName("imageUrl") val image: String?,
     val price: Double,
     val unit: String,
     val category: String,

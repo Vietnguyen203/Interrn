@@ -34,11 +34,24 @@ public class InventoryService {
     private final IngredientRepository ingredientRepository;
     private final RecipeRepository recipeRepository;
     private final InventoryTransactionRepository transactionRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE ingredients ADD is_active NUMBER(1,0) DEFAULT 1 NOT NULL");
+            System.out.println("ADDED is_active COLUMN TO INGREDIENTS TABLE");
+        } catch (Exception e) {
+            System.out.println("is_active column might already exist: " + e.getMessage());
+        }
+    }
 
     // --- Ingredients CRUD ---
 
     public List<Ingredient> getAllIngredients() {
-        return ingredientRepository.findAll();
+        return ingredientRepository.findAll().stream()
+                .filter(Ingredient::isActive)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public Ingredient getIngredientById(UUID id) {
@@ -63,8 +76,24 @@ public class InventoryService {
         return ingredientRepository.save(ingredient);
     }
 
-    public void deleteIngredient(UUID id) {
-        ingredientRepository.deleteById(id);
+    @Transactional
+    public void deleteIngredient(UUID id, String reason) {
+        Ingredient ingredient = ingredientRepository.findById(id).orElse(null);
+        if (ingredient != null) {
+            boolean hasStock = ingredient.getCurrentStock() != null && ingredient.getCurrentStock().compareTo(BigDecimal.ZERO) > 0;
+            if (hasStock || (reason != null && !reason.isBlank())) {
+                InventoryTransaction tx = new InventoryTransaction();
+                tx.setIngredientId(id);
+                tx.setTransactionType("EXPORT_WASTE");
+                tx.setQuantity(hasStock ? ingredient.getCurrentStock() : BigDecimal.ZERO);
+                tx.setPrice(BigDecimal.ZERO);
+                tx.setReason("Xóa nguyên liệu: " + (reason != null && !reason.isBlank() ? reason : "Không có lý do"));
+                transactionRepository.save(tx);
+            }
+            ingredient.setActive(false);
+            ingredient.setCurrentStock(BigDecimal.ZERO);
+            ingredientRepository.save(ingredient);
+        }
     }
 
     // --- Stock Transactions ---
@@ -245,6 +274,26 @@ public class InventoryService {
     public void deductStockForOrder(DeductStockRequest request) {
         if (request == null || request.getItems() == null) {
             return;
+        }
+
+        // First pass: validate stock
+        java.util.Map<UUID, BigDecimal> totalRequired = new java.util.HashMap<>();
+        for (DeductStockRequest.DeductItem item : request.getItems()) {
+            List<Recipe> recipes = recipeRepository.findByMenuItemId(item.getMenuItemId());
+            BigDecimal quantitySold = BigDecimal.valueOf(item.getQuantity());
+            for (Recipe recipe : recipes) {
+                BigDecimal needed = recipe.getQuantityNeeded().multiply(quantitySold);
+                totalRequired.put(recipe.getIngredientId(), totalRequired.getOrDefault(recipe.getIngredientId(), BigDecimal.ZERO).add(needed));
+            }
+        }
+
+        for (java.util.Map.Entry<UUID, BigDecimal> entry : totalRequired.entrySet()) {
+            Ingredient ingredient = ingredientRepository.findById(entry.getKey()).orElse(null);
+            if (ingredient != null && ingredient.isActive()) {
+                if (ingredient.getCurrentStock().compareTo(entry.getValue()) < 0) {
+                    throw new RuntimeException("Không đủ " + ingredient.getName() + " (Cần " + entry.getValue() + " " + ingredient.getUnit() + ", tồn kho " + ingredient.getCurrentStock() + " " + ingredient.getUnit() + ")");
+                }
+            }
         }
 
         for (DeductStockRequest.DeductItem item : request.getItems()) {

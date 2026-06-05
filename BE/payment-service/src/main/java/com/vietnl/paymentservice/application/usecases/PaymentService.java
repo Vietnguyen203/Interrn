@@ -5,6 +5,7 @@ import com.vietnl.paymentservice.application.validators.PaymentValidator;
 import com.vietnl.paymentservice.domain.models.entities.Payment;
 import com.vietnl.paymentservice.domain.models.enums.PaymentStatus;
 import com.vietnl.paymentservice.infrastructure.persistence.repositories.PaymentRepository;
+import com.vietnl.paymentservice.infrastructure.communication.NotificationFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentValidator paymentValidator;
-    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    private final NotificationFeignClient notificationFeignClient;
 
     @Transactional
     public Payment createPayment(CreatePaymentRequest request) {
@@ -59,16 +60,13 @@ public class PaymentService {
     }
 
     private void sendNotification(String title, String message, String type, String role) {
-        try {
-            java.util.Map<String, Object> payload = new java.util.HashMap<>();
-            payload.put("title", title);
-            payload.put("message", message);
-            payload.put("type", type);
-            payload.put("recipientRole", role);
-
-            kafkaTemplate.send("notifications-topic", payload);
-        } catch (Exception e) {
-            System.err.println("Lỗi gửi thông báo thanh toán qua Kafka: " + e.getMessage());
-        }
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                NotificationFeignClient.NotificationRequest payload = new NotificationFeignClient.NotificationRequest(title, message, type, role);
+                notificationFeignClient.sendNotification(payload);
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo thanh toán qua FeignClient: " + e.getMessage());
+            }
+        });
     }
 }

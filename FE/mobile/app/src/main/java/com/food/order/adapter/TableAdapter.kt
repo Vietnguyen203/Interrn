@@ -23,7 +23,7 @@ class TableAdapter(
         val onItemClick: (TableModel) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        @SuppressLint("SetTextI18n")
+        @SuppressLint("SetTextI18/n")
         fun bind(table: TableModel) {
             binding.tvTableName.text = table.name
             binding.root.setOnClickListener {
@@ -33,7 +33,7 @@ class TableAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TableViewHolder {
-        val binding = ItemTableBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemTableBinding.inflate(LayoutInflater.from(parent.context), parent, true)
         return TableViewHolder(binding, onItemClick)
     }
 

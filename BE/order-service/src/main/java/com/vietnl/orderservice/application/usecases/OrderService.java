@@ -10,6 +10,7 @@ import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderItem
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderRepository;
 import com.vietnl.orderservice.infrastructure.communication.CatalogFeignClient;
 import com.vietnl.orderservice.infrastructure.communication.TableFeignClient;
+import com.vietnl.orderservice.infrastructure.communication.NotificationFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +26,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    private final NotificationFeignClient notificationFeignClient;
     private final TableFeignClient tableFeignClient;
     private final CatalogFeignClient catalogFeignClient;
     private final com.vietnl.orderservice.infrastructure.security.JwtUtil jwtUtil;
@@ -189,6 +190,7 @@ public class OrderService {
     }
 
     // ===== LẤY ĐƠN THEO ID =====
+    @Transactional(readOnly = true)
     public OrderResponse getOrderById(UUID id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + id));
@@ -354,6 +356,39 @@ public class OrderService {
         }
 
         if (("COMPLETED".equals(status) || "CANCELLED".equals(status)) && token != null) {
+            // Deduct stock for all items if COMPLETED and skipped kitchen flow
+            if ("COMPLETED".equals(status)) {
+                List<Map<String, Object>> itemsToDeduct = new java.util.ArrayList<>();
+                for (OrderItem item : order.getItems()) {
+                    if (!item.isStockDeducted() && !"CANCELLED".equals(item.getKitchenStatus())) {
+                        itemsToDeduct.add(Map.of(
+                                "menuItemId", item.getMenuItemId(),
+                                "quantity", item.getQuantity()
+                        ));
+                        item.setStockDeducted(true);
+                    }
+                }
+                if (!itemsToDeduct.isEmpty()) {
+                    try {
+                        String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                        catalogFeignClient.deductStock(Map.of("items", itemsToDeduct), authToken);
+                    } catch (feign.FeignException e) {
+                        String msg = "Không đủ nguyên liệu!";
+                        try {
+                            java.nio.ByteBuffer byteBuffer = e.responseBody().orElse(null);
+                            if (byteBuffer != null) {
+                                String body = java.nio.charset.StandardCharsets.UTF_8.decode(byteBuffer).toString();
+                                com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                                if (json.has("message")) msg = json.get("message").asText();
+                            }
+                        } catch (Exception parseEx) { }
+                        throw new RuntimeException(msg);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Lỗi hệ thống khi khấu trừ kho!");
+                    }
+                }
+            }
+
             if (order.getTableId() != null) {
                 long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
                 if (activeOrdersCount == 0) {
@@ -443,9 +478,19 @@ public class OrderService {
                     ));
                     catalogFeignClient.deductStock(Map.of("items", items), authToken);
                     item.setStockDeducted(true);
+                } catch (feign.FeignException e) {
+                    String msg = "Không đủ nguyên liệu!";
+                    try {
+                        java.nio.ByteBuffer byteBuffer = e.responseBody().orElse(null);
+                        if (byteBuffer != null) {
+                            String body = java.nio.charset.StandardCharsets.UTF_8.decode(byteBuffer).toString();
+                            com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                            if (json.has("message")) msg = json.get("message").asText();
+                        }
+                    } catch (Exception parseEx) { }
+                    throw new RuntimeException(msg);
                 } catch (Exception e) {
-                    System.err.println("Lỗi khi khấu trừ kho hàng khi xác nhận nấu (Feign): " + e.getMessage());
-                    e.printStackTrace();
+                    throw new RuntimeException("Lỗi hệ thống khi khấu trừ kho!");
                 }
             } else {
                 System.err.println(">>> [WARNING]: Không có Authorization token để gọi catalog-service khấu trừ kho.");
@@ -472,15 +517,10 @@ public class OrderService {
     private void sendNotification(String title, String message, String type, String role) {
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
-                java.util.Map<String, Object> payload = new java.util.HashMap<>();
-                payload.put("title", title);
-                payload.put("message", message);
-                payload.put("type", type);
-                payload.put("recipientRole", role);
-
-                kafkaTemplate.send("notifications-topic", payload).get(3, java.util.concurrent.TimeUnit.SECONDS);
+                NotificationFeignClient.NotificationRequest payload = new NotificationFeignClient.NotificationRequest(title, message, type, role);
+                notificationFeignClient.sendNotification(payload);
             } catch (Exception e) {
-                System.err.println("Lỗi gửi thông báo qua Kafka (có thể Kafka chưa chạy): " + e.getMessage());
+                System.err.println("Lỗi gửi thông báo qua FeignClient: " + e.getMessage());
             }
         });
     }

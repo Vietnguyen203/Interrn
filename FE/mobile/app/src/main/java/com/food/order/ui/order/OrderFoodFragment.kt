@@ -1,10 +1,15 @@
 package com.food.order.ui.order
 
 import android.content.Context
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -18,18 +23,13 @@ import com.food.order.ui.food.FoodViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.app.Dialog
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
-import android.view.Window
 import com.food.order.data.model.FoodModel
 import com.food.order.databinding.DialogOrderOptionsBinding
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.LinearLayout
+import android.widget.TextView
 import com.google.android.material.tabs.TabLayout
-import java.util.Collections
-
-class OrderFoodFragment : Fragment() {
-
 import java.util.Collections
 
 class OrderFoodFragment : Fragment() {
@@ -55,7 +55,7 @@ class OrderFoodFragment : Fragment() {
         if (searchQuery.isNotBlank()) {
             filtered = filtered.filter { it.foodName.contains(searchQuery, ignoreCase = true) }
         } else if (activeCategoryId != null) {
-            filtered = filtered.filter { it.categoryId == activeCategoryId }
+            filtered = filtered.filter { it.category == activeCategoryId }
         }
 
         binding.recyclerView.isVisible = filtered.isNotEmpty()
@@ -93,10 +93,14 @@ class OrderFoodFragment : Fragment() {
             }
             launch {
                 viewModel.addOrderItemFlow.collectLatest {
-                    Toast.makeText(requireContext(), "Add order item success", Toast.LENGTH_SHORT).show()
-                    findNavController().popBackStack()
+                    Toast.makeText(requireContext(), "Đã thêm món vào order", Toast.LENGTH_SHORT).show()
+                    // Bỏ tự động popBackStack để user có thể thêm nhiều món
                 }
             }
+        }
+
+        binding.btnDone.setOnClickListener {
+            findNavController().popBackStack()
         }
 
         return binding.root
@@ -145,7 +149,15 @@ class OrderFoodFragment : Fragment() {
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         dialogBinding.tvFoodName.text = item.foodName
-        dialogBinding.tvFoodPrice.text = "${item.price} VND"
+        val formattedPrice = java.text.NumberFormat.getInstance(java.util.Locale("vi", "VN")).format(item.price ?: 0.0)
+        dialogBinding.tvFoodPrice.text = "$formattedPrice ₫"
+
+        val source = com.food.order.utils.ImageResolver.forFood(requireContext(), item.foodName, item.image)
+        com.bumptech.glide.Glide.with(requireContext())
+            .load(source)
+            .placeholder(com.food.order.R.drawable.placeholder)
+            .error(com.food.order.R.drawable.placeholder)
+            .into(dialogBinding.ivFoodDialog)
 
         var quantity = 1
 
@@ -161,28 +173,49 @@ class OrderFoodFragment : Fragment() {
             dialogBinding.tvQuantity.text = quantity.toString()
         }
 
-        val checkBoxes = mutableListOf<android.widget.CheckBox>()
-        item.options?.let { optStr ->
-            val optionsList = optStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            if (optionsList.isEmpty()) {
-                dialogBinding.tvOptionsLabel.visibility = View.GONE
-                dialogBinding.llOptionsContainer.visibility = View.GONE
-            } else {
-                for (opt in optionsList) {
-                    val cb = android.widget.CheckBox(requireContext()).apply {
-                        text = opt
-                        layoutParams = android.widget.LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                    }
-                    checkBoxes.add(cb)
-                    dialogBinding.llOptionsContainer.addView(cb)
-                }
-            }
-        } ?: run {
+        // ===== OPTIONS - Chip toggle style =====
+        val selectedOptions = mutableSetOf<String>()
+        val optionsList = item.options
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+
+        if (optionsList.isEmpty()) {
             dialogBinding.tvOptionsLabel.visibility = View.GONE
             dialogBinding.llOptionsContainer.visibility = View.GONE
+        } else {
+            dialogBinding.tvOptionsLabel.visibility = View.VISIBLE
+            dialogBinding.llOptionsContainer.visibility = View.VISIBLE
+            dialogBinding.llOptionsContainer.orientation = LinearLayout.VERTICAL
+
+            // Chia options thành từng hàng, mỗi hàng 2 chip
+            val chunked = optionsList.chunked(2)
+            for (row in chunked) {
+                val rowLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).also { it.topMargin = dpToPx(8) }
+                }
+                for (opt in row) {
+                    val chip = buildOptionChip(opt, selectedOptions)
+                    val params = LinearLayout.LayoutParams(0, dpToPx(40), 1f).also {
+                        it.marginEnd = dpToPx(8)
+                    }
+                    chip.layoutParams = params
+                    rowLayout.addView(chip)
+                }
+                // Nếu hàng chỉ có 1 chip, thêm spacer để giữ layout
+                if (row.size == 1) {
+                    val spacer = View(requireContext()).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, dpToPx(40), 1f)
+                    }
+                    rowLayout.addView(spacer)
+                }
+                dialogBinding.llOptionsContainer.addView(rowLayout)
+            }
         }
 
         dialogBinding.btnCancel.setOnClickListener {
@@ -190,16 +223,10 @@ class OrderFoodFragment : Fragment() {
         }
 
         dialogBinding.btnAdd.setOnClickListener {
-            val options = mutableListOf<String>()
-            for (cb in checkBoxes) {
-                if (cb.isChecked) options.add(cb.text.toString())
-            }
-
             val manualNote = dialogBinding.etNote.text.toString().trim()
-
-            val finalNoteBuilder = java.lang.StringBuilder()
-            if (options.isNotEmpty()) {
-                finalNoteBuilder.append("Tuỳ chọn: ").append(options.joinToString(", "))
+            val finalNoteBuilder = StringBuilder()
+            if (selectedOptions.isNotEmpty()) {
+                finalNoteBuilder.append("Tuỳ chọn: ").append(selectedOptions.joinToString(", "))
             }
             if (manualNote.isNotEmpty()) {
                 if (finalNoteBuilder.isNotEmpty()) finalNoteBuilder.append(" | ")
@@ -207,16 +234,61 @@ class OrderFoodFragment : Fragment() {
             }
 
             viewModel.addOrderItem(
-                userToken, 
-                requireArguments().getString("orderId") ?: "", 
-                item, 
-                quantity, 
+                userToken,
+                requireArguments().getString("orderId") ?: "",
+                requireArguments().getString("tableId") ?: "",
+                item,
+                quantity,
                 finalNoteBuilder.toString()
             )
             dialog.dismiss()
         }
 
         dialog.show()
+    }
+
+    /** Tạo chip toggle button cho option */
+    private fun buildOptionChip(label: String, selectedOptions: MutableSet<String>): TextView {
+        return TextView(requireContext()).apply {
+            text = label
+            textSize = 13f
+            gravity = android.view.Gravity.CENTER
+            setTypeface(null, Typeface.NORMAL)
+            setPadding(dpToPx(12), dpToPx(6), dpToPx(12), dpToPx(6))
+            isClickable = true
+            isFocusable = true
+
+            fun updateStyle(selected: Boolean) {
+                val bg = GradientDrawable().apply {
+                    cornerRadius = dpToPx(20).toFloat()
+                    if (selected) {
+                        setColor(Color.parseColor("#11117F"))
+                        setStroke(0, Color.TRANSPARENT)
+                    } else {
+                        setColor(Color.parseColor("#F4F6FB"))
+                        setStroke(dpToPx(1), Color.parseColor("#CCCCCC"))
+                    }
+                }
+                background = bg
+                setTextColor(if (selected) Color.WHITE else Color.parseColor("#444444"))
+            }
+
+            updateStyle(false)
+
+            setOnClickListener {
+                val isNowSelected = !selectedOptions.contains(label)
+                if (isNowSelected) selectedOptions.add(label) else selectedOptions.remove(label)
+                updateStyle(isNowSelected)
+            }
+        }
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
+
+    // Dummy extension để tránh lỗi compile (flexWrap không cần thiết, đã dùng chunked)
+    private fun LinearLayout.flexWrap() {
+        orientation = LinearLayout.VERTICAL
     }
 
     override fun onDestroyView() {

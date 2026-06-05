@@ -3,10 +3,8 @@ package com.food.order.ui.order
 import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -18,7 +16,6 @@ import com.food.order.databinding.DialogCheckoutBinding
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
-import kotlin.math.max
 
 class CheckoutDialogFragment : DialogFragment() {
 
@@ -26,6 +23,9 @@ class CheckoutDialogFragment : DialogFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: OrderTableViewModel by activityViewModels()
+
+    // Lưu total hiện tại để dùng khi bấm thanh toán
+    private var currentTotalAmount: Double? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,28 +35,15 @@ class CheckoutDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogCheckoutBinding.inflate(requireActivity().layoutInflater)
 
-        // Spinner phương thức thanh toán
-        val methodAdapter = ArrayAdapter.createFromResource(
-            requireContext(),
-            R.array.payment_methods,
-            android.R.layout.simple_spinner_item
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-        binding.spPaymentMethod.adapter = methodAdapter
-
-        // Gọi preview bill ban đầu (không giảm giá)
-        viewModel.previewBill(userToken(), null)
+        // Hiển thị tổng tiền ban đầu từ cache của orderTotalFlow nếu có
+        val cachedTotal = viewModel.orderTotalFlow.replayCache.lastOrNull()
+        cachedTotal?.let {
+            currentTotalAmount = it
+            updateTotalAndQr(it)
+        }
 
         // Lắng nghe flow để cập nhật UI / kết quả
         collectFlows()
-
-        // Input listeners
-        binding.edtDiscount.addTextChangedListener {
-            val discount = binding.edtDiscount.text.toString().toDoubleOrNull()
-            viewModel.previewBill(userToken(), discount)
-        }
-        binding.edtAmountReceived.addTextChangedListener {
-            updateChangeText()
-        }
 
         val dialog = AlertDialog.Builder(requireContext())
             .setView(binding.root)
@@ -68,29 +55,20 @@ class CheckoutDialogFragment : DialogFragment() {
         dialog.setOnShowListener {
             val btn = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             btn.setOnClickListener {
-                val total = currentTotal() ?: run {
+                val total = currentTotalAmount ?: run {
                     Toast.makeText(requireContext(), "Chưa có tạm tính", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                val amount = binding.edtAmountReceived.text.toString().toDoubleOrNull()
-                if (amount == null || amount < total) {
-                    Toast.makeText(requireContext(), "Tiền khách đưa không đủ", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                val discount = binding.edtDiscount.text.toString().toDoubleOrNull()
-                val method = binding.spPaymentMethod.selectedItem?.toString() ?: "CASH"
-                val note = binding.edtNote.text?.toString()?.takeIf { it.isNotBlank() }
 
                 viewModel.checkout(
                     userToken(),
                     CheckoutRequest(
-                        paymentMethod = method,
-                        amountReceived = amount,
-                        discount = discount,
-                        note = note
+                        paymentMethod = "TRANSFER",
+                        amountReceived = total,
+                        discount = 0.0,
+                        note = "Thanh toan QR"
                     )
                 )
-                // Dismiss sau khi nhận kết quả ở collectFlows()
             }
         }
 
@@ -98,33 +76,32 @@ class CheckoutDialogFragment : DialogFragment() {
     }
 
     private fun collectFlows() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Cập nhật subtotal/discount/total khi preview thay đổi
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+
+                // Cập nhật tổng tiền & QR khi orderTotalFlow thay đổi
                 launch {
-                    viewModel.billPreviewFlow.collect { res ->
-                        val p = res.data
-                        binding.tvSubtotal.text = getString(R.string.pay_subtotal_0)
-                            .replace("0 ₫", money(p.subtotal))
-                        binding.tvDiscount.text = getString(R.string.pay_discount_0)
-                            .replace("0 ₫", money(p.discount))
-                        binding.tvTotal.text = getString(R.string.pay_total_0)
-                            .replace("0 ₫", money(p.total))
-                        updateChangeText()
+                    viewModel.orderTotalFlow.collect { total ->
+                        if (total != null) {
+                            currentTotalAmount = total
+                            updateTotalAndQr(total)
+                        }
                     }
                 }
-                // Khi checkout xong (không cần giá trị cụ thể -> tránh lỗi infer type)
+
+                // Khi checkout xong
                 launch {
-                    viewModel.checkoutFlow.collect { _ ->
+                    viewModel.checkoutFlow.collect {
                         Toast.makeText(requireContext(), "Thanh toán thành công!", Toast.LENGTH_SHORT).show()
                         dismissAllowingStateLoss()
                     }
                 }
+
                 // Lỗi chung
                 launch {
                     viewModel.errorFlow.collect { msg ->
-                        if (!msg.isNullOrBlank()) {
-                            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                        if (msg.isNotBlank()) {
+                            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -132,25 +109,21 @@ class CheckoutDialogFragment : DialogFragment() {
         }
     }
 
-    private fun updateChangeText() {
-        val total = currentTotal() ?: 0.0
-        val amount = binding.edtAmountReceived.text.toString().toDoubleOrNull() ?: 0.0
-        val change = max(0.0, amount - total)
-        binding.tvChange.text = getString(R.string.pay_change_0).replace("0 ₫", money(change))
+    private fun updateTotalAndQr(total: Double) {
+        binding.tvTotal.text = getString(R.string.pay_total_0).replace("0 ₫", money(total))
+
+        if (total > 0) {
+            val qrUrl = "https://img.vietqr.io/image/970407-19037974181012-print.jpg" +
+                    "?amount=${total.toLong()}&addInfo=ThanhToan&accountName=NHA%20HANG"
+            com.bumptech.glide.Glide.with(this)
+                .load(qrUrl)
+                .into(binding.ivQrCode)
+        }
     }
 
-    private fun currentTotal(): Double? {
-        return viewModel
-            .billPreviewFlow
-            .replayCache
-            .lastOrNull()
-            ?.data
-            ?.total
-    }
-
-    private fun money(v: Double?): String {
+    private fun money(v: Double): String {
         val nf = NumberFormat.getInstance(Locale("vi", "VN"))
-        return nf.format(v ?: 0.0) + " ₫"
+        return nf.format(v) + " ₫"
     }
 
     private fun userToken(): String {

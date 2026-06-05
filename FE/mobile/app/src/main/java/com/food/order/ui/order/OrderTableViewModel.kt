@@ -8,6 +8,7 @@ import com.food.order.data.mapper.toTableModel
 import com.food.order.data.model.ApiResponse
 import com.food.order.data.model.PageMeta
 import com.food.order.data.model.Order
+import com.food.order.data.model.Receipt
 import com.food.order.data.model.TableModel
 import com.food.order.data.repository.OrderRepository
 import com.food.order.data.repository.TableRepository
@@ -58,18 +59,20 @@ class OrderTableViewModel : ViewModel() {
     val tablesFreeFlow = _tablesFreeFlow.asSharedFlow()
 
     // ====== NEW: Payment flows ======
-    private val _billPreviewFlow = MutableSharedFlow<BillPreviewResponse>(replay = 0)
-    val billPreviewFlow = _billPreviewFlow.asSharedFlow()
 
     private val _checkoutFlow = MutableSharedFlow<ReceiptResponse>(replay = 0)
     val checkoutFlow = _checkoutFlow.asSharedFlow()
+
+    private val _orderTotalFlow = MutableStateFlow<Double?>(null)
+    val orderTotalFlow = _orderTotalFlow.asSharedFlow()
 
     val pageFlow = MutableStateFlow<PageMeta?>(null)
     private var currentPage = 0
     private var pageSize = 20
     private var pagingLoading = false
 
-    private var tableId: String? = null
+    var tableId: String? = null
+        private set
     var orderId: String? = null
         private set
 
@@ -114,7 +117,11 @@ class OrderTableViewModel : ViewModel() {
             _loadingFlow.emit(true)
             try {
                 val response = orderRepository.getOrder(token, orderId!!)
-                if (response.isSuccess) _orderFlow.emit(response.data ?: error("Order response null")) else _errorFlow.emit(response.message ?: "Load failed")
+                if (response.isSuccess) {
+                    val order = response.data ?: error("Order response null")
+                    _orderFlow.emit(order)
+                    _orderTotalFlow.value = order.totalAmount
+                } else _errorFlow.emit(response.message ?: "Load failed")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally { _loadingFlow.emit(false) }
@@ -229,26 +236,43 @@ class OrderTableViewModel : ViewModel() {
     }
 
     // ====== NEW: Payment actions ======
-    fun previewBill(token: String, discount: Double?) {
-        if (orderId.isNullOrEmpty()) return
-        viewModelScope.launch {
-            _loadingFlow.emit(true)
-            try {
-                val res = orderRepository.previewBill(token, orderId!!, discount)
-                if (res.isSuccess) _billPreviewFlow.emit(res.data ?: error("Bill data null")) else _errorFlow.emit(res.message ?: "Preview failed")
-            } catch (e: Exception) {
-                _errorFlow.emit(ApiError.parse(e))
-            } finally { _loadingFlow.emit(false) }
-        }
-    }
-
     fun checkout(token: String, payload: CheckoutRequest) {
         if (orderId.isNullOrEmpty()) return
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
-                val res = orderRepository.checkoutOrder(token, orderId!!, payload)
-                if (res.isSuccess) _checkoutFlow.emit(res.data ?: error("Receipt null")) else _errorFlow.emit(res.message ?: "Checkout failed")
+                // 1. Tạo payment request để lưu log (như Web)
+                val paymentPayload = mapOf(
+                    "orderId" to orderId!!,
+                    "amount" to payload.amountReceived,
+                    "method" to payload.paymentMethod,
+                    "note" to (payload.note ?: "")
+                )
+                orderRepository.createPayment(token, paymentPayload)
+
+                // 2. Chuyển status đơn sang COMPLETED
+                val res = orderRepository.complete(token, orderId!!)
+                if (res.isSuccess) {
+                    _checkoutFlow.emit(
+                        ReceiptResponse(
+                            code = "200",
+                            message = "Success",
+                            data = Receipt(
+                                orderId = orderId!!,
+                                tableId = tableId ?: "",
+                                subtotal = payload.amountReceived,
+                                discount = payload.discount ?: 0.0,
+                                total = payload.amountReceived,
+                                paymentMethod = payload.paymentMethod,
+                                amountReceived = payload.amountReceived,
+                                change = 0.0,
+                                paidAtEpochMs = System.currentTimeMillis()
+                            )
+                        )
+                    )
+                } else {
+                    _errorFlow.emit(res.message ?: "Checkout failed")
+                }
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
             } finally { _loadingFlow.emit(false) }

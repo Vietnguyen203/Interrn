@@ -240,12 +240,11 @@ interface ApiService {
     ): Response<ApiResponse<PagedOrders>>
 
     // ===== PAYMENT =====
-    @POST("orders/{id}/preview-bill")
-    suspend fun previewBill(
+    @POST("payment/api/payments")
+    suspend fun createPayment(
         @Header("Authorization") token: String,
-        @Path("id") id: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any> = emptyMap()
-    ): ApiResponse<BillPreviewResponse>
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): ApiResponse<Void>
 
     @PUT("orders/{id}/checkout")
     suspend fun checkoutOrder(

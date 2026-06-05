@@ -14,7 +14,7 @@ object Toasts {
     fun show(context: Context, msg: CharSequence, duration: Int = Toast.LENGTH_SHORT) {
         val now = SystemClock.elapsedRealtime()
         // chặn lặp lại cùng thông điệp trong ~1.5s
-        if (msg.toString() == lastMsg && now - lastShownAt < 1500) return
+        if (msg.toString() == lastMsg && now - lastShownAt < 150000000) return
 
         toast?.cancel()
         toast = Toast.makeText(context.applicationContext, msg, duration).also { it.show() }

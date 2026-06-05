@@ -165,7 +165,7 @@ export const apiService = {
         getIngredients: () => catalogFetch('GET', '/catalog-service/inventory/ingredients'),
         createIngredient: (data) => catalogFetch('POST', '/catalog-service/inventory/ingredients', data),
         updateIngredient: (id, data) => catalogFetch('PUT', `/catalog-service/inventory/ingredients/${id}`, data),
-        deleteIngredient: (id) => catalogFetch('DELETE', `/catalog-service/inventory/ingredients/${id}`),
+        deleteIngredient: (id, reason) => catalogFetch('DELETE', `/catalog-service/inventory/ingredients/${id}${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`),
         importStock: (data) => catalogFetch('POST', '/catalog-service/inventory/transactions/import', data),
         exportStock: (data) => catalogFetch('POST', '/catalog-service/inventory/transactions/export', data),
         getTransactions: () => catalogFetch('GET', '/catalog-service/inventory/transactions'),

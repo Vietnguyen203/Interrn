@@ -27,6 +27,9 @@ class OrderTableFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: OrderTableViewModel by viewModels()
 
+    // Chỉ tự động navigate sang màn gọi món 1 lần duy nhất khi mở bàn
+    private var autoNavigated = false
+
     private val userToken: String by lazy {
         ("Bearer " + requireContext()
             .getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -62,6 +65,18 @@ class OrderTableFragment : Fragment() {
             launch {
                 viewModel.tableFlow.collectLatest {
                     binding.tvTableName.text = it?.name
+
+                    // Tự động mở màn gọi món ngay lần đầu khi load xong thông tin bàn (kể cả chưa có order)
+                    if (!autoNavigated && it != null) {
+                        autoNavigated = true
+                        val bundle = Bundle().apply { 
+                            putString("orderId", viewModel.orderId ?: "")
+                            putString("tableId", it.id)
+                        }
+                        findNavController().navigate(
+                            R.id.action_navigation_order_table_to_navigation_order_food, bundle
+                        )
+                    }
                 }
             }
             launch {
@@ -85,7 +100,6 @@ class OrderTableFragment : Fragment() {
                     val serverTotal = order.data.totalAmount ?: 0.0
                     val computedTotal = items.sumOf { (it.price ?: 0.0) * ((it.quantity ?: 0).toDouble()) }
                     val total = if (serverTotal > 0.0) serverTotal else computedTotal
-
                     binding.tvTotalAmount.text = formatVnd(total)
                 }
             }
@@ -97,6 +111,11 @@ class OrderTableFragment : Fragment() {
             launch {
                 viewModel.completedOrderFlow.collectLatest {
                     Toast.makeText(requireContext(), "Completed order successfully", Toast.LENGTH_SHORT).show()
+                    findNavController().popBackStack()
+                }
+            }
+            launch {
+                viewModel.checkoutFlow.collectLatest {
                     findNavController().popBackStack()
                 }
             }
@@ -141,19 +160,14 @@ class OrderTableFragment : Fragment() {
         binding.cardCopyOrder.setOnClickListener { viewModel.getTablesFromServer(userToken) }
 
         binding.btnCompleted.setOnClickListener {
-            AlertDialog.Builder(requireContext())
-                .setTitle("Notification")
-                .setMessage("Confirm payment of this invoice?")
-                .setPositiveButton("OK") { d, _ ->
-                    d.dismiss()
-                    viewModel.completeOrder(userToken)
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+            CheckoutDialogFragment.newInstance().show(childFragmentManager, "CheckoutDialog")
         }
 
         binding.cardOrder.setOnClickListener {
-            val bundle = Bundle().apply { putString("orderId", viewModel.orderId) }
+            val bundle = Bundle().apply { 
+                putString("orderId", viewModel.orderId ?: "")
+                putString("tableId", viewModel.tableId ?: "")
+            }
             findNavController().navigate(
                 R.id.action_navigation_order_table_to_navigation_order_food, bundle
             )
@@ -162,7 +176,7 @@ class OrderTableFragment : Fragment() {
         binding.btnCancel.setOnClickListener {
             AlertDialog.Builder(requireContext())
                 .setTitle("Notification")
-                .setMessage("Are you sure you want to cancel your order?")
+                .setMessage("Are you sure you want to cancel your order, Bitch?")
                 .setPositiveButton("OK") { dialog, _ ->
                     viewModel.cancelOrder(userToken)
                     dialog.dismiss()
@@ -188,8 +202,7 @@ class OrderTableFragment : Fragment() {
     }
 
     /**
-     * Lấy foodId từ OrderItem mà **không** cần biết tên field thật sự là gì.
-     * Thử lần lượt: item.foodId, item.id, item.food.id, item.food.foodId
+     * who read this is dog
      */
     private fun extractFoodId(item: OrderItem): String? {
         fun field(obj: Any?, name: String): Any? {

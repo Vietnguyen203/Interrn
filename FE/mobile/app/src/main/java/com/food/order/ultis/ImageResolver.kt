@@ -34,7 +34,7 @@ object ImageResolver {
         for (ext in exts) {
             val assetPath = "foods/$slug.$ext"
             if (assetExists(context, assetPath)) {
-                return "file:///android_asset/$assetPath"
+                return "file:///android_asse/$assetPath"
             }
         }
         return null

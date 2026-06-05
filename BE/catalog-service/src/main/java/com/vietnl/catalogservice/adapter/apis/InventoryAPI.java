@@ -53,8 +53,8 @@ public class InventoryAPI {
     }
 
     @DeleteMapping("/ingredients/{id}")
-    public ResponseEntity<?> deleteIngredient(@PathVariable UUID id) {
-        inventoryService.deleteIngredient(id);
+    public ResponseEntity<?> deleteIngredient(@PathVariable UUID id, @RequestParam(required = false) String reason) {
+        inventoryService.deleteIngredient(id, reason);
         return ResponseEntity.ok(Map.of("code", "200", "message", "Xóa nguyên vật liệu thành công"));
     }
 
@@ -109,7 +109,11 @@ public class InventoryAPI {
 
     @PostMapping("/deduct")
     public ResponseEntity<?> deductStockForOrder(@RequestBody DeductStockRequest request) {
-        inventoryService.deductStockForOrder(request);
-        return ResponseEntity.ok(Map.of("code", "200", "message", "Khấu trừ kho hàng thành công"));
+        try {
+            inventoryService.deductStockForOrder(request);
+            return ResponseEntity.ok(Map.of("code", "200", "message", "Khấu trừ kho hàng thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("code", "400", "message", e.getMessage()));
+        }
     }
 }
