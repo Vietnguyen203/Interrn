@@ -28,6 +28,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.setMessageSizeLimit(128 * 1024); // 128KB payload limit
+        registration.setSendTimeLimit(20 * 1000);     // 20s send timeout limit
+        registration.setSendBufferSizeLimit(512 * 1024); // 512KB buffer size
+    }
+
+    @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-notifications")
                 .setAllowedOriginPatterns("*")
@@ -36,6 +43,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
+        // Tối ưu số luồng xử lý nhận gói tin
+        registration.taskExecutor().corePoolSize(50).maxPoolSize(200);
+
         registration.interceptors(new ChannelInterceptor() {
             @Override
             public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
@@ -55,5 +65,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 return message;
             }
         });
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        // Tối ưu số luồng xử lý gửi gói tin cho Client
+        registration.taskExecutor().corePoolSize(50).maxPoolSize(200);
     }
 }
