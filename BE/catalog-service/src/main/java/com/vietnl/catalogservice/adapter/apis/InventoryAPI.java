@@ -116,4 +116,14 @@ public class InventoryAPI {
             return ResponseEntity.badRequest().body(Map.of("code", "400", "message", e.getMessage()));
         }
     }
+
+    @PostMapping("/refund")
+    public ResponseEntity<?> refundStockForOrder(@RequestBody DeductStockRequest request) {
+        try {
+            inventoryService.refundStockForOrder(request);
+            return ResponseEntity.ok(Map.of("code", "200", "message", "Hoàn trả kho hàng thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("code", "400", "message", e.getMessage()));
+        }
+    }
 }

@@ -26,6 +26,12 @@ public interface CatalogFeignClient {
             @RequestHeader("Authorization") String token
     );
 
+    @PostMapping("/catalog-service/inventory/refund")
+    void refundStock(
+            @RequestBody Map<String, Object> request,
+            @RequestHeader("Authorization") String token
+    );
+
     @GetMapping("/catalog-service/inventory/transactions/summary")
     Map<String, Object> getInventorySummary(
             @RequestParam(value = "date", required = false) String date,

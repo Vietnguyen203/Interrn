@@ -52,6 +52,7 @@ public class OrderService {
 
         // Thêm các món (null-safe: mobile book bàn có thể không kèm items)
         if (request.getItems() != null) {
+            List<Map<String, Object>> itemsToDeduct = new java.util.ArrayList<>();
             for (OrderItemRequest itemReq : request.getItems()) {
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
@@ -70,7 +71,14 @@ public class OrderService {
                 item.setNote(itemReq.getNote());
                 item.setKitchenStatus("PENDING");
                 order.getItems().add(item);
+                
+                itemsToDeduct.add(Map.of(
+                        "menuItemId", item.getMenuItemId(),
+                        "quantity", item.getQuantity()
+                ));
             }
+            performStockDeduction(itemsToDeduct, authToken);
+            order.getItems().forEach(i -> i.setStockDeducted(true));
         }
 
         order.recalculateTotal();
@@ -125,6 +133,7 @@ public class OrderService {
         order.setStatus("PENDING");
 
         if (request.getItems() != null) {
+            List<Map<String, Object>> itemsToDeduct = new java.util.ArrayList<>();
             for (OrderItemRequest itemReq : request.getItems()) {
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
@@ -143,7 +152,14 @@ public class OrderService {
                 item.setNote(itemReq.getNote());
                 item.setKitchenStatus("PENDING");
                 order.getItems().add(item);
+                
+                itemsToDeduct.add(Map.of(
+                        "menuItemId", item.getMenuItemId(),
+                        "quantity", item.getQuantity()
+                ));
             }
+            performStockDeduction(itemsToDeduct, systemToken);
+            order.getItems().forEach(i -> i.setStockDeducted(true));
         }
 
         order.recalculateTotal();
@@ -223,10 +239,15 @@ public class OrderService {
                         item.setUnitPrice(details != null ? details.getPrice() : request.getUnitPrice());
                         item.setQuantity(request.getQuantity());
                         item.setNote(request.getNote());
-                        item.setKitchenStatus("PENDING");
+                        item.setStockDeducted(true);
                         order.getItems().add(item);
                     }
                 );
+        
+        performStockDeduction(List.of(Map.of(
+                "menuItemId", request.getMenuItemId(),
+                "quantity", request.getQuantity()
+        )), systemToken);
 
         order.recalculateTotal();
         Order saved = orderRepository.save(order);
@@ -249,6 +270,15 @@ public class OrderService {
                 .filter(i -> i.getId().equals(itemId))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
+
+        int diff = request.getQuantity() - item.getQuantity();
+        String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+
+        if (diff > 0) {
+            performStockDeduction(List.of(Map.of("menuItemId", item.getMenuItemId(), "quantity", diff)), systemToken);
+        } else if (diff < 0) {
+            performStockRefund(List.of(Map.of("menuItemId", item.getMenuItemId(), "quantity", -diff)), systemToken);
+        }
 
         item.setQuantity(request.getQuantity());
         if (request.getNote() != null) item.setNote(request.getNote());
@@ -284,6 +314,14 @@ public class OrderService {
                 "Không thể xóa món \"" + targetItem.getFoodName()
                 + "\" vì bếp đã nhận (trạng thái: " + ks + ")"
             );
+        }
+
+        if (targetItem.isStockDeducted()) {
+            String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+            performStockRefund(List.of(Map.of(
+                    "menuItemId", targetItem.getMenuItemId(),
+                    "quantity", targetItem.getQuantity()
+            )), systemToken);
         }
 
         // Dùng remove() để orphanRemoval=true kích hoạt đúng cách
@@ -356,36 +394,22 @@ public class OrderService {
         }
 
         if (("COMPLETED".equals(status) || "CANCELLED".equals(status)) && token != null) {
-            // Deduct stock for all items if COMPLETED and skipped kitchen flow
-            if ("COMPLETED".equals(status)) {
-                List<Map<String, Object>> itemsToDeduct = new java.util.ArrayList<>();
+            // Hoàn trả kho cho tất cả món chưa hủy nếu đơn hàng bị HỦY TOÀN BỘ
+            if ("CANCELLED".equals(status)) {
+                List<Map<String, Object>> itemsToRefund = new java.util.ArrayList<>();
                 for (OrderItem item : order.getItems()) {
-                    if (!item.isStockDeducted() && !"CANCELLED".equals(item.getKitchenStatus())) {
-                        itemsToDeduct.add(Map.of(
+                    if (item.isStockDeducted() && !"CANCELLED".equals(item.getKitchenStatus())) {
+                        itemsToRefund.add(Map.of(
                                 "menuItemId", item.getMenuItemId(),
                                 "quantity", item.getQuantity()
                         ));
-                        item.setStockDeducted(true);
+                        item.setStockDeducted(false);
+                        item.setKitchenStatus("CANCELLED");
                     }
                 }
-                if (!itemsToDeduct.isEmpty()) {
-                    try {
-                        String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-                        catalogFeignClient.deductStock(Map.of("items", itemsToDeduct), authToken);
-                    } catch (feign.FeignException e) {
-                        String msg = "Không đủ nguyên liệu!";
-                        try {
-                            java.nio.ByteBuffer byteBuffer = e.responseBody().orElse(null);
-                            if (byteBuffer != null) {
-                                String body = java.nio.charset.StandardCharsets.UTF_8.decode(byteBuffer).toString();
-                                com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
-                                if (json.has("message")) msg = json.get("message").asText();
-                            }
-                        } catch (Exception parseEx) { }
-                        throw new RuntimeException(msg);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Lỗi hệ thống khi khấu trừ kho!");
-                    }
+                if (!itemsToRefund.isEmpty()) {
+                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                    performStockRefund(itemsToRefund, authToken);
                 }
             }
 
@@ -439,6 +463,19 @@ public class OrderService {
                 "ALL"
         );
 
+        List<Map<String, Object>> itemsToRefund = new java.util.ArrayList<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.isStockDeducted() && !"CANCELLED".equals(item.getKitchenStatus())) {
+                itemsToRefund.add(Map.of("menuItemId", item.getMenuItemId(), "quantity", item.getQuantity()));
+                item.setStockDeducted(false);
+                item.setKitchenStatus("CANCELLED");
+            }
+        }
+        if (!itemsToRefund.isEmpty()) {
+            String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
+            performStockRefund(itemsToRefund, systemToken);
+        }
+
         if (order.getTableId() != null && token != null) {
             long activeOrdersCount = orderRepository.countByTableIdAndStatusIn(order.getTableId(), List.of("PENDING", "CONFIRMED"));
             if (activeOrdersCount == 0) {
@@ -468,32 +505,15 @@ public class OrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món: " + itemId));
         item.setKitchenStatus(kitchenStatus);
 
-        if ("COOKING".equals(kitchenStatus) && !item.isStockDeducted()) {
+        if ("CANCELLED".equals(kitchenStatus) && item.isStockDeducted()) {
             if (token != null) {
-                try {
-                    String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
-                    List<Map<String, Object>> items = List.of(Map.of(
-                            "menuItemId", item.getMenuItemId(),
-                            "quantity", item.getQuantity()
-                    ));
-                    catalogFeignClient.deductStock(Map.of("items", items), authToken);
-                    item.setStockDeducted(true);
-                } catch (feign.FeignException e) {
-                    String msg = "Không đủ nguyên liệu!";
-                    try {
-                        java.nio.ByteBuffer byteBuffer = e.responseBody().orElse(null);
-                        if (byteBuffer != null) {
-                            String body = java.nio.charset.StandardCharsets.UTF_8.decode(byteBuffer).toString();
-                            com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
-                            if (json.has("message")) msg = json.get("message").asText();
-                        }
-                    } catch (Exception parseEx) { }
-                    throw new RuntimeException(msg);
-                } catch (Exception e) {
-                    throw new RuntimeException("Lỗi hệ thống khi khấu trừ kho!");
-                }
-            } else {
-                System.err.println(">>> [WARNING]: Không có Authorization token để gọi catalog-service khấu trừ kho.");
+                String authToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                List<Map<String, Object>> itemsToRefund = List.of(Map.of(
+                        "menuItemId", item.getMenuItemId(),
+                        "quantity", item.getQuantity()
+                ));
+                performStockRefund(itemsToRefund, authToken);
+                item.setStockDeducted(false);
             }
         }
 
@@ -571,5 +591,36 @@ public class OrderService {
             System.err.println("Lỗi gọi table-service lấy thông tin bàn: " + e.getMessage());
         }
         return null;
+    }
+
+    private void performStockDeduction(List<Map<String, Object>> itemsToDeduct, String token) {
+        if (!itemsToDeduct.isEmpty()) {
+            try {
+                catalogFeignClient.deductStock(Map.of("items", itemsToDeduct), token);
+            } catch (feign.FeignException e) {
+                String msg = "Không đủ nguyên liệu!";
+                try {
+                    java.nio.ByteBuffer byteBuffer = e.responseBody().orElse(null);
+                    if (byteBuffer != null) {
+                        String body = java.nio.charset.StandardCharsets.UTF_8.decode(byteBuffer).toString();
+                        com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                        if (json.has("message")) msg = json.get("message").asText();
+                    }
+                } catch (Exception parseEx) { }
+                throw new RuntimeException(msg);
+            } catch (Exception e) {
+                throw new RuntimeException("Lỗi hệ thống khi kiểm tra/khấu trừ kho!");
+            }
+        }
+    }
+
+    private void performStockRefund(List<Map<String, Object>> itemsToRefund, String token) {
+        if (!itemsToRefund.isEmpty()) {
+            try {
+                catalogFeignClient.refundStock(Map.of("items", itemsToRefund), token);
+            } catch (Exception e) {
+                System.err.println("Lỗi hệ thống khi hoàn trả kho: " + e.getMessage());
+            }
+        }
     }
 }

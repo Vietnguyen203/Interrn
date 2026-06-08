@@ -10,6 +10,7 @@ import com.vietnl.catalogservice.domain.entities.InventoryTransaction;
 import com.vietnl.catalogservice.infrastructure.persistence.repositories.IngredientRepository;
 import com.vietnl.catalogservice.infrastructure.persistence.repositories.RecipeRepository;
 import com.vietnl.catalogservice.infrastructure.persistence.repositories.InventoryTransactionRepository;
+import com.vietnl.catalogservice.infrastructure.communication.NotificationFeignClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class InventoryService {
     private final IngredientRepository ingredientRepository;
     private final RecipeRepository recipeRepository;
     private final InventoryTransactionRepository transactionRepository;
+    private final NotificationFeignClient notificationFeignClient;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @jakarta.annotation.PostConstruct
@@ -280,6 +282,9 @@ public class InventoryService {
         java.util.Map<UUID, BigDecimal> totalRequired = new java.util.HashMap<>();
         for (DeductStockRequest.DeductItem item : request.getItems()) {
             List<Recipe> recipes = recipeRepository.findByMenuItemId(item.getMenuItemId());
+            if (recipes == null || recipes.isEmpty()) {
+                throw new RuntimeException("Món ăn chưa được thiết lập định lượng nguyên liệu (recipe). Không thể đặt món!");
+            }
             BigDecimal quantitySold = BigDecimal.valueOf(item.getQuantity());
             for (Recipe recipe : recipes) {
                 BigDecimal needed = recipe.getQuantityNeeded().multiply(quantitySold);
@@ -289,10 +294,12 @@ public class InventoryService {
 
         for (java.util.Map.Entry<UUID, BigDecimal> entry : totalRequired.entrySet()) {
             Ingredient ingredient = ingredientRepository.findById(entry.getKey()).orElse(null);
-            if (ingredient != null && ingredient.isActive()) {
-                if (ingredient.getCurrentStock().compareTo(entry.getValue()) < 0) {
-                    throw new RuntimeException("Không đủ " + ingredient.getName() + " (Cần " + entry.getValue() + " " + ingredient.getUnit() + ", tồn kho " + ingredient.getCurrentStock() + " " + ingredient.getUnit() + ")");
-                }
+            if (ingredient == null || !ingredient.isActive()) {
+                throw new RuntimeException("Nguyên liệu đủ!");
+            }
+            if (ingredient.getCurrentStock() == null || ingredient.getCurrentStock().compareTo(entry.getValue()) < 0) {
+                BigDecimal current = ingredient.getCurrentStock() != null ? ingredient.getCurrentStock() : BigDecimal.ZERO;
+                throw new RuntimeException("Không đủ " + ingredient.getName() + " (Cần " + entry.getValue() + " " + ingredient.getUnit() + ", tồn kho " + current + " " + ingredient.getUnit() + ")");
             }
         }
 
@@ -311,12 +318,64 @@ public class InventoryService {
                 ingredient.setCurrentStock(ingredient.getCurrentStock().subtract(totalDeducted));
                 ingredientRepository.save(ingredient);
 
+                if (ingredient.getCurrentStock().compareTo(ingredient.getMinStock()) <= 0) {
+                    sendWarningNotification(ingredient);
+                }
+
                 InventoryTransaction tx = new InventoryTransaction();
                 tx.setIngredientId(ingredient.getId());
                 tx.setTransactionType("EXPORT_SALE");
                 tx.setQuantity(totalDeducted);
                 tx.setPrice(BigDecimal.ZERO);
                 tx.setReason("Xuất bán đơn hàng (Món UUID: " + item.getMenuItemId() + ")");
+                transactionRepository.save(tx);
+            }
+        }
+    }
+
+    private void sendWarningNotification(Ingredient ingredient) {
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                NotificationFeignClient.NotificationRequest payload = new NotificationFeignClient.NotificationRequest(
+                        "Cảnh báo sắp hết nguyên liệu",
+                        "Nguyên liệu " + ingredient.getName() + " hiện chỉ còn " + ingredient.getCurrentStock() + " " + ingredient.getUnit() + " (Mức tối thiểu: " + ingredient.getMinStock() + ")",
+                        "warning",
+                        "ALL"
+                );
+                notificationFeignClient.sendNotification(payload);
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi cảnh báo kho: " + e.getMessage());
+            }
+        });
+    }
+
+    @Transactional
+    public void refundStockForOrder(DeductStockRequest request) {
+        if (request == null || request.getItems() == null) {
+            return;
+        }
+
+        for (DeductStockRequest.DeductItem item : request.getItems()) {
+            List<Recipe> recipes = recipeRepository.findByMenuItemId(item.getMenuItemId());
+            BigDecimal quantityRefunded = BigDecimal.valueOf(item.getQuantity());
+
+            for (Recipe recipe : recipes) {
+                Ingredient ingredient = ingredientRepository.findById(recipe.getIngredientId()).orElse(null);
+                if (ingredient == null) {
+                    continue;
+                }
+
+                BigDecimal totalRefunded = recipe.getQuantityNeeded().multiply(quantityRefunded);
+
+                ingredient.setCurrentStock(ingredient.getCurrentStock().add(totalRefunded));
+                ingredientRepository.save(ingredient);
+
+                InventoryTransaction tx = new InventoryTransaction();
+                tx.setIngredientId(ingredient.getId());
+                tx.setTransactionType("IMPORT_REFUND");
+                tx.setQuantity(totalRefunded);
+                tx.setPrice(BigDecimal.ZERO);
+                tx.setReason("Hoàn trả kho do hủy món/hủy đơn (Món UUID: " + item.getMenuItemId() + ")");
                 transactionRepository.save(tx);
             }
         }

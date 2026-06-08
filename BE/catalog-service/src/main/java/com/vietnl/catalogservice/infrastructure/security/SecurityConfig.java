@@ -33,7 +33,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/catalog-service/items/upload").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/catalog-service/items/*/propose-recipe").hasAnyRole("KITCHEN", "CHEF", "ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/catalog-service/inventory/deduct").hasAnyRole("ADMIN", "KITCHEN")
+                        .requestMatchers(HttpMethod.POST, "/catalog-service/inventory/deduct").hasAnyRole("ADMIN", "KITCHEN", "WAITER")
+                        .requestMatchers(HttpMethod.POST, "/catalog-service/inventory/refund").hasAnyRole("ADMIN", "KITCHEN", "WAITER")
                         // Chỉ ADMIN mới được duyệt/từ chối/tạo/sửa/xóa
                         .requestMatchers(HttpMethod.POST, "/catalog-service/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/catalog-service/**").hasRole("ADMIN")
