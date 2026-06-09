@@ -342,7 +342,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
           <div style={{ background: 'white', padding: '10px', borderRadius: '12px' }}>
             <Utensils color="var(--primary)" size={28} />
           </div>
-          <h1 style={{ fontSize: '24px', letterSpacing: '-0.5px' }}>FoodOrder Admin</h1>
+          <h1 style={{ fontSize: '24px', letterSpacing: '-0.5px' }}>Restaurant Management</h1>
         </div>
         <div style={{ zIndex: 10, maxWidth: '400px' }}>
           <h2 style={{ fontSize: '48px', lineHeight: '1.1', marginBottom: '20px' }}>Manage your restaurant beautifully.</h2>
@@ -1705,7 +1705,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
     doc.text('Cam on quy khach! Hen gap lai.', pageW / 2, footerY, { align: 'center' });
-    doc.text('FoodOrder - He thong quan ly nha hang', pageW / 2, footerY + 5, { align: 'center' });
+    doc.text('Restaurant Management System', pageW / 2, footerY + 5, { align: 'center' });
 
     doc.save(`${orderId}_${tableName}.pdf`);
   };
@@ -1780,7 +1780,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Ky bao cao: ${compPeriod === 'DAY' ? 'Ngay' : 'Tuan'} | Ca lam viec: ${compShift} | Ngay tao: ${compDate}`, pageW / 2, 22, { align: 'center' });
-    doc.text('He thong quan ly nha hang FoodOrder', pageW / 2, 28, { align: 'center' });
+    doc.text('Restaurant Management System', pageW / 2, 28, { align: 'center' });
 
     // --- Summary Section ---
     let y = 48;
@@ -1923,7 +1923,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text('Bao cao doi soat kho - doanh thu tu dong phat sinh boi FoodOrder.', pageW / 2, footerY, { align: 'center' });
+    doc.text('Bao cao doi soat kho - doanh thu tu dong phat sinh boi Restaurant Management.', pageW / 2, footerY, { align: 'center' });
 
     doc.save(`Bao-cao-doi-soat-kho-doanh-thu-${compDate}.pdf`);
     toast.success('Đã tải báo cáo đối soát PDF thành công!');
