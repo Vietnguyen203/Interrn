@@ -181,6 +181,10 @@ public class UserService {
         return userRepository.findAll();
     }
 
+    public long countAll() {
+        return userRepository.count();
+    }
+
     public void delete(String id) {
         userValidator.validateExists(id);
         userRepository.deleteById(UUID.fromString(id));

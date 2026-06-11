@@ -12,7 +12,8 @@ import com.food.order.R
 import com.food.order.data.response.IngredientResponse
 
 class InventoryAdapter(
-    private var ingredients: List<IngredientResponse>
+    private var ingredients: List<IngredientResponse>,
+    private val onItemClick: (IngredientResponse) -> Unit
 ) : RecyclerView.Adapter<InventoryAdapter.InventoryViewHolder>() {
 
     @SuppressLint("NotifyDataSetChanged")
@@ -58,6 +59,8 @@ class InventoryAdapter(
                 tvStock.setTextColor(Color.parseColor("#11117F")) // Primary
                 ivIcon.setColorFilter(Color.parseColor("#11117F"))
             }
+
+            itemView.setOnClickListener { onItemClick(item) }
         }
     }
 }

@@ -52,12 +52,12 @@ object OrderRepository {
     ): ApiResponse<MostFavoriteFoodResponse> =
         api.getMostFavoriteFood(token, time, server)
 
-    suspend fun getRevenueByWeek(
+    suspend fun getReports(
         token: String,
-        time: String? = null,
+        type: String,
         server: String? = null
-    ): ApiResponse<RevenueByWeekResponse> =
-        api.getRevenueByWeek(token, time, server)
+    ): ApiResponse<List<com.food.order.data.response.ReportData>> =
+        api.getReports(token, type, server)
 
     suspend fun getListOrderInTime(
         token: String,

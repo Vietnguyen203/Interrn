@@ -7,7 +7,6 @@ import com.food.order.data.model.ApiResponse
 import com.food.order.data.repository.OrderRepository
 import com.food.order.data.repository.UserRepository
 import com.food.order.data.response.MostFavoriteFoodResponse
-import com.food.order.data.response.RevenueByWeek
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
@@ -36,28 +35,34 @@ class ReportViewModel : ViewModel() {
     private val _mostFavoriteFoodFlow = MutableSharedFlow<MostFavoriteFoodResponse?>()
     val mostFavoriteFoodFlow = _mostFavoriteFoodFlow.asSharedFlow()
 
-    private val _revenueByWeekFlow = MutableSharedFlow<List<RevenueByWeek>>()
-    val revenueByWeekFlow = _revenueByWeekFlow.asSharedFlow()
+    private val _reportDataFlow = MutableSharedFlow<List<com.food.order.data.response.ReportData>>()
+    val reportDataFlow = _reportDataFlow.asSharedFlow()
 
     private val _listOrderInTimeFlow = MutableSharedFlow<List<Order>?>()
     val listOrderInTimeFlow = _listOrderInTimeFlow.asSharedFlow()
 
-    private val _timeFlow = MutableSharedFlow<String>(replay = 0)
-    val timeFlow = _timeFlow.asSharedFlow()
-
     private var currentMonth = YearMonth.now()
-    private val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
     private val formatterParams = DateTimeFormatter.ofPattern("MM-yyyy", Locale.ENGLISH)
 
-    fun prevTime() { currentMonth = currentMonth.minusMonths(1); fetchDataInTime() }
-    fun nextTime() { currentMonth = currentMonth.plusMonths(1); fetchDataInTime() }
+    var currentReportType = "DAY" // default to DAY like web?
 
-    fun fetchDataInTime() {
-        viewModelScope.launch { _timeFlow.emit(formatter.format(currentMonth)) }
+    fun loadData(server: String) {
         getCountEmployee(server)
         getMostFavoriteFoodInTime(server)
         getListOrderInTime(server)
-        getRevenueByWeek(server)
+        getReports(currentReportType, server)
+    }
+
+    fun loadReportsOnly(type: String, server: String) {
+        currentReportType = type
+        getReports(type, server)
+    }
+
+    fun fetchDataInTime() {
+        getCountEmployee(server)
+        getMostFavoriteFoodInTime(server)
+        getListOrderInTime(server)
+        getReports(currentReportType, server)
     }
 
     private fun getCountEmployee(server: String) {
@@ -84,25 +89,34 @@ class ReportViewModel : ViewModel() {
                     token = authToken, time = time, server = server
                 )
                 if (response.isSuccess) _mostFavoriteFoodFlow.emit(response.data)
-                else _errorFlow.emit(response.message ?: "Load failed")
+                else {
+                    _mostFavoriteFoodFlow.emit(null)
+                    if (response.code != "404" && response.message != "Not Found") {
+                        _errorFlow.emit(response.message ?: "Load failed")
+                    }
+                }
             } catch (e: Exception) {
-                _errorFlow.emit(ApiError.parse(e))
+                _mostFavoriteFoodFlow.emit(null)
             } finally { _loadingFlow.emit(false) }
         }
     }
 
-    private fun getRevenueByWeek(server: String) {
-        val time = formatterParams.format(currentMonth)
+    private fun getReports(type: String, server: String) {
         viewModelScope.launch {
             _loadingFlow.emit(true)
             try {
-                val response = orderRepository.getRevenueByWeek(
-                    token = authToken, time = time, server = server
+                val response = orderRepository.getReports(
+                    token = authToken, type = type, server = server
                 )
-                if (response.isSuccess) _revenueByWeekFlow.emit(response.data?.data ?: emptyList())
-                else _errorFlow.emit(response.message ?: "Load failed")
+                if (response.isSuccess) _reportDataFlow.emit(response.data ?: emptyList())
+                else {
+                    _reportDataFlow.emit(emptyList())
+                    if (response.code != "404" && response.message != "Not Found") {
+                        _errorFlow.emit(response.message ?: "Load failed")
+                    }
+                }
             } catch (e: Exception) {
-                _errorFlow.emit(ApiError.parse(e))
+                _reportDataFlow.emit(emptyList())
             } finally { _loadingFlow.emit(false) }
         }
     }
@@ -116,9 +130,14 @@ class ReportViewModel : ViewModel() {
                     token = authToken, time = time, server = server
                 )
                 if (response.isSuccess) _listOrderInTimeFlow.emit(response.data?.map { it.data } ?: emptyList())
-                else _errorFlow.emit(response.message ?: "Load failed")
+                else {
+                    _listOrderInTimeFlow.emit(emptyList())
+                    if (response.code != "404" && response.message != "Not Found") {
+                        _errorFlow.emit(response.message ?: "Load failed")
+                    }
+                }
             } catch (e: Exception) {
-                _errorFlow.emit(ApiError.parse(e))
+                _listOrderInTimeFlow.emit(emptyList())
             } finally { _loadingFlow.emit(false) }
         }
     }

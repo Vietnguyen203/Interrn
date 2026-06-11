@@ -74,6 +74,16 @@ public class UserAPI {
                                                                 "data", UserResponse.fromEntity(createdUser)));
         }
 
+        // ===== COUNT ALL USERS =====
+        @GetMapping("/count-by-server")
+        public ResponseEntity<?> countByServer() {
+                long count = userService.countAll();
+                return ResponseEntity.ok(
+                                Map.of(
+                                                "code", "200",
+                                                "data", count));
+        }
+
         // ===== GET USER BY ID =====
         @GetMapping("/{id}")
         @PreAuthorize("hasRole('ADMIN')")

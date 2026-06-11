@@ -14,12 +14,14 @@ import com.anychart.AnyChartView
 import com.anychart.chart.common.dataentry.DataEntry
 import com.anychart.chart.common.dataentry.ValueDataEntry
 import com.anychart.charts.Pie
+import com.anychart.charts.Cartesian
 import com.anychart.enums.Align
 import com.anychart.enums.LegendLayout
 import android.webkit.WebView
 import androidx.navigation.fragment.findNavController
-import com.food.order.data.response.RevenueByWeek
+import com.food.order.data.response.ReportData
 import com.food.order.databinding.FragmentReportBinding
+import com.google.android.material.tabs.TabLayout
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -29,16 +31,13 @@ class ReportFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: ReportViewModel by viewModels()
 
-    // giữ 1 chart view & 1 chart duy nhất
     private var chartView: AnyChartView? = null
-    private var pie: Pie? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentReportBinding.inflate(inflater, container, false)
 
         viewLifecycleOwner.lifecycleScope.launch {
             launch { viewModel.countEmployeeFlow.collectLatest { binding.tvUserNumber.text = it.toString() } }
-            launch { viewModel.timeFlow.collectLatest { binding.tvMonthYear.text = it } }
             launch { viewModel.mostFavoriteFoodFlow.collectLatest { binding.tvMostFood.text = it?.foodName ?: "No data" } }
             launch {
                 viewModel.listOrderInTimeFlow.collectLatest { list ->
@@ -62,15 +61,18 @@ class ReportFragment : Fragment() {
                 }
             }
             launch {
-                viewModel.revenueByWeekFlow.collectLatest { weeks ->
+                viewModel.reportDataFlow.collectLatest { data ->
                     if (!isAdded || _binding == null) return@collectLatest
-                    if (weeks.isNullOrEmpty()) {
+                    if (data.isNullOrEmpty()) {
                         destroyChartView()
                         binding.layoutAnyChartView.removeAllViews()
                         binding.layoutAnyChartView.visibility = View.INVISIBLE
+                        binding.ivEmptyBox.visibility = View.VISIBLE
+                        binding.progressBar.visibility = View.GONE
                     } else {
                         binding.layoutAnyChartView.visibility = View.VISIBLE
-                        setupPieChart(weeks)
+                        binding.ivEmptyBox.visibility = View.GONE
+                        setupChart(data)
                     }
                 }
             }
@@ -91,34 +93,50 @@ class ReportFragment : Fragment() {
         viewModel.authToken = "Bearer " + (sharedPref.getString("token", "") ?: "")
 
         viewModel.fetchDataInTime()
-        binding.ivPrev.setOnClickListener { viewModel.prevTime() }
-        binding.ivNext.setOnClickListener { viewModel.nextTime() }
         binding.cardViewBack.setOnClickListener { findNavController().popBackStack() }
+
+        binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                val type = when(tab?.position) {
+                    0 -> "DAY"
+                    1 -> "MONTH"
+                    2 -> "CATEGORY"
+                    else -> "DAY"
+                }
+                viewModel.loadReportsOnly(type, viewModel.server)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
     }
 
-    private fun setupPieChart(result: List<RevenueByWeek>) {
+    private fun setupChart(result: List<ReportData>) {
         if (!isAdded || _binding == null) return
 
         destroyChartView()
 
         val data: MutableList<DataEntry> = ArrayList()
-        for (r in result) data.add(ValueDataEntry("Week ${r.week}", r.total))
+        for (r in result) data.add(ValueDataEntry(r.name, r.value))
 
-        val pieChart = pie ?: AnyChart.pie().apply {
-            title("")
-            labels().position("outside")
-            legend().title().enabled(true)
-            legend().title().text("Week").padding(0.0, 0.0, 10.0, 0.0)
-            legend().position("center-bottom").itemsLayout(LegendLayout.HORIZONTAL).align(Align.CENTER)
-        }
-        pie = pieChart
-        pieChart.data(data)
-
-        // Tạo AnyChartView mới và gán chart ngay lập tức trước khi thêm vào layout
-        // để tránh crash NullPointerException trong onPageFinished của WebView
         val cv = AnyChartView(requireContext()).apply {
             setProgressBar(binding.progressBar)
-            setChart(pieChart)
+        }
+
+        if (viewModel.currentReportType == "CATEGORY") {
+            val chart = AnyChart.pie().apply {
+                title("")
+                labels().position("outside")
+                legend().title().enabled(false)
+                legend().position("center-bottom").itemsLayout(LegendLayout.HORIZONTAL).align(Align.CENTER)
+            }
+            chart.data(data)
+            cv.setChart(chart)
+        } else {
+            val chart = AnyChart.column().apply {
+                title("")
+            }
+            chart.data(data)
+            cv.setChart(chart)
         }
 
         binding.layoutAnyChartView.removeAllViews()
@@ -146,7 +164,6 @@ class ReportFragment : Fragment() {
 
     override fun onDestroyView() {
         destroyChartView()
-        pie = null
         _binding = null
         super.onDestroyView()
     }

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/bg_bottom_sheet">
+
+    <TextView
+        android:id="@+id/tvIngredientName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thịt bò"
+        android:textColor="#0F172A"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btnImport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nhập kho"
+        android:backgroundTint="#10B981"
+        android:textColor="@color/white"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnExport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Xuất kho"
+        android:backgroundTint="#F59E0B"
+        android:textColor="@color/white"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnEdit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chỉnh sửa thông tin"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Hủy"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:textColor="#64748B" />
+
+</LinearLayout>

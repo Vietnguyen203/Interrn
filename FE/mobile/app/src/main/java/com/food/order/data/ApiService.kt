@@ -210,26 +210,26 @@ interface ApiService {
     ): ApiResponse<Void>
 
     // ===== REPORTS (JWT) =====
-    @GET("orders/most-favorite-food")
+    @GET("order/orders/list")
+    suspend fun getListOrderInTime(
+        @Header("Authorization") token: String,
+        @Query("time") time: String? = null,
+        @Query("server") server: String? = null
+    ): ApiResponse<List<OrderResponse>>
+
+    @GET("order/orders/most-favorite-food")
     suspend fun getMostFavoriteFood(
         @Header("Authorization") token: String,
         @Query("time") time: String? = null,
         @Query("server") server: String? = null
     ): ApiResponse<MostFavoriteFoodResponse>
 
-    @GET("orders/revenue-by-week")
-    suspend fun getRevenueByWeek(
+    @GET("order/reports")
+    suspend fun getReports(
         @Header("Authorization") token: String,
-        @Query("time") time: String? = null,
+        @Query("type") type: String,
         @Query("server") server: String? = null
-    ): ApiResponse<RevenueByWeekResponse>
-
-    @GET("orders/list")
-    suspend fun getListOrderInTime(
-        @Header("Authorization") token: String,
-        @Query("time") time: String? = null,
-        @Query("server") server: String? = null
-    ): ApiResponse<List<OrderResponse>>
+    ): ApiResponse<List<com.food.order.data.response.ReportData>>
 
     // ===== ORDER HISTORY (JWT) =====
     @GET("order/orders")

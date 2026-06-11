@@ -15,6 +15,36 @@ interface CatalogApiService {
         @Header("Authorization") token: String
     ): ApiResponse<List<com.food.order.data.response.IngredientResponse>>
 
+    @POST("catalog-service/inventory/ingredients")
+    suspend fun createIngredient(
+        @Header("Authorization") token: String,
+        @Body request: com.food.order.data.request.IngredientRequest
+    ): ApiResponse<com.food.order.data.response.IngredientResponse>
+
+    @PUT("catalog-service/inventory/ingredients/{id}")
+    suspend fun updateIngredient(
+        @Header("Authorization") token: String,
+        @Path("id") id: String,
+        @Body request: com.food.order.data.request.IngredientRequest
+    ): ApiResponse<com.food.order.data.response.IngredientResponse>
+
+    @POST("catalog-service/inventory/transactions/import")
+    suspend fun importStock(
+        @Header("Authorization") token: String,
+        @Body request: com.food.order.data.request.StockTransactionRequest
+    ): ApiResponse<com.food.order.data.response.TransactionResponse>
+
+    @POST("catalog-service/inventory/transactions/export")
+    suspend fun exportStock(
+        @Header("Authorization") token: String,
+        @Body request: com.food.order.data.request.StockTransactionRequest
+    ): ApiResponse<com.food.order.data.response.TransactionResponse>
+
+    @GET("catalog-service/inventory/transactions")
+    suspend fun getTransactions(
+        @Header("Authorization") token: String
+    ): ApiResponse<List<com.food.order.data.response.TransactionResponse>>
+
     // ===== CATEGORIES =====
     @GET("catalog-service/categories")
     suspend fun getCategories(

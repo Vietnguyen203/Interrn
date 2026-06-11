@@ -5,5 +5,5 @@ data class SimpleLongResponse(
     val message: String?,
     val data: Long?
 ) {
-    val isSuccess: Boolean get() = code == "OK" || code == "0"
+    val isSuccess: Boolean get() = code == "OK" || code == "0" || code == "200" || code == "201"
 }
