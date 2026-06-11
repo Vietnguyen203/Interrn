@@ -44,8 +44,14 @@ class InventoryAdapter(
         @SuppressLint("SetTextI18n")
         fun bind(item: IngredientResponse) {
             tvName.text = item.name
-            tvStock.text = "%.2f".format(item.currentStock)
-            tvUnit.text = item.unit
+            
+            val stockStr = if (item.currentStock % 1.0 == 0.0) {
+                item.currentStock.toInt().toString()
+            } else {
+                item.currentStock.toString()
+            }
+            tvStock.text = "$stockStr ${item.unit}"
+            tvUnit.visibility = View.GONE
 
             val isLowStock = item.currentStock <= item.minStockLevel
             if (isLowStock) {
