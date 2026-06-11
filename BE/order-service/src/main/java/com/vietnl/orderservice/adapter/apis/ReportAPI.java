@@ -2,6 +2,7 @@ package com.vietnl.orderservice.adapter.apis;
 
 import com.vietnl.orderservice.application.reports.*;
 import com.vietnl.orderservice.domain.models.entities.Order;
+import com.vietnl.orderservice.infrastructure.communication.CatalogFeignClient;
 import com.vietnl.orderservice.infrastructure.persistence.repositories.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,7 @@ public class ReportAPI {
     private final com.vietnl.orderservice.infrastructure.communication.CatalogFeignClient catalogFeignClient;
 
     @Autowired
-    public ReportAPI(OrderRepository orderRepository, com.vietnl.orderservice.infrastructure.communication.CatalogFeignClient catalogFeignClient) {
+    public ReportAPI(OrderRepository orderRepository, CatalogFeignClient catalogFeignClient) {
         this.orderRepository = orderRepository;
         this.catalogFeignClient = catalogFeignClient;
     }
