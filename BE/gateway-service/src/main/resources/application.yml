@@ -23,6 +23,12 @@ spring:
           filters:
             - RewritePath=/order/(?<segment>.*), /$\{segment}
 
+        # 2. Table Service - WebSocket
+        - id: ws_table_route
+          uri: http://localhost:8083
+          predicates:
+            - Path=/ws-tables/**
+
         # 2. Table Service (8083)
         - id: table_route
           uri: http://localhost:8083
@@ -56,9 +62,9 @@ spring:
             # Sửa lại regex để xử lý cả trường hợp segment trống
             - RewritePath=/api/users-service/?(?<segment>.*), /users-service/request/$\{segment}
 
-        # 6. Notification Service - WebSocket (ws://)
+        # 6. Notification Service - WebSocket
         - id: ws_notification_route
-          uri: ws://localhost:8086
+          uri: http://localhost:8086
           predicates:
             - Path=/ws-notifications/**
 
@@ -73,3 +79,16 @@ spring:
 logging:
   level:
     org.springframework.cloud.gateway: TRACE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

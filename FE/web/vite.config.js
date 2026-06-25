@@ -28,14 +28,8 @@ export default defineConfig({
         changeOrigin: true,
         headers: { 'Origin': 'http://localhost:5173' }
       },
-      '/ws': {
-        target: 'http://localhost:8083',
-        ws: true,
-        changeOrigin: true,
-        headers: { 'Origin': 'http://localhost:5173' }
-      },
       '/ws-notifications': {
-        target: 'http://localhost:8086',
+        target: 'http://localhost:8080',
         ws: true,
         changeOrigin: true,
         headers: { 'Origin': 'http://localhost:5173' }

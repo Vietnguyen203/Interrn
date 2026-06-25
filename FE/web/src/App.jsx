@@ -857,8 +857,8 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for Real-time Tables
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const socket = new SockJS('/ws');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const socket = new SockJS('http://localhost:8080/ws-tables');
     const stompClient = new Client({
       webSocketFactory: () => socket,
       connectHeaders: { Authorization: `Bearer ${token}` },
@@ -880,8 +880,8 @@ const DashboardScreen = ({ user, onLogout }) => {
 
   // WebSocket Connection for General Notifications
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const socket = new SockJS('/ws-notifications');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const socket = new SockJS('http://localhost:8080/ws-notifications');
     const stompClient = new Client({
       webSocketFactory: () => socket,
       connectHeaders: { Authorization: `Bearer ${token}` },

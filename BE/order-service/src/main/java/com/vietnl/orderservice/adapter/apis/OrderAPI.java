@@ -115,7 +115,6 @@ public class OrderAPI {
             @PathVariable UUID itemId,
             @RequestParam String status,
             @RequestHeader(value = "Authorization", required = false) String token) {
-        System.out.println(">>> [DEBUG KITCHEN]: Cập nhật món " + itemId + " sang trạng thái: " + status);
         orderService.updateKitchenStatus(itemId, status, token);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái bếp thành công", null));
     }

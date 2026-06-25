@@ -1,4 +1,4 @@
-package com.vietnl.tableservice.infrastructure.security;
+package com.vietnl.notificationservice.infrastructure.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,27 +28,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-        String jwt = null;
-
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwt = authHeader.substring(7);
-        } else if (request.getParameter("token") != null) {
-            jwt = request.getParameter("token");
-        }
-
         // Bỏ qua kiểm tra Token cho các request OPTIONS (CORS pre-flight)
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if (jwt == null) {
+        final String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
+            String jwt = authHeader.substring(7);
             if (jwtUtil.isTokenValid(jwt)) {
                 String username = jwtUtil.extractUsername(jwt);
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -64,7 +58,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ignored) {
-            // Token không hợp lệ — Spring Security sẽ trả 403
+            // Token không hợp lệ → không set Authentication, request vẫn đi tiếp
         }
 
         filterChain.doFilter(request, response);

@@ -24,7 +24,7 @@ public class NotificationConsumer {
             String type = (String) message.get("type");
             String role = (String) message.get("recipientRole");
 
-            notificationService.createAndSend(title, content, type, role);
+            notificationService.createAndSend(title, content, type, role, "system");
         } catch (Exception e) {
             log.error("Error processing Kafka message", e);
         }

@@ -21,13 +21,14 @@ public class NotificationService {
     private final FcmService fcmService;
 
     @Transactional
-    public Notification createAndSend(String title, String message, String type, String role) {
+    public Notification createAndSend(String title, String message, String type, String role, String createdBy) {
         // 1. Lưu vào Database
         Notification notification = new Notification();
         notification.setTitle(title);
         notification.setMessage(message);
         notification.setType(type);
         notification.setRecipientRole(role);
+        notification.setCreatedBy(createdBy);
         notification = repository.save(notification);
 
         // 2. Gửi qua WebSocket STOMP
