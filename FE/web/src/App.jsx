@@ -289,9 +289,13 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
     const userPayload = parseJwt(token);
     const userData = {
+      id: userPayload.sub,
+      username: userPayload.sub,
       fullName: userPayload.fullName || userPayload.sub,
       role: userPayload.role, // Lấy trực tiếp từ Token
-      server: 'local'
+      server: 'local',
+      tokenExp: userPayload.exp,
+      tokenIat: userPayload.iat,
     };
 
     storage.setItem('user', JSON.stringify(userData));
@@ -538,7 +542,13 @@ const DashboardScreen = ({ user, onLogout }) => {
       // Nav
       overview: 'Tổng quan', orders: 'Đơn hàng', tables: 'Lịch Sử',
       kitchen: 'Bếp', menu: 'Thực đơn', staff: 'Nhân viên',
-      reports: 'Báo cáo', settings: 'Cài đặt', inventory: 'Quản lý kho',
+      reports: 'Báo cáo', settings: 'Cài đặt', inventory: 'Quản lý kho', profile: 'Hồ Sơ',
+      // Profile page
+      profileTitle: 'Hồ Sơ Cá Nhân', profileSubtitle: 'Thông tin tài khoản của bạn',
+      accountInfo: 'Thông tin tài khoản', sessionInfo: 'Thông tin phiên đăng nhập',
+      usernameLabel: 'Tên đăng nhập', displayNameLabel: 'Tên hiển thị', roleLabel: 'Vai trò',
+      loginTime: 'Thời gian đăng nhập', expireTime: 'Phiên hết hạn',
+      roleBadge: { ADMIN: 'Quản trị viên', WAITER: 'Phục vụ', KITCHEN: 'Bếp', GUEST: 'Khách' },
       // Settings toggles
       logout: 'Đăng xuất', darkMode: 'Giao diện tối', soundNotif: 'Âm thanh TB', language: 'Ngôn ngữ',
       // Common buttons
@@ -608,7 +618,13 @@ const DashboardScreen = ({ user, onLogout }) => {
       // Nav
       overview: 'Overview', orders: 'Orders', tables: 'Tables',
       kitchen: 'Kitchen', menu: 'Menu & Food', staff: 'Staff',
-      reports: 'Reports', settings: 'Settings', inventory: 'Inventory',
+      reports: 'Reports', settings: 'Settings', inventory: 'Inventory', profile: 'Profile',
+      // Profile page
+      profileTitle: 'My Profile', profileSubtitle: 'Your account information',
+      accountInfo: 'Account Information', sessionInfo: 'Session Information',
+      usernameLabel: 'Username', displayNameLabel: 'Display Name', roleLabel: 'Role',
+      loginTime: 'Login Time', expireTime: 'Session Expires',
+      roleBadge: { ADMIN: 'Administrator', WAITER: 'Waiter', KITCHEN: 'Kitchen Staff', GUEST: 'Guest' },
       // Settings toggles
       logout: 'Logout', darkMode: 'Dark Mode', soundNotif: 'Sound Alert', language: 'Language',
       // Common buttons
@@ -935,6 +951,7 @@ const DashboardScreen = ({ user, onLogout }) => {
     { icon: <Package size={20} />,        label: 'Inventory',  display: t.inventory, roles: ['ADMIN'] },
     { icon: <PieChartIcon size={20} />,   label: 'Reports',    display: t.reports,   roles: ['ADMIN'] },
     { icon: <Settings size={20} />,       label: 'Settings',   display: t.settings,  roles: ['ADMIN', 'WAITER', 'KITCHEN'] },
+    { icon: <UserIcon size={20} />,       label: 'Profile',    display: t.profile,   roles: ['ADMIN', 'WAITER', 'KITCHEN'] },
   ];
 
   // Filter nav items based on user role
@@ -2170,22 +2187,35 @@ const DashboardScreen = ({ user, onLogout }) => {
 
 
         {/* User Card from JWT info */}
-        <div style={{ padding: '20px', borderTop: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserIcon color="var(--primary)" size={20} />
+        <div style={{ padding: '16px', borderTop: '1px solid var(--border-color)' }}>
+          <button
+            onClick={() => setActiveTab('Profile')}
+            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px', borderRadius: '12px', transition: 'var(--transition)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-light)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '38px', height: '38px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--primary), #6366f1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: '15px', fontWeight: '700', flexShrink: 0
+              }}>
+                {(user?.fullName || user?.username || '?')[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, overflow: 'hidden', textAlign: 'left' }}>
+                <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', margin: 0 }}>
+                  {user?.fullName || user?.username}
+                </p>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+                  @{user?.username} · {user?.role}
+                </p>
+              </div>
+              <button onClick={e => { e.stopPropagation(); handleLogout(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)', padding: '4px', borderRadius: '6px', flexShrink: 0 }} title={t.logout}>
+                <LogOut size={17} />
+              </button>
             </div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', textTransform: 'capitalize', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user?.id}</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Calendar size={10} /> {formatDate(user?.birthday) || 'N/A'}
-              </p>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sys: {user?.server} • {user?.role}</p>
-            </div>
-            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-cancelled)' }} title={t.logout}>
-              <LogOut size={20} />
-            </button>
-          </div>
+          </button>
         </div>
 
       </motion.aside>
@@ -3491,6 +3521,123 @@ const DashboardScreen = ({ user, onLogout }) => {
               )}
             </motion.div>
           )}
+
+          {/* PROFILE TAB - Trang cá nhân */}
+          {activeTab === 'Profile' && (() => {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const jwtData = token ? parseJwt(token) : null;
+            const loginAt = jwtData?.iat ? new Date(jwtData.iat * 1000) : null;
+            const expAt  = jwtData?.exp ? new Date(jwtData.exp * 1000) : null;
+            const roleColors = { ADMIN: '#6366f1', WAITER: '#10b981', KITCHEN: '#f59e0b', GUEST: '#94a3b8' };
+            const roleColor = roleColors[user?.role] || '#94a3b8';
+            const initials = (user?.fullName || user?.username || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+            return (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: '720px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                {/* Hero Card */}
+                <div style={{ borderRadius: '20px', overflow: 'hidden', boxShadow: 'var(--shadow-lg)', position: 'relative' }}>
+                  {/* Banner */}
+                  <div style={{ height: '110px', background: `linear-gradient(135deg, ${roleColor}cc, #6366f1)`, position: 'relative' }}>
+                    <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 60%)', pointerEvents: 'none' }} />
+                  </div>
+                  {/* Body */}
+                  <div style={{ background: 'var(--bg-surface)', padding: '0 32px 28px', position: 'relative' }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: '88px', height: '88px', borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${roleColor}, #6366f1)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontSize: '34px', fontWeight: '800',
+                      border: '4px solid var(--bg-surface)',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                      position: 'absolute', top: '-44px', left: '32px',
+                    }}>{initials}</div>
+                    {/* Role badge */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '12px' }}>
+                      <span style={{
+                        background: roleColor + '22', color: roleColor,
+                        border: `1px solid ${roleColor}66`,
+                        borderRadius: '20px', padding: '4px 14px',
+                        fontSize: '12px', fontWeight: '700', letterSpacing: '0.5px'
+                      }}>{(t.roleBadge || {})[user?.role] || user?.role}</span>
+                    </div>
+                    {/* Name */}
+                    <div style={{ marginTop: '32px' }}>
+                      <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', margin: '0 0 4px' }}>{user?.fullName || user?.username}</h2>
+                      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>@{user?.username}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Cards Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+
+                  {/* Account Info */}
+                  <div className="card" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--primary)', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <UserIcon size={17} /> {t.accountInfo}
+                    </h3>
+                    {[
+                      { label: t.usernameLabel,    value: user?.username || '—' },
+                      { label: t.displayNameLabel, value: user?.fullName  || '—' },
+                      { label: t.roleLabel,        value: (t.roleBadge || {})[user?.role] || user?.role || '—' },
+                    ].map(({ label, value }) => (
+                      <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</span>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Session Info */}
+                  <div className="card" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--primary)', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Calendar size={17} /> {t.sessionInfo}
+                    </h3>
+                    {[
+                      { label: t.loginTime,  value: loginAt ? loginAt.toLocaleString('vi-VN') : '—' },
+                      { label: t.expireTime, value: expAt   ? expAt.toLocaleString('vi-VN')   : '—' },
+                    ].map(({ label, value }) => (
+                      <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '16px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</span>
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', fontFamily: 'monospace' }}>{value}</span>
+                      </div>
+                    ))}
+                    {/* Token expiry bar */}
+                    {jwtData?.iat && jwtData?.exp && (() => {
+                      const total = jwtData.exp - jwtData.iat;
+                      const elapsed = Math.floor(Date.now() / 1000) - jwtData.iat;
+                      const pct = Math.min(100, Math.max(0, (elapsed / total) * 100));
+                      const barColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#10b981';
+                      return (
+                        <div style={{ marginTop: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Phiên đã dùng</span>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: barColor }}>{Math.round(pct)}%</span>
+                          </div>
+                          <div style={{ height: '6px', borderRadius: '4px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Logout button */}
+                <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <p style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)', margin: '0 0 2px' }}>{t.logout}</p>
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>{lang === 'vi' ? 'Kết thúc phiên làm việc hiện tại' : 'End your current working session'}</p>
+                  </div>
+                  <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', cursor: 'pointer', fontWeight: '700', fontSize: '14px' }}>
+                    <LogOut size={17} /> {t.logout}
+                  </button>
+                </div>
+
+              </motion.div>
+            );
+          })()}
 
           {/* Development Placeholders for others */}
           {activeTab === 'Reports' && (
@@ -5373,9 +5520,12 @@ const App = () => {
 
         setCurrentUser({
           id: payload.sub || payload.uid,
+          username: payload.sub || payload.uid,
           role: payload.role || 'GUEST',
           server: 'local',
-          fullName: payload.fullName || payload.sub
+          fullName: payload.fullName || payload.sub,
+          tokenExp: payload.exp,
+          tokenIat: payload.iat,
         });
       }
     }

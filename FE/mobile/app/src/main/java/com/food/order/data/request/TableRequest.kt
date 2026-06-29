@@ -4,6 +4,8 @@ package com.food.order.data.request
 import com.google.gson.annotations.SerializedName
 
 data class TableRequest(
-    @SerializedName("table_name")
-    val tableName: String
+    @SerializedName("tableNumber")
+    val tableNumber: Int,
+    @SerializedName("capacity")
+    val capacity: Int? = 4
 )

@@ -33,7 +33,7 @@ class TableAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TableViewHolder {
-        val binding = ItemTableBinding.inflate(LayoutInflater.from(parent.context), parent, true)
+        val binding = ItemTableBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return TableViewHolder(binding, onItemClick)
     }
 

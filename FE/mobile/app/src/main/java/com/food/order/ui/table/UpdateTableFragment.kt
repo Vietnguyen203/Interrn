@@ -80,7 +80,7 @@ class UpdateTableFragment : Fragment() {
             findNavController().popBackStack()
         }
         binding.btnUpdate.setOnClickListener {
-            val name = binding.edtName.text.toString()
+            val name = binding.edtName.text.toString().trim()
             if (userToken.isEmpty()) {
                 Toast.makeText(requireContext(), "Please login first", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -90,9 +90,16 @@ class UpdateTableFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val request = TableRequest(
-                tableName = name,
-            )
+            // Parse số từ tên: "Bàn 7" -> 7, "7" -> 7
+            val tableNumber: Int? = name.toIntOrNull()
+                ?: Regex("\\d+").find(name)?.value?.toIntOrNull()
+
+            if (tableNumber == null || tableNumber < 1) {
+                binding.edtName.error = "Tên phải chứa số bàn (vd: 'Bàn 7' hoặc '7')"
+                return@setOnClickListener
+            }
+
+            val request = TableRequest(tableNumber = tableNumber)
             viewModel.updateTable(userToken, request)
         }
         binding.btnRemove.setOnClickListener {

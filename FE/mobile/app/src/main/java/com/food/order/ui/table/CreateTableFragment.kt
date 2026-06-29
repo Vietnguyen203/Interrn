@@ -61,7 +61,7 @@ class CreateTableFragment : Fragment() {
             findNavController().popBackStack()
         }
         binding.btnCreate.setOnClickListener {
-            val name = binding.edtName.text.toString()
+            val name = binding.edtName.text.toString().trim()
 
             if (userToken.isEmpty()) {
                 Toast.makeText(requireContext(), "Please login first", Toast.LENGTH_SHORT).show()
@@ -71,9 +71,17 @@ class CreateTableFragment : Fragment() {
                 binding.edtName.error = "Please enter name"
                 return@setOnClickListener
             }
-            val request = TableRequest(
-                tableName = name,
-            )
+
+            // Tự parse số từ tên: "Table 7" -> 7, "Bàn 3" -> 3, "5" -> 5
+            val tableNumber: Int? = name.trim().toIntOrNull()
+                ?: Regex("\\d+").find(name)?.value?.toIntOrNull()
+
+            if (tableNumber == null || tableNumber < 1) {
+                binding.edtName.error = "Tên phải chứa số bàn (vd: 'Bàn 7' hoặc '7')"
+                return@setOnClickListener
+            }
+
+            val request = TableRequest(tableNumber = tableNumber)
             viewModel.createTable(userToken, request)
         }
     }

@@ -37,7 +37,7 @@ class TableDashboardAdapter(
                 binding.tv.text = "Using"
                 binding.tv.setBackgroundResource(R.drawable.bg_occupied_table_view)
             } else {
-                binding.tv.text = "Pee"
+                binding.tv.text = "Free"
                 binding.tv.setBackgroundResource(R.drawable.bg_empty_table_view)
             }
         }

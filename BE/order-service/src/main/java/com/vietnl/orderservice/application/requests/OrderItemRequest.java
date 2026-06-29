@@ -16,6 +16,8 @@ public class OrderItemRequest {
     @NotBlank(message = "Tên món không được trống")
     private String foodName;
 
+    private String foodImage;
+
     @NotNull(message = "Giá không được trống")
     private BigDecimal unitPrice;
 

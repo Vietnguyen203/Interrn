@@ -32,6 +32,9 @@ public class OrderItem {
     @Column(name = "food_name", nullable = false)
     private String foodName;
 
+    @Column(name = "food_image")
+    private String foodImage;
+
     @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal unitPrice;
 

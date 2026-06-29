@@ -12,6 +12,7 @@ public class OrderItemResponse {
     private UUID id;
     private String menuItemId;
     private String foodName;
+    private String foodImage;
     private BigDecimal unitPrice;
     private int quantity;
     private BigDecimal subtotal;
@@ -23,6 +24,7 @@ public class OrderItemResponse {
         r.setId(item.getId());
         r.setMenuItemId(item.getMenuItemId());
         r.setFoodName(item.getFoodName());
+        r.setFoodImage(item.getFoodImage());
         r.setUnitPrice(item.getUnitPrice());
         r.setQuantity(item.getQuantity());
         r.setSubtotal(item.getSubtotal());

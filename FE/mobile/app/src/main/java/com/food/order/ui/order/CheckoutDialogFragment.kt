@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -21,8 +21,7 @@ class CheckoutDialogFragment : DialogFragment() {
 
     private var _binding: DialogCheckoutBinding? = null
     private val binding get() = _binding!!
-
-    private val viewModel: OrderTableViewModel by activityViewModels()
+    private val viewModel: OrderTableViewModel by viewModels({ requireParentFragment() })
 
     // Lưu total hiện tại để dùng khi bấm thanh toán
     private var currentTotalAmount: Double? = null

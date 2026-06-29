@@ -66,6 +66,7 @@ public class OrderService {
                     item.setFoodName(itemReq.getFoodName());
                     item.setUnitPrice(itemReq.getUnitPrice());
                 }
+                item.setFoodImage(details != null && details.getImage() != null ? details.getImage() : itemReq.getFoodImage());
                 
                 item.setQuantity(itemReq.getQuantity());
                 item.setNote(itemReq.getNote());
@@ -147,6 +148,7 @@ public class OrderService {
                     item.setFoodName(itemReq.getFoodName());
                     item.setUnitPrice(itemReq.getUnitPrice());
                 }
+                item.setFoodImage(details != null && details.getImage() != null ? details.getImage() : itemReq.getFoodImage());
                 
                 item.setQuantity(itemReq.getQuantity());
                 item.setNote(itemReq.getNote());
@@ -237,6 +239,7 @@ public class OrderService {
                         item.setMenuItemId(request.getMenuItemId());
                         item.setFoodName(details != null ? details.getFoodName() : request.getFoodName());
                         item.setUnitPrice(details != null ? details.getPrice() : request.getUnitPrice());
+                        item.setFoodImage(details != null && details.getImage() != null ? details.getImage() : request.getFoodImage());
                         item.setQuantity(request.getQuantity());
                         item.setNote(request.getNote());
                         item.setStockDeducted(true);
@@ -555,6 +558,7 @@ public class OrderService {
     private static class MenuItemDetails {
         private String foodName;
         private java.math.BigDecimal price;
+        private String image;
     }
 
     private MenuItemDetails fetchMenuItem(String menuItemId, String token) {
@@ -568,6 +572,11 @@ public class OrderService {
                     Object priceObj = data.get("price");
                     if (priceObj instanceof Number) {
                         details.setPrice(new java.math.BigDecimal(priceObj.toString()));
+                    }
+                    Object imgObj = data.get("imageUrl");
+                    if (imgObj == null) imgObj = data.get("image");
+                    if (imgObj instanceof String) {
+                        details.setImage((String) imgObj);
                     }
                     return details;
                 }

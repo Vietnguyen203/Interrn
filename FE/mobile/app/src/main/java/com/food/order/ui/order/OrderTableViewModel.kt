@@ -120,7 +120,11 @@ class OrderTableViewModel : ViewModel() {
                 if (response.isSuccess) {
                     val order = response.data ?: error("Order response null")
                     _orderFlow.emit(order)
-                    _orderTotalFlow.value = order.totalAmount
+                    
+                    val serverTotal = order.totalAmount ?: 0.0
+                    val items = order.items ?: emptyList()
+                    val computedTotal = items.sumOf { (it.price ?: 0.0) * ((it.quantity ?: 0).toDouble()) }
+                    _orderTotalFlow.value = if (serverTotal > 0.0) serverTotal else computedTotal
                 } else _errorFlow.emit(response.message ?: "Load failed")
             } catch (e: Exception) {
                 _errorFlow.emit(ApiError.parse(e))
