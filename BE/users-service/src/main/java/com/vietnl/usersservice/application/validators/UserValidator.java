@@ -50,16 +50,6 @@ public class UserValidator {
         }
     }
 
-    public User validateLogin(String username, String password) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException(ExceptionMessage.USER_NOT_FOUND.getMessage()));
-
-        if (!password.equals(user.getPassword())) {
-            throw new RuntimeException(ExceptionMessage.INVALID_PASSWORD.getMessage());
-        }
-        return user;
-    }
-
     public User validateExists(String id) {
         return userRepository.findById(UUID.fromString(id))
                 .orElseThrow(() -> new RuntimeException(ExceptionMessage.USER_NOT_FOUND.getMessage()));

@@ -215,7 +215,6 @@ public class MenuItemService {
                         Void.class
                 );
             } catch (Exception e) {
-                System.err.println("Không thể gửi thông báo tới notification-service: " + e.getMessage());
             }
         });
     }

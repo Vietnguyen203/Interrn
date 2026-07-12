@@ -11,7 +11,6 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/reports")
-@CrossOrigin(origins = "*") // Cho phép gọi từ Frontend khác port
 public class ReportAPI {
 
     private final OrderRepository orderRepository;

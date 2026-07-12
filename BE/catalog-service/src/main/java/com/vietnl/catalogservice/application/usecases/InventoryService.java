@@ -36,17 +36,6 @@ public class InventoryService {
     private final RecipeRepository recipeRepository;
     private final InventoryTransactionRepository transactionRepository;
     private final NotificationFeignClient notificationFeignClient;
-    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
-
-    @jakarta.annotation.PostConstruct
-    public void init() {
-        try {
-            jdbcTemplate.execute("ALTER TABLE ingredients ADD is_active NUMBER(1,0) DEFAULT 1 NOT NULL");
-            System.out.println("ADDED is_active COLUMN TO INGREDIENTS TABLE");
-        } catch (Exception e) {
-            System.out.println("is_active column might already exist: " + e.getMessage());
-        }
-    }
 
     // --- Ingredients CRUD ---
 
@@ -344,7 +333,6 @@ public class InventoryService {
                 );
                 notificationFeignClient.sendNotification(payload);
             } catch (Exception e) {
-                System.err.println("Lỗi gửi cảnh báo kho: " + e.getMessage());
             }
         });
     }

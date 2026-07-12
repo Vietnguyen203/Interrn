@@ -64,7 +64,6 @@ public class UserService {
             try {
                 UUID deviceUuid = UUID.fromString(deviceId);
                 if (user.getTrustedDevice().equals(deviceUuid)) {
-                    System.out.println(">>> [AUTH]: Thiết bị tin cậy [" + deviceId + "]. Bỏ qua OTP.");
                     Map<String, Object> claims = new HashMap<>();
                     claims.put("role", UserRole.values()[user.getRole()].name());
                     claims.put("fullName", user.getFullName());
@@ -76,7 +75,7 @@ public class UserService {
                             .build();
                 }
             } catch (IllegalArgumentException e) {
-                System.out.println(">>> [AUTH]: Mã thiết bị không đúng định dạng UUID: " + deviceId);
+                // deviceId không đúng định dạng UUID, bỏ qua
             }
         }
 
@@ -95,7 +94,7 @@ public class UserService {
     }
 
     private void sendOtpEmail(String email, String otp) {
-        System.out.println(">>> [DEBUG OTP]: Mã OTP cho " + email + " là: " + otp);
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(email);
@@ -103,7 +102,7 @@ public class UserService {
             message.setText("Mã OTP đăng nhập của bạn là: " + otp + ". Mã này có hiệu lực trong 5 phút.");
             mailSender.send(message);
         } catch (Exception e) {
-            System.err.println(">>> [ERROR]: Không thể gửi email OTP: " + e.getMessage());
+            // Không thể gửi email OTP - lỗi được xử lý ngầm
         }
     }
 
@@ -139,10 +138,9 @@ public class UserService {
                 if (user.getTrustedDevice() == null || !user.getTrustedDevice().equals(deviceUuid)) {
                     user.setTrustedDevice(deviceUuid);
                     userRepository.save(user);
-                    System.out.println(">>> [AUTH]: Đã cập nhật thiết bị tin cậy mới cho user: " + username);
                 }
             } catch (IllegalArgumentException e) {
-                 System.out.println(">>> [AUTH]: Lỗi khi lưu thiết bị. Mã không đúng định dạng UUID: " + deviceId);
+                // deviceId không đúng định dạng UUID khi lưu thiết bị
             }
         }
 

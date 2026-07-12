@@ -65,7 +65,6 @@ public class PaymentService {
                 NotificationFeignClient.NotificationRequest payload = new NotificationFeignClient.NotificationRequest(title, message, type, role);
                 notificationFeignClient.sendNotification(payload);
             } catch (Exception e) {
-                System.err.println("Lỗi gửi thông báo thanh toán qua FeignClient: " + e.getMessage());
             }
         });
     }

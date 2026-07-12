@@ -107,7 +107,6 @@ public class OrderService {
                         "server-1"
                 );
             } catch (Exception e) {
-                System.err.println("Lỗi khi đồng bộ trạng thái bàn (Feign): " + e.getMessage());
             }
         }
 
@@ -116,19 +115,31 @@ public class OrderService {
 
     // ===== TẠO ĐƠN HÀNG CÔNG KHAI (KHÁCH QUÉT QR) =====
     @Transactional
-    public OrderResponse createPublicOrder(CreateOrderRequest request) {
+    public synchronized OrderResponse createPublicOrder(CreateOrderRequest request) {
         String systemToken = "Bearer " + jwtUtil.generateToken("system", "ADMIN");
-        
+
+        // ===== KIỂM TRA BÀN ĐÃ CÓ ĐƠN HÀNG ĐANG HOẠT ĐỘNG CHƯA =====
+        // Ngăn Race Condition: 2 khách cùng scan QR một bàn cùng lúc
+        if (request.getTableId() != null) {
+            List<Order> activeOrders = orderRepository.findByTableIdAndStatusIn(
+                    request.getTableId(), List.of("PENDING", "CONFIRMED")
+            );
+            if (!activeOrders.isEmpty()) {
+                // Trả về đơn hàng đang hoạt động thay vì tạo mới
+                return OrderResponse.from(activeOrders.get(0));
+            }
+        }
+
         Order order = new Order();
         order.setTableId(request.getTableId());
-        
+
         if (request.getTableId() != null) {
             String fetchedTableNum = fetchTableNumber(request.getTableId(), systemToken);
             order.setTableNumber(fetchedTableNum != null ? fetchedTableNum : request.getTableNumber());
         } else {
             order.setTableNumber(request.getTableNumber());
         }
-        
+
         order.setNote(request.getNote());
         order.setCreatedBy("Khách hàng (QR)");
         order.setStatus("PENDING");
@@ -139,7 +150,7 @@ public class OrderService {
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
                 item.setMenuItemId(itemReq.getMenuItemId());
-                
+
                 MenuItemDetails details = fetchMenuItem(itemReq.getMenuItemId(), systemToken);
                 if (details != null) {
                     item.setFoodName(details.getFoodName());
@@ -149,12 +160,12 @@ public class OrderService {
                     item.setUnitPrice(itemReq.getUnitPrice());
                 }
                 item.setFoodImage(details != null && details.getImage() != null ? details.getImage() : itemReq.getFoodImage());
-                
+
                 item.setQuantity(itemReq.getQuantity());
                 item.setNote(itemReq.getNote());
                 item.setKitchenStatus("PENDING");
                 order.getItems().add(item);
-                
+
                 itemsToDeduct.add(Map.of(
                         "menuItemId", item.getMenuItemId(),
                         "quantity", item.getQuantity()
@@ -184,12 +195,12 @@ public class OrderService {
                         "server-1"
                 );
             } catch (Exception e) {
-                System.err.println("Lỗi khi đồng bộ trạng thái bàn (Feign - Public Order): " + e.getMessage());
             }
         }
 
         return OrderResponse.from(saved);
     }
+
 
     // ===== LẤY TẤT CẢ ĐƠN HÀNG =====
     public List<OrderResponse> getAllOrders() {
@@ -354,7 +365,6 @@ public class OrderService {
                                 "server-1"
                         );
                     } catch (Exception e) {
-                        System.err.println("Lỗi giải phóng bàn sau khi xóa hết món: " + e.getMessage());
                     }
                 }
             }
@@ -432,7 +442,6 @@ public class OrderService {
                                 "server-1"
                         );
                     } catch (Exception e) {
-                        System.err.println("Lỗi khi giải phóng bàn (Feign): " + e.getMessage());
                     }
                 }
             }
@@ -495,7 +504,6 @@ public class OrderService {
                             "server-1"
                     );
                 } catch (Exception e) {
-                    System.err.println("Lỗi khi giải phóng bàn (hủy đơn - Feign): " + e.getMessage());
                 }
             }
         }
@@ -543,7 +551,6 @@ public class OrderService {
                 NotificationFeignClient.NotificationRequest payload = new NotificationFeignClient.NotificationRequest(title, message, type, role);
                 notificationFeignClient.sendNotification(payload);
             } catch (Exception e) {
-                System.err.println("Lỗi gửi thông báo qua FeignClient: " + e.getMessage());
             }
         });
     }
@@ -582,7 +589,6 @@ public class OrderService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Lỗi gọi catalog-service: " + e.getMessage());
         }
         return null;
     }
@@ -597,7 +603,6 @@ public class OrderService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Lỗi gọi table-service lấy thông tin bàn: " + e.getMessage());
         }
         return null;
     }
@@ -628,7 +633,6 @@ public class OrderService {
             try {
                 catalogFeignClient.refundStock(Map.of("items", itemsToRefund), token);
             } catch (Exception e) {
-                System.err.println("Lỗi hệ thống khi hoàn trả kho: " + e.getMessage());
             }
         }
     }

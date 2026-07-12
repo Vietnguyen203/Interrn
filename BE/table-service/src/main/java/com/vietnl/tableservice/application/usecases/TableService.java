@@ -33,12 +33,9 @@ public class TableService {
                 t.setStatus(TableStatus.AVAILABLE);
                 t.setCurrentOrderId(null);
             });
-            tableRepository.saveAllAndFlush(tables); // Dùng Flush để đẩy dữ liệu xuống DB ngay lập tức
-            System.out.println(">>> [TableService] RESET THÀNH CÔNG. Danh sách bàn hiện tại:");
-            tableRepository.findAll()
-                    .forEach(t -> System.out.println("  - Bàn " + t.getTableNumber() + ": " + t.getStatus()));
+            tableRepository.saveAllAndFlush(tables);
         } catch (Exception e) {
-            System.err.println(">>> [TableService] LỖI RESET: " + e.getMessage());
+            // Lỗi khi reset bàn được xử lý ngầm
         }
     }
 

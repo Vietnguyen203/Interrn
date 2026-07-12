@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/orders")
-@CrossOrigin(origins = "*")
 public class OrderStatisticAPI {
 
     private final OrderRepository orderRepository;
